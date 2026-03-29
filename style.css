@@ -1,0 +1,97 @@
+/* 🛠️ Variables de color WRPUMA */
+:root {
+    --primary: #0056b3;
+    /* Azul Construcción */
+    --secondary: #6c757d;
+    /* Gris Cemento */
+    --success: #28a745;
+    /* Verde Utilidad */
+    --danger: #dc3545;
+    /* Rojo Alerta */
+    --bg: #f4f7f6;
+    /* Fondo de pantalla */
+    --white: #ffffff;
+}
+
+/* 🏗️ Base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg);
+    color: #333;
+    line-height: 1.6;
+}
+
+/* 📏 Utilidades de diseño */
+.flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.w-full {
+    width: 100%;
+}
+
+/* 🃏 Tarjetas (Cards) para Login y Menú */
+.card {
+    background: var(--white);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e1e1e1;
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* 🖱️ Botones */
+.btn {
+    padding: 15px 25px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1rem;
+    transition: all 0.3s;
+    text-align: center;
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #004494;
+    box-shadow: 0 5px 15px rgba(0, 86, 179, 0.3);
+}
+
+/* 📊 Grilla del Menú Principal */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+/* 👑 Títulos */
+h1 {
+    color: var(--primary);
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+p {
+    color: var(--secondary);
+    margin-bottom: 1.5rem;
+}
