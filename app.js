@@ -715,7 +715,7 @@ function dibujarCotizador() {
                     
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
                         <div>
-                            <img id="pdf-logo" src="529219.jpg" style="max-height:90px; object-fit: contain;">
+                            <img id="pdf-logo" src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;">
                         </div>
                         <div style="text-align:right; color:#333;">
                             <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;">COTIZACION TECNICA</p>
