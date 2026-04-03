@@ -198,6 +198,34 @@ window.renderCarrito = () => {
 window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
 
 window.enviarCarritoWhatsApp = () => {
+    let txt = `*PRESUPUESTO TÉCNICO - WRPUMA*\n\n`;
+    let tm = 0, tt = 0;
+
+    window.carritoPresupuesto.forEach(i => {
+        // Se aplica el margen de ganancia en secreto (Costo * 1.10 GG * 1.35 Utilidad)
+        let precioVentaItem = parseFloat(i.total) * 1.10 * 1.35;
+        
+        txt += `*AMBIENTE:* ${i.nombre}\n`;
+        txt += `  - Área de trabajo: ${i.m2} m²\n`;
+        txt += `  - Inversión requerida: Bs. ${precioVentaItem.toFixed(2)}\n\n`;
+        
+        tm += parseFloat(i.m2);
+        tt += parseFloat(i.total);
+    });
+
+    let pVentaTotal = tt * 1.10 * 1.35;
+
+    txt += `======================\n`;
+    txt += `*ÁREA TOTAL:* ${tm.toFixed(2)} m²\n`;
+    txt += `*INVERSIÓN TOTAL:* Bs. ${pVentaTotal.toFixed(2)}\n\n`;
+    txt += `_Nota: Este resumen preliminar no sustituye la cotización formal en PDF. Precios sujetos a verificación en obra._`;
+
+    // Alerta secreta que solo verás tú en la pantalla de tu celular/PC
+    alert(`🔒 CONTROL INTERNO WRPUMA\n\nTu Costo Directo real es: Bs. ${tt.toFixed(2)}\nEl WhatsApp se abrirá con el precio final para el cliente: Bs. ${pVentaTotal.toFixed(2)}\n\nYa puedes enviarlo con seguridad.`);
+
+    let textoCodificado = encodeURIComponent(txt);
+    window.open(`https://api.whatsapp.com/send?text=${textoCodificado}`, '_blank');
+}; {
     let txt = `RESUMEN COSTOS DIRECTOS WRPUMA\n\n`;
     let tm = 0, tt = 0;
 
