@@ -120,7 +120,6 @@ function dibujarCalculadora() {
         </div>
     </div>`;
 
-    // Cargar materiales al dropdown
     firebase.database().ref(getDbPath('materiales')).once('value').then(snap => {
         const matSelect = document.getElementById('calc-almacen-helper');
         const mats = snap.val() || {};
@@ -798,7 +797,7 @@ function dibujarCotizador() {
                         <div>
                             <p style="margin:0;font-weight:bold;font-size:14px;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p>
                             <p style="margin:0;font-size:12px;">Plan 3000 Av. Piraisito N° 8560</p>
-                            <p style="margin:0;font-size:12px;">Cel.: 77396806, 76362867</p>
+                            <p style="margin:0;font-size:12px;">Cel.: 77396806</p>
                         </div>
                         <div style="text-align:right;">
                             <p style="margin:0;font-size:12px;">wrpuma@gmail.com</p>
@@ -812,19 +811,36 @@ function dibujarCotizador() {
         </div>
     </div>`;
 
-    // Hemos retirado el bloqueo estricto al pegar.
-    // Ahora el sistema acepta tablas HTML de forma natural.
     setTimeout(() => {
         const z = document.getElementById('zona-editable');
-        if (z) {
-            z.addEventListener('paste', () => {
-                setTimeout(() => {
-                    let html = z.innerHTML;
-                    html = html.replace(/\*\*/g, ''); 
-                    z.innerHTML = html;
-                }, 50);
+        if (z) z.onpaste = (e) => {
+            e.preventDefault();
+            let t = (e.originalEvent || e).clipboardData.getData('text/plain');
+            t = t.replace(/\\text\{/g, "").replace(/\}/g, "").replace(/\$/g, "").replace(/\^2/g, "2").replace(/\*/g, "").replace(/#/g, "");
+
+            let lineas = t.split('\n'), h = "", enT = false, cab = false;
+            lineas.forEach(l => {
+                l = l.trim(); if (l === '---' || l === '***' || l.includes('-------')) return;
+
+                if (l.startsWith('|') && l.endsWith('|')) {
+                    if (l.includes('---')) return;
+                    if (!enT) { h += '<table style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #000;font-size:13px;"><tbody>'; enT = true; cab = true; }
+                    h += '<tr>';
+                    l.split('|').filter((c, i, a) => i !== 0 && i !== a.length - 1).forEach(c => h += `<td style="border:1px solid #000;padding:8px;${cab ? 'font-weight:900;background:#333;color:#fff;text-align:center;' : ''}">${c.trim()}</td>`);
+                    h += '</tr>'; cab = false;
+                } else {
+                    if (enT) { h += '</tbody></table>'; enT = false; }
+                    if (l !== "") {
+                        if (l.length < 120 && l === l.toUpperCase() && !l.startsWith('HTTP')) {
+                            h += `<p style="margin:15px 0 5px;font-weight:900;font-size:16px;color:#cc0000;">${l}</p>`;
+                        } else {
+                            h += `<p style="margin:6px 0; text-align:justify;">${l}</p>`;
+                        }
+                    }
+                }
             });
-        }
+            if (enT) h += '</tbody></table>'; z.innerHTML = h;
+        };
     }, 200);
 }
 
