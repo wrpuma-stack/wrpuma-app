@@ -421,7 +421,7 @@ window.pagarTrato = (id, obraNombre, contratista, saldoPendiente) => {
 };
 window.finTrato = (id) => { if(confirm("¿Archivar este trato? Ya no aparecerá en la lista activa.")) firebase.database().ref(getDbPath(`tratos/${id}`)).update({ estado: 'Finalizado' }); };
 
-// NUEVO: Ver Tratos Archivados
+// VER TRATOS ARCHIVADOS
 window.verTratosArchivados = () => {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
@@ -544,7 +544,9 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
 };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
-// NUEVO: Ver Historial de Sueldos AGRUPADO POR SEMANA
+// ==========================================================
+// 🗂️ HISTORIAL DE SUELDOS (REPARADO PARA PAGOS ANTIGUOS)
+// ==========================================================
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black p-4 text-white font-sans text-center pb-10">
@@ -567,36 +569,42 @@ window.verHistorialSueldos = () => {
         
         const agrupados = {};
         Object.values(pagos).forEach(p => {
-            const sem = p.semana_ancla || "2026-01-01"; 
+            // Si el pago es muy antiguo y no tiene semana, lo mandamos a la bóveda "ANTIGUOS"
+            const sem = p.semana_ancla || "ANTIGUOS"; 
             if(!agrupados[sem]) agrupados[sem] = { total: 0, pagos: [] };
             agrupados[sem].pagos.push(p);
             agrupados[sem].total += parseFloat(p.monto) || 0;
         });
 
-        const semanasOrdenadas = Object.keys(agrupados).sort((a,b) => new Date(b) - new Date(a));
+        // Ordenamos, dejando los antiguos al fondo
+        const semanasOrdenadas = Object.keys(agrupados).sort((a,b) => {
+            if(a === "ANTIGUOS") return 1;
+            if(b === "ANTIGUOS") return -1;
+            return new Date(b) - new Date(a);
+        });
 
         semanasOrdenadas.forEach(sem => {
             const grupo = agrupados[sem];
-            let fechaSabadoTxt = "REGISTRO ANTIGUO";
+            let fechaSabadoTxt = "PAGOS PREVIOS A LA ACTUALIZACIÓN";
+            let tituloTarjeta = "HISTORIAL ANTIGUO";
 
-            if(sem && sem.includes('-')) {
+            if(sem !== "ANTIGUOS" && sem.includes('-')) {
                 const partes = sem.split('-');
                 const dLunes = new Date(partes[0], partes[1] - 1, partes[2]);
                 if(!isNaN(dLunes)) {
                     const dSabado = new Date(dLunes);
                     dSabado.setDate(dLunes.getDate() + 5);
                     fechaSabadoTxt = dSabado.toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: 'numeric'});
+                    tituloTarjeta = "PLANILLA DEL SÁBADO";
                 }
             }
 
             let listaTrabajadores = '';
             grupo.pagos.forEach(p => {
-                let fechaPagoReal = "Fecha antigua";
+                let fechaPagoReal = "Fecha no registrada";
                 if(p.fecha_pago) {
                     const d = new Date(p.fecha_pago);
-                    if(!isNaN(d)) {
-                        fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
-                    }
+                    if(!isNaN(d)) fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
                 }
                 const monto = parseFloat(p.monto) || 0;
 
@@ -614,7 +622,7 @@ window.verHistorialSueldos = () => {
             <details class="bg-zinc-900 rounded-2xl border border-zinc-800 mb-4 overflow-hidden group shadow-lg">
                 <summary class="p-5 cursor-pointer focus:outline-none list-none flex justify-between items-center bg-zinc-900 hover:bg-zinc-800 transition">
                     <div>
-                        <h3 class="font-black text-sm uppercase text-white group-open:text-red-500 transition-colors">Planilla del Sábado</h3>
+                        <h3 class="font-black text-sm uppercase text-white group-open:text-red-500 transition-colors">${tituloTarjeta}</h3>
                         <p class="text-[11px] text-zinc-400 font-bold uppercase mt-1">${fechaSabadoTxt}</p>
                     </div>
                     <div class="text-right flex flex-col items-end">
