@@ -477,7 +477,7 @@ function dibujarPlanilla() {
                 <div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte (Final Sem.)</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none"></div>
             </div>
             
-            <button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 text-zinc-300 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 active:scale-95 shadow-md">🗂️ Ver Historial de Pagos Anteriores</button>
+            <button onclick="window.location.hash='#historial-sueldos'" class="w-full bg-zinc-800 text-zinc-300 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 active:scale-95 shadow-md">🗂️ Ver Historial de Pagos Anteriores</button>
             
             <div id="c-p" class="space-y-6 text-left pb-10"></div>
         </div>
@@ -544,7 +544,7 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
 };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
-// NUEVO: Ver Historial de Sueldos AGRUPADO POR SEMANA (SÁBADO DE PAGO)
+// NUEVO: Ver Historial de Sueldos AGRUPADO POR SEMANA
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black p-4 text-white font-sans text-center pb-10">
@@ -565,38 +565,48 @@ window.verHistorialSueldos = () => {
             return;
         }
         
-        // Agrupación de pagos por semana
         const agrupados = {};
         Object.values(pagos).forEach(p => {
-            const sem = p.semana_ancla; // El lunes de esa semana
+            const sem = p.semana_ancla || "2026-01-01"; 
             if(!agrupados[sem]) agrupados[sem] = { total: 0, pagos: [] };
             agrupados[sem].pagos.push(p);
-            agrupados[sem].total += parseFloat(p.monto);
+            agrupados[sem].total += parseFloat(p.monto) || 0;
         });
 
-        // Ordenar las semanas de la más reciente a la más antigua
         const semanasOrdenadas = Object.keys(agrupados).sort((a,b) => new Date(b) - new Date(a));
 
         semanasOrdenadas.forEach(sem => {
             const grupo = agrupados[sem];
-            
-            // Calculamos la fecha del Sábado de Pago (Lunes + 5 días)
-            const partes = sem.split('-');
-            const dLunes = new Date(partes[0], partes[1] - 1, partes[2]);
-            const dSabado = new Date(dLunes);
-            dSabado.setDate(dLunes.getDate() + 5);
-            const fechaSabadoTxt = dSabado.toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: 'numeric'});
+            let fechaSabadoTxt = "REGISTRO ANTIGUO";
+
+            if(sem && sem.includes('-')) {
+                const partes = sem.split('-');
+                const dLunes = new Date(partes[0], partes[1] - 1, partes[2]);
+                if(!isNaN(dLunes)) {
+                    const dSabado = new Date(dLunes);
+                    dSabado.setDate(dLunes.getDate() + 5);
+                    fechaSabadoTxt = dSabado.toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: 'numeric'});
+                }
+            }
 
             let listaTrabajadores = '';
             grupo.pagos.forEach(p => {
-                const fechaPagoReal = new Date(p.fecha_pago).toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+                let fechaPagoReal = "Fecha antigua";
+                if(p.fecha_pago) {
+                    const d = new Date(p.fecha_pago);
+                    if(!isNaN(d)) {
+                        fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+                    }
+                }
+                const monto = parseFloat(p.monto) || 0;
+
                 listaTrabajadores += `
                 <div class="flex justify-between items-center py-3 border-b border-zinc-800 last:border-0">
                     <div>
-                        <p class="text-sm font-black uppercase text-white">${p.trabajador}</p>
+                        <p class="text-sm font-black uppercase text-white">${p.trabajador || 'Desconocido'}</p>
                         <p class="text-[9px] text-zinc-500 uppercase">Transferido el ${fechaPagoReal}</p>
                     </div>
-                    <span class="text-green-400 font-bold text-sm">Bs. ${p.monto.toFixed(2)}</span>
+                    <span class="text-green-400 font-bold text-sm">Bs. ${monto.toFixed(2)}</span>
                 </div>`;
             });
 
@@ -900,11 +910,11 @@ function enrutador() {
     if (!u && h !== '') { window.location.hash = ''; return; }
     if (h === '#asistencia') dibujarAsistencia(); else if (h === '#cotizaciones') dibujarCotizador();
     else if (h === '#calculadora') dibujarCalculadora(); else if (h === '#menu') dibujarMenu();
-    else if (!adm && ['#planilla', '#obras', '#personal', '#utilidad', '#contabilidad', '#almacen', '#tratos'].includes(h)) { window.location.hash = '#menu'; }
+    else if (!adm && ['#planilla', '#obras', '#personal', '#utilidad', '#contabilidad', '#almacen', '#tratos', '#historial-sueldos'].includes(h)) { window.location.hash = '#menu'; }
     else if (h === '#planilla') dibujarPlanilla(); else if (h === '#obras') dibujarObras();
     else if (h === '#personal') dibujarPersonal(); else if (h === '#almacen') dibujarAlmacen();
     else if (h === '#utilidad') dibujarUtilidad(); else if (h === '#contabilidad') dibujarCaja();
-    else if (h === '#tratos') dibujarTratos(); else dibujarAcceso();
+    else if (h === '#tratos') dibujarTratos(); else if (h === '#historial-sueldos') window.verHistorialSueldos(); else dibujarAcceso();
 }
 
 function dibujarAcceso() {
