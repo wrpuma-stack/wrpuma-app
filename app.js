@@ -428,7 +428,7 @@ window.verTratosArchivados = () => {
         <div class="max-w-md mx-auto">
             <div class="bg-zinc-800 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
                 <h2 class="text-lg font-black italic uppercase text-white">TRATOS ARCHIVADOS</h2>
-                <button onclick="window.dibujarTratos()" class="bg-white text-zinc-800 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
+                <button onclick="window.location.hash='#tratos'" class="bg-white text-zinc-800 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
             </div>
             <div class="bg-white p-6 shadow-xl rounded-b-3xl">
                 <div id="lista-tratos-arch" class="space-y-4"></div>
@@ -544,16 +544,16 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
 };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
-// NUEVO: Ver Historial de Sueldos
+// NUEVO: Ver Historial de Sueldos AGRUPADO POR SEMANA (SÁBADO DE PAGO)
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black p-4 text-white font-sans text-center pb-10">
         <div class="max-w-md mx-auto">
             <div class="flex justify-between mb-6">
                 <h2 class="text-xl font-black italic text-zinc-400 uppercase">Historial de Sueldos</h2>
-                <button onclick="window.dibujarPlanilla()" class="bg-red-600 px-4 py-1 rounded-full text-xs font-bold text-white">VOLVER</button>
+                <button onclick="window.location.hash='#planilla'" class="bg-red-600 px-4 py-1 rounded-full text-xs font-bold text-white shadow-md">VOLVER</button>
             </div>
-            <div id="lista-historial-sueldos" class="space-y-3 text-left"></div>
+            <div id="lista-historial-sueldos" class="text-left"></div>
         </div>
     </div>`;
 
@@ -561,25 +561,62 @@ window.verHistorialSueldos = () => {
         const c = document.getElementById('lista-historial-sueldos');
         const pagos = snap.val() || {};
         if(Object.keys(pagos).length === 0) {
-            c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold uppercase">No hay pagos registrados en el historial.</p>`;
+            c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold uppercase mt-10">No hay pagos registrados en el historial.</p>`;
             return;
         }
         
-        const pagosArray = Object.values(pagos).sort((a,b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
-        
-        pagosArray.forEach(p => {
-            const fecha = new Date(p.fecha_pago).toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: 'numeric'});
+        // Agrupación de pagos por semana
+        const agrupados = {};
+        Object.values(pagos).forEach(p => {
+            const sem = p.semana_ancla; // El lunes de esa semana
+            if(!agrupados[sem]) agrupados[sem] = { total: 0, pagos: [] };
+            agrupados[sem].pagos.push(p);
+            agrupados[sem].total += parseFloat(p.monto);
+        });
+
+        // Ordenar las semanas de la más reciente a la más antigua
+        const semanasOrdenadas = Object.keys(agrupados).sort((a,b) => new Date(b) - new Date(a));
+
+        semanasOrdenadas.forEach(sem => {
+            const grupo = agrupados[sem];
+            
+            // Calculamos la fecha del Sábado de Pago (Lunes + 5 días)
+            const partes = sem.split('-');
+            const dLunes = new Date(partes[0], partes[1] - 1, partes[2]);
+            const dSabado = new Date(dLunes);
+            dSabado.setDate(dLunes.getDate() + 5);
+            const fechaSabadoTxt = dSabado.toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: 'numeric'});
+
+            let listaTrabajadores = '';
+            grupo.pagos.forEach(p => {
+                const fechaPagoReal = new Date(p.fecha_pago).toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+                listaTrabajadores += `
+                <div class="flex justify-between items-center py-3 border-b border-zinc-800 last:border-0">
+                    <div>
+                        <p class="text-sm font-black uppercase text-white">${p.trabajador}</p>
+                        <p class="text-[9px] text-zinc-500 uppercase">Transferido el ${fechaPagoReal}</p>
+                    </div>
+                    <span class="text-green-400 font-bold text-sm">Bs. ${p.monto.toFixed(2)}</span>
+                </div>`;
+            });
+
             c.innerHTML += `
-            <div class="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 flex justify-between items-center">
-                <div>
-                    <h3 class="font-black text-sm uppercase text-white">${p.trabajador}</h3>
-                    <p class="text-[9px] text-zinc-400 font-bold uppercase mt-1">Lunes Semanal: ${p.semana_ancla}</p>
-                    <p class="text-[9px] text-zinc-500 font-bold uppercase">Pagado el: ${fecha}</p>
+            <details class="bg-zinc-900 rounded-2xl border border-zinc-800 mb-4 overflow-hidden group shadow-lg">
+                <summary class="p-5 cursor-pointer focus:outline-none list-none flex justify-between items-center bg-zinc-900 hover:bg-zinc-800 transition">
+                    <div>
+                        <h3 class="font-black text-sm uppercase text-white group-open:text-red-500 transition-colors">Planilla del Sábado</h3>
+                        <p class="text-[11px] text-zinc-400 font-bold uppercase mt-1">${fechaSabadoTxt}</p>
+                    </div>
+                    <div class="text-right flex flex-col items-end">
+                        <span class="text-green-500 font-black text-xl">Bs. ${grupo.total.toFixed(2)}</span>
+                        <span class="text-[9px] text-zinc-500 uppercase mt-1 group-open:hidden">▼ Tocar para Desplegar</span>
+                        <span class="text-[9px] text-red-500 uppercase mt-1 hidden group-open:block">▲ Ocultar Lista</span>
+                    </div>
+                </summary>
+                <div class="px-5 pb-2 bg-black border-t border-zinc-800">
+                    ${listaTrabajadores}
                 </div>
-                <div class="text-right">
-                    <span class="text-green-500 font-black text-lg">Bs. ${p.monto}</span>
-                </div>
-            </div>`;
+            </details>`;
         });
     });
 };
