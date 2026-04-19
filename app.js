@@ -3,7 +3,7 @@ import * as data from './data.js';
 const appDiv = document.getElementById('app');
 let obraSel = "GENERAL";
 
-// MOTOR DE FECHAS ESTRICTO PARA BOLIVIA (Evita el bug del domingo)
+// MOTOR DE FECHAS ESTRICTO PARA BOLIVIA
 const getLocalISODate = (dateObj = new Date()) => {
     const z = dateObj.getTimezoneOffset() * 60000;
     return new Date(dateObj - z).toISOString().split('T')[0];
@@ -470,9 +470,7 @@ window.pagarTrato = (id, obraNombre, contratista, saldoPendiente) => {
             const obras = snap.val() || {};
             const idObra = Object.keys(obras).find(k => obras[k].nombre === obraNombre);
             if (idObra) {
-                // Registra el pago en la obra para que reste a la utilidad
                 data.registrarMovimiento(idObra, 'pago_trato', monto, `Avance Trato: ${contratista}`);
-                // Suma el pagado en el trato
                 firebase.database().ref(getDbPath(`tratos/${id}`)).once('value').then(tsnap => {
                     const t = tsnap.val();
                     firebase.database().ref(getDbPath(`tratos/${id}`)).update({ pagado: (t.pagado || 0) + monto });
@@ -523,7 +521,6 @@ function dibujarPlanilla() {
         Object.keys(hist).forEach(f => {
             if (f >= pFIni && f <= pFFin) {
                 Object.values(hist[f]).forEach(reg => {
-                    // Historial anclado a la semana (Lunes = pFIni) ¡Ya no se borra si cambias de día en la semana!
                     const idPagoReferencia = `${reg.nombre}_semana_${pFIni}`;
                     if (pagosRealizados[idPagoReferencia]) return;
 
@@ -550,7 +547,6 @@ function dibujarPlanilla() {
         listaPendientes.forEach(n => {
             const d = res[n], sDia = parseFloat(per[n]?.sueldo_dia) || 0;
             
-            // LOGICA: AHORRO DE SÁBADO TARDE
             const compensacion = d.dNorm >= 5.5 ? 0.5 : 0;
             const dNormPagar = d.dNorm + compensacion;
             
@@ -562,7 +558,6 @@ function dibujarPlanilla() {
                 ? `<span class="text-green-400 font-black text-sm">+0.5 D (Ahorro)</span>` 
                 : `<span class="text-red-500 font-bold text-xs">Pierde Sáb. Tarde</span>`;
 
-            // TARJETA GIGANTE
             c.innerHTML += `
             <div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 shadow-2xl relative">
                 <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
@@ -626,6 +621,114 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
 
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); };
 window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
+
+// ==========================================================
+// 🛒 MÓDULO ALMACÉN DE PRECIOS
+// ==========================================================
+function dibujarAlmacen() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-orange-600 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic uppercase text-white">CATALOGO DE COSTOS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-orange-600 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
+                <input id="m-nom" type="text" placeholder="Material (Ej. Goma Líquida)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none focus:border-orange-400">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="m-marca" type="text" placeholder="Marca (Ej. Suvinil)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
+                    <input id="m-uni" type="text" placeholder="Unidad (Ej. Balde 18L)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
+                </div>
+                <input id="m-pre" type="number" placeholder="Precio Actual (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-black text-lg text-center text-red-600 outline-none">
+                <input id="m-link" type="text" placeholder="Enlace de Proforma o Foto (Opcional)" class="w-full p-3 rounded-xl border-2 font-bold text-blue-600 text-xs outline-none">
+                
+                <button onclick="window.saveMat()" class="w-full bg-black text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR EN ALMACEN</button>
+                
+                <h3 class="mt-6 mb-2 font-black text-zinc-500 uppercase text-xs border-b-2 pb-1">BASE DE DATOS ACTIVA</h3>
+                <div id="list-mat" class="space-y-3 pt-2"></div>
+            </div>
+        </div>
+    </div>`;
+
+    firebase.database().ref(getDbPath('materiales')).on('value', snap => {
+        const c = document.getElementById('list-mat'); if (!c) return; c.innerHTML = '';
+        const mats = snap.val() || {};
+        Object.keys(mats).forEach(id => {
+            const m = mats[id];
+            const btnLink = m.link ? `<button onclick="window.open('${m.link}','_blank')" class="text-[9px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold uppercase mt-1 shadow-sm">Ver Proforma</button>` : '';
+            c.innerHTML += `
+            <div class="p-3 bg-zinc-50 rounded-2xl border-2 border-zinc-200 flex justify-between items-center shadow-sm">
+                <div>
+                    <b class="text-sm uppercase text-black">${m.nombre}</b> <span class="text-[9px] bg-zinc-800 px-2 py-0.5 rounded text-white font-bold uppercase">${m.marca}</span><br>
+                    <span class="text-[10px] text-zinc-500 font-bold uppercase">${m.unidad}</span>
+                    <div class="mt-1">${btnLink}</div>
+                </div>
+                <div class="text-right">
+                    <span class="text-lg font-black text-red-600">Bs. ${m.precio}</span><br>
+                    <button onclick="window.delMat('${id}')" class="text-[9px] text-red-400 font-bold underline mt-1">Borrar</button>
+                </div>
+            </div>`;
+        });
+    });
+}
+
+window.saveMat = () => {
+    const nom = document.getElementById('m-nom').value.trim();
+    const mar = document.getElementById('m-marca').value.trim();
+    const uni = document.getElementById('m-uni').value.trim();
+    const pre = document.getElementById('m-pre').value;
+    const lin = document.getElementById('m-link').value.trim();
+    if (nom && pre) {
+        const id = "MAT_" + Date.now();
+        firebase.database().ref(getDbPath(`materiales/${id}`)).set({
+            nombre: nom, marca: mar || 'GENERICO', unidad: uni || 'UNIDAD', precio: parseFloat(pre), link: lin
+        });
+        document.getElementById('m-nom').value = ''; document.getElementById('m-marca').value = '';
+        document.getElementById('m-uni').value = ''; document.getElementById('m-pre').value = ''; document.getElementById('m-link').value = '';
+    } else {
+        alert("El nombre y el precio del material son obligatorios.");
+    }
+};
+
+window.delMat = (id) => {
+    if (confirm("¿Confirmas la eliminacion permanente de este material del catalogo?")) {
+        firebase.database().ref(getDbPath(`materiales/${id}`)).remove();
+    }
+};
+
+// ==========================================================
+// 👷 MÓDULO PERSONAL (ADMIN)
+// ==========================================================
+function dibujarPersonal() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-zinc-800 p-6 text-white flex justify-between items-center rounded-t-3xl">
+                <h2 class="text-xl font-black italic uppercase text-white">EQUIPO DE TRABAJO</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button>
+                </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
+                <input id="p-nom" type="text" placeholder="NOMBRE DEL PERSONAL" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm">
+                <input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black text-sm">
+                <button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR PERSONAL</button>
+                <div id="list-p" class="space-y-3 pt-4 border-t"></div>
+            </div>
+        </div>
+    </div>`;
+
+    data.obtenerPersonal(per => {
+        const c = document.getElementById('list-p'); if (!c) return; c.innerHTML = '';
+        const personal = per || {};
+        Object.keys(personal).forEach(n => {
+            c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border text-black uppercase shadow-sm">
+                <div><b class="text-sm">${n}</b><br><span class="text-[10px] text-zinc-500 font-bold">Salario Diario: Bs. ${personal[n].sueldo_dia}</span></div>
+                <button onclick="window.delP('${n}')" class="text-red-600 font-black px-3 py-2 bg-red-100 rounded-lg active:scale-90 text-xs">ELIMINAR</button>
+            </div>`;
+        });
+    });
+}
+window.saveP = () => { const n = document.getElementById('p-nom').value.trim(); const s = document.getElementById('p-sue').value; if (n && s) { data.guardarPintor(n, s); document.getElementById('p-nom').value = ''; document.getElementById('p-sue').value = ''; } else { alert("Los campos de registro están incompletos."); } };
+window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
 // 🏗️ OBRAS Y DEMÁS MÓDULOS
@@ -702,7 +805,7 @@ function dibujarUtilidad() {
 }
 
 function dibujarCaja() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black text-center"><div class="max-w-md mx-auto"><div class="bg-green-600 p-6 text-white flex justify-between rounded-t-3xl"><h2 class="text-xl font-black italic">REGISTRO DE EGRESOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-green-600 px-4 rounded-full text-xs">VOLVER</button></div><div class="bg-white p-6 rounded-b-3xl space-y-4 text-left"><select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold"></select><input id="c-detalle" type="text" placeholder="Concepto (Ej. Pintura Latex...)" class="w-full p-3 rounded-xl border-2 font-bold"><input id="c-monto" type="number" placeholder="Importe Bs." class="w-full p-3 rounded-xl border-2 font-black"><button onclick="window.saveM()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR EGRESO</button></div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black text-center"><div class="max-w-md mx-auto"><div class="bg-green-600 p-6 text-white flex justify-between rounded-t-3xl"><h2 class="text-xl font-black italic">REGISTRO DE EGRESOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-green-600 px-4 rounded-full text-xs">VOLVER</button></div><div class="bg-white p-6 rounded-b-3xl space-y-4 text-left"><select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold"></select><input id="c-detalle" type="text" placeholder="Concepto (Ej. Insumos...)" class="w-full p-3 rounded-xl border-2 font-bold"><input id="c-monto" type="number" placeholder="Importe Bs." class="w-full p-3 rounded-xl border-2 font-black"><button onclick="window.saveM()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR EGRESO</button></div></div></div>`;
     data.obtenerObras((obs) => {
         const s = document.getElementById('c-obra'); s.innerHTML = '<option value="">-- SELECCIONAR PROYECTO --</option>';
         Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada') s.innerHTML += `<option value="${id}">${obs[id].nombre}</option>`; });
@@ -711,7 +814,7 @@ function dibujarCaja() {
 window.saveM = () => { const id = document.getElementById('c-obra').value, m = document.getElementById('c-monto').value, d = document.getElementById('c-detalle').value; if (id && m) data.registrarMovimiento(id, 'compra_material', m, d).then(() => window.location.hash = '#obras'); };
 
 // ==========================================================
-// 📝 COTIZADOR WORD Y ALMACEN Y PERSONAL (Mantenidos)
+// 📝 COTIZADOR WORD
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
