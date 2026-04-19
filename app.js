@@ -2,7 +2,14 @@ import * as data from './data.js';
 
 const appDiv = document.getElementById('app');
 let obraSel = "GENERAL";
-let fechaSel = new Date().toISOString().split('T')[0];
+
+// MOTOR DE FECHAS ESTRICTO PARA BOLIVIA (Evita el bug del domingo)
+const getLocalISODate = (dateObj = new Date()) => {
+    const z = dateObj.getTimezoneOffset() * 60000;
+    return new Date(dateObj - z).toISOString().split('T')[0];
+};
+
+let fechaSel = getLocalISODate();
 window.carritoPresupuesto = [];
 
 const getDbPath = (path) => {
@@ -14,10 +21,12 @@ function obtenerLunes() {
     const d = new Date();
     const day = d.getDay();
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff)).toISOString().split('T')[0];
+    d.setDate(diff);
+    return getLocalISODate(d);
 }
+
 let pFIni = obtenerLunes();
-let pFFin = new Date().toISOString().split('T')[0];
+let pFFin = getLocalISODate();
 
 window.verAccesoPro = (usuario) => {
     if (usuario === 'walter') {
@@ -200,30 +209,20 @@ window.enviarCarritoWhatsApp = () => {
 
     window.carritoPresupuesto.forEach(i => {
         let precioVentaItem = parseFloat(i.total) * 1.10 * 1.35;
-        
-        txt += `*AMBIENTE:* ${i.nombre}\n`;
-        txt += `  - Área de trabajo: ${i.m2} m²\n`;
-        txt += `  - Inversión requerida: Bs. ${precioVentaItem.toFixed(2)}\n\n`;
-        
+        txt += `*AMBIENTE:* ${i.nombre}\n  - Área de trabajo: ${i.m2} m²\n  - Inversión requerida: Bs. ${precioVentaItem.toFixed(2)}\n\n`;
         tm += parseFloat(i.m2);
         tt += parseFloat(i.total);
     });
 
     let pVentaTotal = tt * 1.10 * 1.35;
+    txt += `======================\n*ÁREA TOTAL:* ${tm.toFixed(2)} m²\n*INVERSIÓN TOTAL:* Bs. ${pVentaTotal.toFixed(2)}\n\n_Nota: Este resumen preliminar no sustituye la cotización formal en PDF._`;
 
-    txt += `======================\n`;
-    txt += `*ÁREA TOTAL:* ${tm.toFixed(2)} m²\n`;
-    txt += `*INVERSIÓN TOTAL:* Bs. ${pVentaTotal.toFixed(2)}\n\n`;
-    txt += `_Nota: Este resumen preliminar no sustituye la cotización formal en PDF. Precios sujetos a verificación en obra._`;
-
-    alert(`🔒 CONTROL INTERNO WRPUMA\n\nTu Costo Directo real es: Bs. ${tt.toFixed(2)}\nEl WhatsApp se abrirá con el precio final para el cliente: Bs. ${pVentaTotal.toFixed(2)}\n\nYa puedes enviarlo con seguridad.`);
-
-    let textoCodificado = encodeURIComponent(txt);
-    window.open(`https://api.whatsapp.com/send?text=${textoCodificado}`, '_blank');
+    alert(`🔒 CONTROL INTERNO WRPUMA\n\nCosto Directo: Bs. ${tt.toFixed(2)}\nPrecio Venta: Bs. ${pVentaTotal.toFixed(2)}`);
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`, '_blank');
 };
 
 // ==========================================================
-// 📋 ASISTENCIA PRO
+// 📋 ASISTENCIA PRO (JORNALEROS)
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -280,7 +279,6 @@ function dibujarAsistencia() {
                     <button type="button" onclick="window.sumarAlAnticipo(20)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs active:scale-95 shadow-sm">+ 20</button>
                     <button type="button" onclick="window.sumarAlAnticipo(50)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs active:scale-95 shadow-sm">+ 50</button>
                 </div>
-                <p class="text-[8px] text-red-500 mt-2 text-center leading-tight">Uso exclusivo para sumar dinero entregado.</p>
             </div>
 
             <div class="flex gap-2 mt-2">
@@ -310,8 +308,6 @@ window.chO = (v) => { obraSel = v; window.renderListaPintores(); };
 
 window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
-    const adm = localStorage.getItem('a_wr') === 'true';
-
     Object.keys(window.currentPersonal).forEach(n => {
         const record = window.currentMarks[n];
         const estaEnEstaObra = record && record.obra === obraSel;
@@ -336,11 +332,9 @@ window.renderListaPintores = () => {
             let infoArr = [];
             let jN = record.jornada_normal !== undefined ? record.jornada_normal : (record.jornada || 1);
             let jE = record.jornada_extra || 0;
-
             if (jN > 0) infoArr.push(`Normal: ${jN}D`);
             if (jE > 0) infoArr.push(`Extra: ${jE}D`);
             if (record.monto_anticipo > 0) infoArr.push(`Anticipo: Bs.${record.monto_anticipo}`);
-
             if (infoArr.length > 0) resumenInfo = `<br><span class="text-[10px] text-green-700 font-bold uppercase">${infoArr.join(' | ')}</span>`;
         }
 
@@ -354,171 +348,284 @@ window.abrirModalAsistencia = (n, existe) => {
         alert("ACCESO DENEGADO: El supervisor no puede editar registros financieros. Contacte al administrador.");
         return;
     }
-
     window.pintorActualModal = n;
     const record = window.currentMarks[n] || {};
-
     document.getElementById('modal-nombre').innerText = n;
-
-    let jN_vieja = record.jornada_normal !== undefined ? record.jornada_normal : (record.jornada || "1");
-
-    document.getElementById('modal-j-normal').value = jN_vieja;
+    document.getElementById('modal-j-normal').value = record.jornada_normal !== undefined ? record.jornada_normal : (record.jornada || "1");
     document.getElementById('modal-j-extra').value = record.jornada_extra || "0";
     document.getElementById('modal-anticipo').value = record.monto_anticipo || "0";
-
     const btnQuitar = document.getElementById('btn-quitar-asist');
-    if (existe) {
-        btnQuitar.classList.remove('hidden');
-    } else {
-        btnQuitar.classList.add('hidden');
-    }
-
+    existe ? btnQuitar.classList.remove('hidden') : btnQuitar.classList.add('hidden');
     document.getElementById('modal-asistencia').classList.remove('hidden');
 };
 
 window.sumarAlAnticipo = (monto) => {
     const input = document.getElementById('modal-anticipo');
-    let actual = parseFloat(input.value) || 0;
-    input.value = actual + monto;
+    input.value = (parseFloat(input.value) || 0) + monto;
 };
 
 window.guardarAsistenciaModal = () => {
     const n = window.pintorActualModal;
-    const jN = parseFloat(document.getElementById('modal-j-normal').value) || 0;
-    const jE = parseFloat(document.getElementById('modal-j-extra').value) || 0;
-    const a = parseFloat(document.getElementById('modal-anticipo').value) || 0;
-
     firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).set({
-        nombre: n,
-        obra: obraSel,
-        jornada_normal: jN,
-        jornada_extra: jE,
-        monto_anticipo: a
+        nombre: n, obra: obraSel,
+        jornada_normal: parseFloat(document.getElementById('modal-j-normal').value) || 0,
+        jornada_extra: parseFloat(document.getElementById('modal-j-extra').value) || 0,
+        monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value) || 0
     });
     document.getElementById('modal-asistencia').classList.add('hidden');
 };
 
 window.quitarAsistenciaModal = () => {
-    if (confirm(`¿Eliminar por completo el registro de asistencia de ${window.pintorActualModal}?`)) {
+    if (confirm(`¿Eliminar registro de ${window.pintorActualModal}?`)) {
         firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${window.pintorActualModal}`)).remove();
         document.getElementById('modal-asistencia').classList.add('hidden');
     }
 };
 
 window.markP = (n, accion) => {
-    const adm = localStorage.getItem('a_wr') === 'true';
-    if (!adm) { alert("ACCESO DENEGADO: Movimiento restringido a gerencia."); return; }
-    if (accion === 'mover') {
-        if (confirm(`¿Trasladar a ${n} a la obra ${obraSel}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); }
+    if (accion === 'mover' && confirm(`¿Trasladar a ${n} a ${obraSel}?`)) { 
+        firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); 
     }
 };
 
 // ==========================================================
-// 🛒 MÓDULO ALMACÉN DE PRECIOS
+// 🚀 NUEVO MÓDULO: TRATOS (SUBCONTRATOS / DESTAJO)
 // ==========================================================
-function dibujarAlmacen() {
+function dibujarTratos() {
     appDiv.innerHTML = `
-    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10">
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
         <div class="max-w-md mx-auto">
-            <div class="bg-orange-600 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
-                <h2 class="text-xl font-black italic uppercase text-white">CATALOGO DE COSTOS</h2>
-                <button onclick="window.location.hash='#menu'" class="bg-white text-orange-600 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
+            <div class="bg-purple-700 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic uppercase text-white">DESTAJOS / TRATOS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-purple-700 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
             </div>
             <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
-                <input id="m-nom" type="text" placeholder="Material (Ej. Goma Líquida)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none focus:border-orange-400">
-                <div class="grid grid-cols-2 gap-2">
-                    <input id="m-marca" type="text" placeholder="Marca (Ej. Suvinil)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
-                    <input id="m-uni" type="text" placeholder="Unidad (Ej. Balde 18L)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
-                </div>
-                <input id="m-pre" type="number" placeholder="Precio Actual (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-black text-lg text-center text-red-600 outline-none">
-                <input id="m-link" type="text" placeholder="Enlace de Proforma o Foto (Opcional)" class="w-full p-3 rounded-xl border-2 font-bold text-blue-600 text-xs outline-none">
+                <select id="t-obra" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase outline-none"></select>
+                <input id="t-nom" type="text" placeholder="Contratista (Ej. Juan Membranero)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
+                <input id="t-esp" type="text" placeholder="Especialidad (Ej. Cemento Quemado)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
+                <input id="t-monto" type="number" placeholder="Monto Total del Trato (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-black text-lg text-center text-purple-700 outline-none">
                 
-                <button onclick="window.saveMat()" class="w-full bg-black text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR EN ALMACEN</button>
+                <button onclick="window.saveTrato()" class="w-full bg-black text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform uppercase">Registrar Nuevo Trato</button>
                 
-                <h3 class="mt-6 mb-2 font-black text-zinc-500 uppercase text-xs border-b-2 pb-1">BASE DE DATOS ACTIVA</h3>
-                <div id="list-mat" class="space-y-3 pt-2"></div>
+                <h3 class="mt-6 mb-2 font-black text-zinc-500 uppercase text-xs border-b-2 pb-1">TRATOS ACTIVOS</h3>
+                <div id="list-tratos" class="space-y-4 pt-2"></div>
             </div>
         </div>
     </div>`;
 
-    firebase.database().ref(getDbPath('materiales')).on('value', snap => {
-        const c = document.getElementById('list-mat'); if (!c) return; c.innerHTML = '';
-        const mats = snap.val() || {};
-        Object.keys(mats).forEach(id => {
-            const m = mats[id];
-            const btnLink = m.link ? `<button onclick="window.open('${m.link}','_blank')" class="text-[9px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold uppercase mt-1 shadow-sm">Ver Proforma</button>` : '';
+    data.obtenerObras(obs => {
+        const s = document.getElementById('t-obra'); 
+        s.innerHTML = '<option value="">-- SELECCIONAR OBRA --</option>';
+        Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada') s.innerHTML += `<option value="${obs[id].nombre}">${obs[id].nombre}</option>`; });
+    });
+
+    firebase.database().ref(getDbPath('tratos')).on('value', snap => {
+        const c = document.getElementById('list-tratos'); if (!c) return; c.innerHTML = '';
+        const tratos = snap.val() || {};
+        Object.keys(tratos).forEach(id => {
+            const t = tratos[id];
+            if (t.estado === 'Finalizado') return; 
+            const saldo = t.monto_total - (t.pagado || 0);
+            
             c.innerHTML += `
-            <div class="p-3 bg-zinc-50 rounded-2xl border-2 border-zinc-200 flex justify-between items-center shadow-sm">
-                <div>
-                    <b class="text-sm uppercase text-black">${m.nombre}</b> <span class="text-[9px] bg-zinc-800 px-2 py-0.5 rounded text-white font-bold uppercase">${m.marca}</span><br>
-                    <span class="text-[10px] text-zinc-500 font-bold uppercase">${m.unidad}</span>
-                    <div class="mt-1">${btnLink}</div>
+            <div class="p-4 bg-zinc-50 rounded-2xl border-2 border-purple-300 shadow-sm relative">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <b class="text-sm uppercase text-black font-black">${t.contratista}</b><br>
+                        <span class="text-[10px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded font-bold uppercase">${t.especialidad}</span>
+                    </div>
+                    <span class="text-[9px] bg-zinc-800 text-white px-2 py-1 rounded-lg font-bold uppercase text-right">${t.obra}</span>
                 </div>
-                <div class="text-right">
-                    <span class="text-lg font-black text-red-600">Bs. ${m.precio}</span><br>
-                    <button onclick="window.delMat('${id}')" class="text-[9px] text-red-400 font-bold underline mt-1">Borrar</button>
+                <div class="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase my-3 text-center">
+                    <div class="bg-white p-2 rounded-xl border border-zinc-200">Total:<br><span class="text-black font-black">Bs. ${t.monto_total}</span></div>
+                    <div class="bg-white p-2 rounded-xl border border-zinc-200">Adelantos:<br><span class="text-red-500 font-black">Bs. ${t.pagado || 0}</span></div>
+                    <div class="bg-purple-600 text-white p-2 rounded-xl">Saldo:<br><span class="text-white font-black text-sm">Bs. ${saldo}</span></div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="window.pagarTrato('${id}', '${t.obra}', '${t.contratista}', ${saldo})" class="flex-[2] bg-green-500 text-white text-[10px] font-black py-3 rounded-xl active:scale-95 shadow-md uppercase">Dar Anticipo</button>
+                    <button onclick="window.finTrato('${id}')" class="flex-1 bg-zinc-200 text-zinc-700 text-[10px] font-black py-3 rounded-xl active:scale-95 uppercase">Archivar</button>
                 </div>
             </div>`;
         });
     });
 }
 
-window.saveMat = () => {
-    const nom = document.getElementById('m-nom').value.trim();
-    const mar = document.getElementById('m-marca').value.trim();
-    const uni = document.getElementById('m-uni').value.trim();
-    const pre = document.getElementById('m-pre').value;
-    const lin = document.getElementById('m-link').value.trim();
-    if (nom && pre) {
-        const id = "MAT_" + Date.now();
-        firebase.database().ref(getDbPath(`materiales/${id}`)).set({
-            nombre: nom, marca: mar || 'GENERICO', unidad: uni || 'UNIDAD', precio: parseFloat(pre), link: lin
+window.saveTrato = () => {
+    const o = document.getElementById('t-obra').value;
+    const n = document.getElementById('t-nom').value.trim();
+    const e = document.getElementById('t-esp').value.trim();
+    const m = parseFloat(document.getElementById('t-monto').value);
+    if (o && n && m) {
+        const id = "TRATO_" + Date.now();
+        firebase.database().ref(getDbPath(`tratos/${id}`)).set({ obra: o, contratista: n, especialidad: e || 'General', monto_total: m, pagado: 0, estado: 'Activo' });
+        document.getElementById('t-nom').value = ''; document.getElementById('t-esp').value = ''; document.getElementById('t-monto').value = '';
+    } else { alert("Complete Obra, Contratista y Monto."); }
+};
+
+window.pagarTrato = (id, obraNombre, contratista, saldoPendiente) => {
+    const m = prompt(`¿Cuánto vas a dar de anticipo a ${contratista}? (Saldo actual: Bs. ${saldoPendiente})`);
+    const monto = parseFloat(m);
+    if (monto && monto > 0 && monto <= saldoPendiente) {
+        firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
+            const obras = snap.val() || {};
+            const idObra = Object.keys(obras).find(k => obras[k].nombre === obraNombre);
+            if (idObra) {
+                // Registra el pago en la obra para que reste a la utilidad
+                data.registrarMovimiento(idObra, 'pago_trato', monto, `Avance Trato: ${contratista}`);
+                // Suma el pagado en el trato
+                firebase.database().ref(getDbPath(`tratos/${id}`)).once('value').then(tsnap => {
+                    const t = tsnap.val();
+                    firebase.database().ref(getDbPath(`tratos/${id}`)).update({ pagado: (t.pagado || 0) + monto });
+                });
+            } else { alert("Error: No se encontró la obra para descontar el saldo."); }
         });
-        document.getElementById('m-nom').value = ''; document.getElementById('m-marca').value = '';
-        document.getElementById('m-uni').value = ''; document.getElementById('m-pre').value = ''; document.getElementById('m-link').value = '';
-    } else {
-        alert("El nombre y el precio del material son obligatorios.");
-    }
+    } else if (monto > saldoPendiente) { alert("No puedes adelantar más del saldo que queda pendiente."); }
 };
 
-window.delMat = (id) => {
-    if (confirm("¿Confirmas la eliminacion permanente de este material del catalogo?")) {
-        firebase.database().ref(getDbPath(`materiales/${id}`)).remove();
+window.finTrato = (id) => {
+    if(confirm("¿Archivar este trato? Ya no aparecerá en la lista activa, pero el dinero ya fue descontado de la obra.")) {
+        firebase.database().ref(getDbPath(`tratos/${id}`)).update({ estado: 'Finalizado' });
     }
 };
 
 // ==========================================================
-// 👷 MÓDULO PERSONAL (ADMIN)
+// 💰 PLANILLA DE PAGOS (MEJORADA Y GIGANTE)
 // ==========================================================
-function dibujarPersonal() {
+function dibujarPlanilla() {
     appDiv.innerHTML = `
-    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10">
+    <div class="min-h-screen bg-black p-4 text-white font-sans text-center">
         <div class="max-w-md mx-auto">
-            <div class="bg-zinc-800 p-6 text-white flex justify-between items-center rounded-t-3xl">
-                <h2 class="text-xl font-black italic uppercase text-white">EQUIPO DE TRABAJO</h2>
-                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button>
-                </div>
-            <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
-                <input id="p-nom" type="text" placeholder="NOMBRE DEL PERSONAL" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm">
-                <input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black text-sm">
-                <button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR PERSONAL</button>
-                <div id="list-p" class="space-y-3 pt-4 border-t"></div>
+            <div class="flex justify-between mb-4">
+                <h2 class="text-2xl font-black italic text-red-600">SUELDOS JORNALEROS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 rounded-full text-xs font-bold">VOLVER</button>
             </div>
+            <div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800">
+                <div class="flex-1 text-left">
+                    <label class="text-zinc-500 uppercase">Lunes (Inicio Sem.)</label>
+                    <input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none">
+                </div>
+                <div class="flex-1 text-left">
+                    <label class="text-zinc-500 uppercase">Corte (Final Sem.)</label>
+                    <input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none">
+                </div>
+            </div>
+            <div id="c-p" class="space-y-6 text-left pb-10"></div>
         </div>
     </div>`;
 
-    data.obtenerPersonal(per => {
-        const c = document.getElementById('list-p'); if (!c) return; c.innerHTML = '';
-        Object.keys(per).forEach(n => {
-            c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border text-black uppercase">
-                <div><b>${n}</b><br><span class="text-[10px] text-zinc-500 font-bold">Salario Diario: Bs. ${per[n].sueldo_dia}</span></div>
-                <button onclick="window.delP('${n}')" class="text-red-600 font-black p-2 bg-red-100 rounded-lg active:scale-90">ELIMINAR</button>
+    data.obtenerTodo((db) => {
+        const c = document.getElementById('c-p'); if (!c) return;
+        const per = db.personal || {}; 
+        const hist = db.asistencia_semanal || {}; 
+        const pagosRealizados = db.pagos_historial || {};
+        const res = {};
+
+        Object.keys(hist).forEach(f => {
+            if (f >= pFIni && f <= pFFin) {
+                Object.values(hist[f]).forEach(reg => {
+                    // Historial anclado a la semana (Lunes = pFIni) ¡Ya no se borra si cambias de día en la semana!
+                    const idPagoReferencia = `${reg.nombre}_semana_${pFIni}`;
+                    if (pagosRealizados[idPagoReferencia]) return;
+
+                    if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, obraPrincipal: reg.obra };
+                    
+                    let jN = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : (reg.jornada || 1));
+                    let jE = parseFloat(reg.jornada_extra || 0);
+
+                    res[reg.nombre].dNorm += jN;
+                    res[reg.nombre].dExt += jE;
+                    res[reg.nombre].ant += parseFloat(reg.monto_anticipo) || 0;
+                });
+            }
+        });
+
+        c.innerHTML = ''; let tP = 0;
+        const listaPendientes = Object.keys(res);
+
+        if (listaPendientes.length === 0) {
+            c.innerHTML = `<div class="text-center p-10 text-zinc-500 font-bold uppercase text-xs border-2 border-dashed border-zinc-800 rounded-3xl mt-10">No hay sueldos pendientes esta semana.</div>`;
+            return;
+        }
+
+        listaPendientes.forEach(n => {
+            const d = res[n], sDia = parseFloat(per[n]?.sueldo_dia) || 0;
+            
+            // LOGICA: AHORRO DE SÁBADO TARDE
+            const compensacion = d.dNorm >= 5.5 ? 0.5 : 0;
+            const dNormPagar = d.dNorm + compensacion;
+            
+            const sTot = (dNormPagar + d.dExt) * sDia;
+            const saldo = sTot - d.ant;
+            tP += saldo;
+
+            let textoCompensacion = compensacion > 0 
+                ? `<span class="text-green-400 font-black text-sm">+0.5 D (Ahorro)</span>` 
+                : `<span class="text-red-500 font-bold text-xs">Pierde Sáb. Tarde</span>`;
+
+            // TARJETA GIGANTE
+            c.innerHTML += `
+            <div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 shadow-2xl relative">
+                <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
+                    <h3 class="font-black text-xl uppercase tracking-tight text-white">${n}</h3>
+                    <span class="bg-red-600 px-3 rounded-lg font-black text-sm py-1 text-center shadow-inner leading-tight">${(dNormPagar + d.dExt).toFixed(1)} D<br><span class="text-[8px] text-red-200">A PAGAR</span></span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center">
+                        <span class="text-[9px] text-zinc-500 uppercase font-bold">Salario Base</span>
+                        <span class="text-white font-black text-lg">Bs. ${sDia}</span>
+                    </div>
+                    <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center">
+                        <span class="text-[9px] text-red-500 uppercase font-bold">Anticipos Sem.</span>
+                        <span class="text-red-400 font-black text-lg">-Bs. ${d.ant}</span>
+                    </div>
+                    <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center">
+                        <span class="text-[9px] text-zinc-500 uppercase font-bold">Días (N + Extra)</span>
+                        <span class="text-white font-black text-lg">${d.dNorm} <span class="text-xs text-zinc-500">+ ${d.dExt}</span></span>
+                    </div>
+                    <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center">
+                        <span class="text-[9px] text-blue-400 uppercase font-bold">Compensación Sábado</span>
+                        ${textoCompensacion}
+                    </div>
+                </div>
+                
+                <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}')" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_15px_rgba(34,197,94,0.2)] active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">
+                    PAGAR: Bs. ${saldo.toFixed(2)}
+                </button>
             </div>`;
         });
+
+        if (tP > 0) {
+            c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center shadow-2xl border-b-4 border-green-800"><p class="text-[10px] font-black mb-1 uppercase text-green-200">Desembolso de Sueldos</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
+        }
     });
 }
-window.saveP = () => { const n = document.getElementById('p-nom').value.trim(); const s = document.getElementById('p-sue').value; if (n && s) { data.guardarPintor(n, s); document.getElementById('p-nom').value = ''; document.getElementById('p-sue').value = ''; } else { alert("Los campos de registro están incompletos."); } };
-window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
+
+window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
+    if (confirm(`¿Transferencia de Bs. ${monto.toFixed(2)} a ${nombre} completada? \n\nSe descontará de la utilidad de: ${obraNombre}`)) {
+        firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
+            const obras = snap.val() || {};
+            const idObra = Object.keys(obras).find(id => obras[id].nombre === obraNombre);
+
+            if (idObra) {
+                data.registrarMovimiento(idObra, 'pago_sueldo', monto, `Sueldo Semanal: ${nombre}`);
+                const idPagoReferencia = `${nombre}_semana_${pFIni}`;
+                firebase.database().ref(getDbPath(`pagos_historial/${idPagoReferencia}`)).set({
+                    fecha_pago: new Date().toISOString(),
+                    trabajador: nombre,
+                    monto: monto,
+                    semana_ancla: pFIni
+                }).then(() => {
+                    alert(`Pago registrado en el historial de la semana.`);
+                    dibujarPlanilla();
+                });
+            } else { alert("Error de sistema: No se encontró la obra."); }
+        });
+    }
+};
+
+window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); };
+window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
 // ==========================================================
 // 🏗️ OBRAS Y DEMÁS MÓDULOS
@@ -527,20 +634,14 @@ function dibujarObras() {
     appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div><h3 class="mt-8 mb-4 font-black text-zinc-400 uppercase text-sm border-b-2 pb-2">PROYECTOS ENTREGADOS</h3><div id="list-o-entregadas" class="space-y-4 opacity-75"></div></div></div></div>`;
     data.obtenerTodo((db) => {
         const cA = document.getElementById('list-o-activas'), cE = document.getElementById('list-o-entregadas'); if (!cA || !cE) return;
-        cA.innerHTML = ''; cE.innerHTML = ''; const obs = db.obras || {}; const per = db.personal || {}; const hist = db.asistencia_semanal || {}; const finanzas = db.finanzas_obras || {};
+        cA.innerHTML = ''; cE.innerHTML = ''; const obs = db.obras || {}; const finanzas = db.finanzas_obras || {};
         Object.keys(obs).forEach(id => {
-            const o = obs[id]; let cobrado = 0; let gastadoMat = 0; let costoSueldos = 0;
-            Object.values(hist).forEach(dia => {
-                Object.values(dia).forEach(reg => {
-                    if (reg.obra.toUpperCase() === o.nombre.toUpperCase()) {
-                        let jN = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : (reg.jornada || 1));
-                        let jE = parseFloat(reg.jornada_extra || 0);
-                        costoSueldos += (parseFloat(per[reg.nombre]?.sueldo_dia) || 0) * (jN + jE);
-                    }
-                });
+            const o = obs[id]; let cobrado = 0; let gastadoTotal = 0;
+            if (finanzas[id]) Object.values(finanzas[id]).forEach(m => { 
+                if (m.tipo === 'anticipo_cliente') cobrado += parseFloat(m.monto); 
+                else gastadoTotal += parseFloat(m.monto); 
             });
-            if (finanzas[id]) Object.values(finanzas[id]).forEach(m => { if (m.tipo === 'anticipo_cliente') cobrado += parseFloat(m.monto); else gastadoMat += parseFloat(m.monto); });
-            const fRes = o.presupuesto * 0.05, gNeta = o.presupuesto - costoSueldos - gastadoMat - fRes;
+            const fRes = o.presupuesto * 0.05, gNeta = o.presupuesto - gastadoTotal - fRes;
             const btnG = o.link_fotos ? `<div class="flex gap-1 mb-3"><button onclick="window.open('${o.link_fotos}','_blank')" class="flex-1 bg-blue-600 text-white text-[10px] font-black uppercase py-2 rounded-lg">VER REPORTE FOTOGRAFICO</button></div>` : `<button onclick="window.agregarLinkObra('${id}')" class="w-full mb-3 bg-zinc-100 text-[9px] font-black uppercase py-2 rounded-lg">Vincular Galeria</button>`;
 
             const card = `
@@ -569,185 +670,39 @@ window.saveO = () => { const n = document.getElementById('o-nom').value, p = doc
 window.delO = (id) => { if (confirm("¿Confirmar la eliminación permanente del proyecto?")) data.borrarObra(id).then(() => location.reload()); };
 window.cambiarEstadoO = (id, e) => { if (confirm(`¿Modificar el estado operativo del proyecto?`)) data.cambiarEstadoObra(id, e); };
 window.cobrarAnticipo = (id) => { const m = prompt("Registro de Anticipo (Monto Bs.):"); if (m) data.registrarMovimiento(id, 'anticipo_cliente', m, "Anticipo").then(() => location.reload()); };
-
 window.editarNombreObra = (id, nombreAntiguo) => {
     const nuevo = prompt("CORREGIR NOMBRE DEL PROYECTO:", nombreAntiguo);
     if (nuevo && nuevo.trim() !== "" && nuevo.trim().toUpperCase() !== nombreAntiguo.toUpperCase()) {
         const nMayus = nuevo.trim().toUpperCase();
-        if (confirm("¿Guardar modificación como " + nMayus + "? El sistema actualizará los registros de asistencia para mantener la integridad financiera.")) {
+        if (confirm("¿Guardar modificación?")) {
             firebase.database().ref(getDbPath(`obras/${id}`)).update({ nombre: nMayus });
             data.obtenerTodo((db) => {
                 const hist = db.asistencia_semanal || {};
-                Object.keys(hist).forEach(f => {
-                    Object.keys(hist[f]).forEach(p => {
-                        if (hist[f][p].obra === nombreAntiguo) {
-                            firebase.database().ref(getDbPath(`asistencia_semanal/${f}/${p}`)).update({ obra: nMayus });
-                        }
-                    });
-                });
+                Object.keys(hist).forEach(f => { Object.keys(hist[f]).forEach(p => { if (hist[f][p].obra === nombreAntiguo) firebase.database().ref(getDbPath(`asistencia_semanal/${f}/${p}`)).update({ obra: nMayus }); }); });
                 setTimeout(() => location.reload(), 1000);
             });
         }
     }
 };
 
-// ==========================================================
-// 💰 PLANILLA DE PAGOS (MODO GERENCIA - PAGO DIRECTO)
-// ==========================================================
-function dibujarPlanilla() {
-    appDiv.innerHTML = `
-    <div class="min-h-screen bg-black p-4 text-white font-sans text-center">
-        <div class="max-w-md mx-auto">
-            <div class="flex justify-between mb-4">
-                <h2 class="text-2xl font-black italic text-red-600">PLANILLA DE PAGOS</h2>
-                <button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 rounded-full text-xs font-bold">VOLVER</button>
-            </div>
-            <div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold">
-                <div class="flex-1 text-left">
-                    <label class="text-zinc-500">Periodo Inicial</label>
-                    <input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none">
-                </div>
-                <div class="flex-1 text-left">
-                    <label class="text-zinc-500">Periodo Final</label>
-                    <input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none">
-                </div>
-            </div>
-            <div id="c-p" class="space-y-4 text-left pb-10"></div>
-        </div>
-    </div>`;
-
-    data.obtenerTodo((db) => {
-        const c = document.getElementById('c-p'); if (!c) return;
-        const per = db.personal || {}; 
-        const hist = db.asistencia_semanal || {}; 
-        const pagosRealizados = db.pagos_historial || {};
-        const res = {};
-
-        Object.keys(hist).forEach(f => {
-            if (f >= pFIni && f <= pFFin) {
-                Object.values(hist[f]).forEach(reg => {
-                    const idPagoReferencia = `${reg.nombre}_${pFIni}_${pFFin}`;
-                    if (pagosRealizados[idPagoReferencia]) return;
-
-                    if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, obraPrincipal: reg.obra };
-                    
-                    let jN = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : (reg.jornada || 1));
-                    let jE = parseFloat(reg.jornada_extra || 0);
-
-                    res[reg.nombre].dNorm += jN;
-                    res[reg.nombre].dExt += jE;
-                    res[reg.nombre].ant += parseFloat(reg.monto_anticipo) || 0;
-                });
-            }
-        });
-
-        c.innerHTML = ''; let tP = 0;
-        const listaPendientes = Object.keys(res);
-
-        if (listaPendientes.length === 0) {
-            c.innerHTML = `<div class="text-center p-10 text-zinc-500 font-bold uppercase text-xs">No hay pagos pendientes para este periodo.</div>`;
-            return;
-        }
-
-        listaPendientes.forEach(n => {
-            const d = res[n], sDia = parseFloat(per[n]?.sueldo_dia) || 0;
-            const dominical = d.dNorm >= 5.5 ? 0.5 : 0;
-            const dNormPagar = d.dNorm + dominical;
-            const sTot = (dNormPagar + d.dExt) * sDia;
-            const saldo = sTot - d.ant;
-            tP += saldo;
-
-            let textoDominical = dominical > 0 ? `<span class="text-green-400 font-bold">+0.5 Dominical</span>` : `<span class="text-red-400 font-bold">Sin Dominical</span>`;
-
-            c.innerHTML += `
-            <div class="bg-zinc-900 p-6 rounded-3xl border-l-4 border-red-600 shadow-xl">
-                <div class="flex justify-between mb-2">
-                    <h3 class="font-black text-xl uppercase">${n}</h3>
-                    <span class="bg-red-600 px-2 rounded-lg font-black text-[10px] py-1 text-center">${(dNormPagar + d.dExt).toFixed(1)} D<br>POR PAGAR</span>
-                </div>
-                <div class="text-[10px] text-zinc-400 mb-4 grid grid-cols-2 gap-1">
-                    <div>Salario Base: Bs.${sDia}</div>
-                    <div>Deducciones: -Bs.${d.ant}</div>
-                    <div>Jornada Normal: ${d.dNorm}D</div>
-                    <div>Bono Dominical: ${textoDominical}</div>
-                </div>
-                <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}')" class="w-full bg-green-600 text-white py-4 rounded-xl font-black text-sm shadow-lg active:scale-95 transition-transform uppercase">
-                    PAGAR SALDO: Bs. ${saldo.toFixed(2)}
-                </button>
-            </div>`;
-        });
-
-        if (tP > 0) {
-            c.innerHTML = `<div class="bg-green-600 p-4 rounded-2xl mb-4 text-center shadow-2xl"><p class="text-[10px] font-black mb-1 uppercase">Total Pendiente de Desembolso</p><span class="text-3xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
-        }
-    });
-}
-
-window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
-    if (confirm(`¿Confirmas que ya transferiste Bs. ${monto.toFixed(2)} a ${nombre}? \n\nEste monto se descontará automáticamente de la utilidad de la obra: ${obraNombre}`)) {
-        firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
-            const obras = snap.val() || {};
-            const idObra = Object.keys(obras).find(id => obras[id].nombre === obraNombre);
-
-            if (idObra) {
-                data.registrarMovimiento(idObra, 'pago_sueldo', monto, `Sueldo: ${nombre} (Periodo ${pFIni} al ${pFFin})`);
-                const idPagoReferencia = `${nombre}_${pFIni}_${pFFin}`;
-                firebase.database().ref(getDbPath(`pagos_historial/${idPagoReferencia}`)).set({
-                    fecha_pago: new Date().toISOString(),
-                    trabajador: nombre,
-                    monto: monto,
-                    periodo: `${pFIni} / ${pFFin}`
-                }).then(() => {
-                    alert(`Pago de ${nombre} registrado con éxito.`);
-                    dibujarPlanilla();
-                });
-            } else {
-                alert("Error: No se encontró la obra para descontar el sueldo. El pago no afectará la utilidad.");
-            }
-        });
-    }
-};
-
-window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); };
-window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
-
 function dibujarUtilidad() {
     appDiv.innerHTML = `<div class="min-h-screen bg-zinc-950 p-4 text-white text-center"><div class="max-w-md mx-auto"><div class="flex justify-between mb-6"><h2 class="text-2xl font-black italic text-red-600">REPORTE FINANCIERO</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 rounded-full text-xs">VOLVER</button></div><div id="cont-util" class="space-y-6 text-left"></div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('cont-util'); if (!c) return;
-        const obs = db.obras || {}, hist = db.asistencia_semanal || {}, fin = db.finanzas_obras || {}, per = db.personal || {};
-        c.innerHTML = ''; let uG = 0, rG = 0;
+        const obs = db.obras || {}, fin = db.finanzas_obras || {};
+        c.innerHTML = ''; let uG = 0;
         Object.keys(obs).forEach(id => {
-            const o = obs[id]; let cS = 0, gM = 0;
-
-            let sueldosPorPintor = {};
-
-            Object.values(hist).forEach(d => Object.values(d).forEach(r => {
-                if (r.obra === o.nombre) {
-                    if (!sueldosPorPintor[r.nombre]) sueldosPorPintor[r.nombre] = { dN: 0, dE: 0 };
-                    let jN = parseFloat(r.jornada_normal !== undefined ? r.jornada_normal : (r.jornada || 1));
-                    let jE = parseFloat(r.jornada_extra || 0);
-                    sueldosPorPintor[r.nombre].dN += jN;
-                    sueldosPorPintor[r.nombre].dE += jE;
-                }
-            }));
-
-            Object.keys(sueldosPorPintor).forEach(n => {
-                let dom = sueldosPorPintor[n].dN >= 5.5 ? 0.5 : 0;
-                let totalDiasObra = sueldosPorPintor[n].dN + dom + sueldosPorPintor[n].dE;
-                cS += (parseFloat(per[n]?.sueldo_dia) || 0) * totalDiasObra;
-            });
-
-            if (fin[id]) Object.values(fin[id]).forEach(m => { if (m.tipo === 'compra_material' || m.tipo === 'pago_sueldo') gM += parseFloat(m.monto); });
-            const fR = o.presupuesto * 0.05, gN = o.presupuesto - cS - gM - fR; uG += gN; rG += fR;
-            c.innerHTML += `<div class="bg-zinc-900 p-6 rounded-3xl border-l-8 ${gN >= 0 ? 'border-red-600' : 'border-orange-500'}"><h3 class="font-black text-lg mb-3">${o.nombre}</h3><div class="grid grid-cols-2 gap-2 text-[10px] mb-4"><div class="bg-black p-2 rounded-xl text-zinc-400">Contrato Base:<br><span class="text-white text-sm">Bs.${o.presupuesto}</span></div><div class="bg-black p-2 rounded-xl text-zinc-400">Costos Operativos:<br><span class="text-red-400 text-sm">-Bs.${cS + gM}</span></div></div><div class="bg-zinc-950 p-4 rounded-xl text-center"><p class="text-[9px] text-zinc-500">Beneficio Neto</p><p class="text-3xl font-black ${gN >= 0 ? 'text-green-500' : 'text-orange-500'}">Bs. ${gN.toFixed(1)}</p></div></div>`;
+            const o = obs[id]; let gM = 0;
+            if (fin[id]) Object.values(fin[id]).forEach(m => { if (m.tipo !== 'anticipo_cliente') gM += parseFloat(m.monto); });
+            const fR = o.presupuesto * 0.05, gN = o.presupuesto - gM - fR; uG += gN;
+            c.innerHTML += `<div class="bg-zinc-900 p-6 rounded-3xl border-l-8 ${gN >= 0 ? 'border-red-600' : 'border-orange-500'}"><h3 class="font-black text-lg mb-3">${o.nombre}</h3><div class="grid grid-cols-2 gap-2 text-[10px] mb-4"><div class="bg-black p-2 rounded-xl text-zinc-400">Contrato Base:<br><span class="text-white text-sm">Bs.${o.presupuesto}</span></div><div class="bg-black p-2 rounded-xl text-zinc-400">Costos (Mat+Sueldo+Tratos):<br><span class="text-red-400 text-sm">-Bs.${gM}</span></div></div><div class="bg-zinc-950 p-4 rounded-xl text-center"><p class="text-[9px] text-zinc-500">Beneficio Neto</p><p class="text-3xl font-black ${gN >= 0 ? 'text-green-500' : 'text-orange-500'}">Bs. ${gN.toFixed(1)}</p></div></div>`;
         });
         if (Object.keys(obs).length > 0) c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center"><p class="text-[10px] font-black">BENEFICIO GLOBAL</p><span class="text-4xl font-black">Bs. ${uG.toFixed(1)}</span></div>` + c.innerHTML;
     });
 }
 
 function dibujarCaja() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black text-center"><div class="max-w-md mx-auto"><div class="bg-green-600 p-6 text-white flex justify-between rounded-t-3xl"><h2 class="text-xl font-black italic">REGISTRO DE EGRESOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-green-600 px-4 rounded-full text-xs">VOLVER</button></div><div class="bg-white p-6 rounded-b-3xl space-y-4 text-left"><select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold"></select><input id="c-detalle" type="text" placeholder="Concepto (Ej. Insumos...)" class="w-full p-3 rounded-xl border-2 font-bold"><input id="c-monto" type="number" placeholder="Importe Bs." class="w-full p-3 rounded-xl border-2 font-black"><button onclick="window.saveM()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR EGRESO</button></div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black text-center"><div class="max-w-md mx-auto"><div class="bg-green-600 p-6 text-white flex justify-between rounded-t-3xl"><h2 class="text-xl font-black italic">REGISTRO DE EGRESOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-green-600 px-4 rounded-full text-xs">VOLVER</button></div><div class="bg-white p-6 rounded-b-3xl space-y-4 text-left"><select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold"></select><input id="c-detalle" type="text" placeholder="Concepto (Ej. Pintura Latex...)" class="w-full p-3 rounded-xl border-2 font-bold"><input id="c-monto" type="number" placeholder="Importe Bs." class="w-full p-3 rounded-xl border-2 font-black"><button onclick="window.saveM()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR EGRESO</button></div></div></div>`;
     data.obtenerObras((obs) => {
         const s = document.getElementById('c-obra'); s.innerHTML = '<option value="">-- SELECCIONAR PROYECTO --</option>';
         Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada') s.innerHTML += `<option value="${id}">${obs[id].nombre}</option>`; });
@@ -756,7 +711,7 @@ function dibujarCaja() {
 window.saveM = () => { const id = document.getElementById('c-obra').value, m = document.getElementById('c-monto').value, d = document.getElementById('c-detalle').value; if (id && m) data.registrarMovimiento(id, 'compra_material', m, d).then(() => window.location.hash = '#obras'); };
 
 // ==========================================================
-// 📝 COTIZADOR WORD
+// 📝 COTIZADOR WORD Y ALMACEN Y PERSONAL (Mantenidos)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -766,46 +721,24 @@ function dibujarCotizador() {
                 <h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2>
                 <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
             </div>
-            
             <div class="grid grid-cols-2 gap-2 mb-2">
                 <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-xs uppercase">MODO COTIZACION</button>
                 <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-xs uppercase">MODO RECIBO</button>
             </div>
             <button onclick="window.modoGarantia()" class="w-full bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-xs uppercase mb-4 border-b-4 border-yellow-800">MODO CERTIFICADO DE GARANTIA</button>
-            
             <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
             <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">EL ENCABEZADO ES EDITABLE.</p>
-            
             <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial;">
-                    
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
-                        <div>
-                            <img id="pdf-logo" src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;">
-                        </div>
-                        <div style="text-align:right; color:#333;">
-                            <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;">COTIZACION TECNICA</p>
-                            <p style="margin:0;font-size:14px;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
-                        </div>
+                        <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
+                        <div style="text-align:right; color:#333;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
-                    
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;">
-                        <p style="color:#999;text-align:center;margin-top:50px;">--- Ingrese la descripcion del presupuesto ---</p>
-                    </div>
-                    
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;"><p style="color:#999;text-align:center;margin-top:50px;">--- Ingrese la descripcion del presupuesto ---</p></div>
                     <div style="margin-top:30px;border-top:2px solid #999;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#333;">
-                        <div>
-                            <p style="margin:0;font-weight:bold;font-size:14px;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p>
-                            <p style="margin:0;font-size:12px;">Plan 3000 Av. Piraisito N° 8560</p>
-                            <p style="margin:0;font-size:12px;">Cel.: 77396806</p>
-                        </div>
-                        <div style="text-align:right;">
-                            <p style="margin:0;font-size:12px;">wrpuma@gmail.com</p>
-                            <p style="margin:0;font-size:12px;">www.wrpuma.com</p>
-                            <p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p>
-                        </div>
+                        <div><p style="margin:0;font-weight:bold;font-size:14px;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;">Cel.: 77396806, 76362867</p></div>
+                        <div style="text-align:right;"><p style="margin:0;font-size:12px;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -813,96 +746,23 @@ function dibujarCotizador() {
 
     setTimeout(() => {
         const z = document.getElementById('zona-editable');
-        if (z) z.onpaste = (e) => {
-            e.preventDefault();
-            let t = (e.originalEvent || e).clipboardData.getData('text/plain');
-            t = t.replace(/\\text\{/g, "").replace(/\}/g, "").replace(/\$/g, "").replace(/\^2/g, "2").replace(/\*/g, "").replace(/#/g, "");
-
-            let lineas = t.split('\n'), h = "", enT = false, cab = false;
-            lineas.forEach(l => {
-                l = l.trim(); if (l === '---' || l === '***' || l.includes('-------')) return;
-
-                if (l.startsWith('|') && l.endsWith('|')) {
-                    if (l.includes('---')) return;
-                    if (!enT) { h += '<table style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #000;font-size:13px;"><tbody>'; enT = true; cab = true; }
-                    h += '<tr>';
-                    l.split('|').filter((c, i, a) => i !== 0 && i !== a.length - 1).forEach(c => h += `<td style="border:1px solid #000;padding:8px;${cab ? 'font-weight:900;background:#333;color:#fff;text-align:center;' : ''}">${c.trim()}</td>`);
-                    h += '</tr>'; cab = false;
-                } else {
-                    if (enT) { h += '</tbody></table>'; enT = false; }
-                    if (l !== "") {
-                        if (l.length < 120 && l === l.toUpperCase() && !l.startsWith('HTTP')) {
-                            h += `<p style="margin:15px 0 5px;font-weight:900;font-size:16px;color:#cc0000;">${l}</p>`;
-                        } else {
-                            h += `<p style="margin:6px 0; text-align:justify;">${l}</p>`;
-                        }
-                    }
-                }
-            });
-            if (enT) h += '</tbody></table>'; z.innerHTML = h;
-        };
+        if (z) {
+            z.addEventListener('paste', () => { setTimeout(() => { let html = z.innerHTML; html = html.replace(/\*\*/g, ''); z.innerHTML = html; }, 50); });
+        }
     }, 200);
 }
-
-window.setDocType = (t) => {
-    document.getElementById('doc-title').innerText = t;
-    document.getElementById('zona-editable').innerHTML = '<p style="color:#999;text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento ---</p>';
-};
-
-window.modoGarantia = () => {
-    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA';
-    document.getElementById('zona-editable').innerHTML = `
-        <p style="margin:6px 0; text-align:justify;"><b>PROYECTO:</b> [Escriba el nombre de la obra aqui]</p>
-        <p style="margin:6px 0; text-align:justify;"><b>CLIENTE:</b> [Escriba el nombre del cliente aqui]</p>
-        <p style="margin:15px 0 15px; text-align:justify; line-height: 1.6;">Por medio del presente documento, <b>WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica del sistema de impermeabilizacion aplicado en el proyecto mencionado.</p>
-        
-        <p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p>
-        <p style="margin:6px 0; text-align:justify; line-height: 1.6;">Se garantiza la total estanqueidad y ausencia de filtraciones de agua de lluvia exclusivamente en la superficie tratada por un periodo de <b>UN (1) AÑO</b> a partir de la fecha de entrega. Este plazo somete al sistema impermeable a las cuatro estaciones climaticas anuales, comprobando su total resistencia termica ante la dilatacion por calor y contraccion por frio y humedad.</p>
-        
-        <p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. CONDICIONES DE ANULACION (EXCLUSIONES)</p>
-        <p style="margin:6px 0; text-align:justify; line-height: 1.6;">Esta garantia protege el trabajo realizado por WRPUMA, pero perdera su validez automaticamente bajo las siguientes condiciones:</p>
-        <ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px;">
-            <li style="margin-bottom: 6px;">Si la capa impermeable es perforada, cortada o alterada por personal ajeno a la empresa (ej. trabajos de albañileria, instalacion de antenas o aires acondicionados).</li>
-            <li style="margin-bottom: 6px;">Si la losa o estructura sufre asentamientos, fisuras de construccion o movimientos de tierra posteriores que rompan la barrera elastica.</li>
-            <li style="margin-bottom: 6px;">Si ocurren filtraciones causadas por la acumulacion de agua (empoce) debido a la falta de limpieza y mantenimiento de canaletas o desagues.</li>
-        </ul>
-        <br>
-        <p style="margin:6px 0; text-align:center;">_______________________</p>
-        <p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>
-        <p style="margin:6px 0; text-align:center;">WRPUMA</p>
-    `;
-};
-
-window.generarPDF = () => {
-    const boton = event.target;
-    const textoOriginal = boton.innerText;
-    boton.innerText = "PROCESANDO DOCUMENTO...";
-    boton.disabled = true;
-
-    setTimeout(() => {
-        html2pdf().set({
-            margin: 0,
-            filename: `Doc_${Date.now()}.pdf`,
-            image: { type: 'jpeg', quality: 1 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4' }
-        }).from(document.getElementById('hoja-pdf')).save().then(() => {
-            boton.innerText = textoOriginal;
-            boton.disabled = false;
-        });
-    }, 1000);
-};
+window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; document.getElementById('zona-editable').innerHTML = '<p style="color:#999;text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento ---</p>'; };
+window.modoGarantia = () => { document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; };
+window.generarPDF = () => { const btn = event.target; const txt = btn.innerText; btn.innerText = "PROCESANDO..."; btn.disabled = true; setTimeout(() => { html2pdf().set({ margin: 0, filename: `Doc_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' } }).from(document.getElementById('hoja-pdf')).save().then(() => { btn.innerText = txt; btn.disabled = false; }); }, 1000); };
 
 // ==========================================================
-// 🚀 MENU Y ENRUTADOR (SEGURIDAD DE NIVELES)
+// 🚀 MENU Y ENRUTADOR
 // ==========================================================
 function dibujarMenu() {
     const u = localStorage.getItem('u_wr');
     const adm = localStorage.getItem('a_wr') === 'true';
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
-
     if (!u) { window.location.hash = ''; return; }
-
     const tituloMenu = empresa === 'Napoleon' ? 'NAPO<span class="text-blue-500">LEON</span>' : 'WR<span class="text-red-600">PUMA</span>';
 
     appDiv.innerHTML = `
@@ -914,53 +774,40 @@ function dibujarMenu() {
                 <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 italic"><span class="font-black text-[12px] uppercase mt-2">Asistencia</span></button>
                 
                 ${adm ? `
-                <button onclick="window.location.hash='#planilla'" class="bg-zinc-900 text-white aspect-square rounded-3xl flex flex-col items-center justify-center border border-zinc-800 active:scale-95 shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Sueldos</span></button>
-                <button onclick="window.location.hash='#obras'" class="bg-zinc-900 text-white aspect-square rounded-3xl flex flex-col items-center justify-center border border-zinc-800 active:scale-95 shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Proyectos</span></button>
+                <button onclick="window.location.hash='#tratos'" class="bg-purple-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 italic"><span class="font-black text-[12px] uppercase mt-2">Tratos</span></button>
+                <button onclick="window.location.hash='#planilla'" class="bg-zinc-900 text-white aspect-square rounded-3xl border border-zinc-800 active:scale-95 shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Sueldos</span></button>
+                <button onclick="window.location.hash='#obras'" class="bg-zinc-900 text-white aspect-square rounded-3xl border border-zinc-800 active:scale-95 shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Proyectos</span></button>
                 <button onclick="window.location.hash='#personal'" class="bg-zinc-100 text-black aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Personal</span></button>
                 <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Almacen</span></button>
-                ` : `
-                <div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl flex flex-col items-center justify-center border border-zinc-900 shadow-inner italic cursor-not-allowed"><span class="font-black text-[10px] uppercase mt-2">Acceso Denegado</span></div>
-                <div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl flex flex-col items-center justify-center border border-zinc-900 shadow-inner italic cursor-not-allowed"><span class="font-black text-[10px] uppercase mt-2">Acceso Denegado</span></div>
-                <div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl flex flex-col items-center justify-center border border-zinc-900 shadow-inner italic cursor-not-allowed"><span class="font-black text-[10px] uppercase mt-2">Acceso Denegado</span></div>
-                `}
+                ` : `<div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div>`}
 
                 <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-zinc-300"><span class="font-black text-[11px] uppercase text-red-600">Generar Documentos Word</span></button>
                 <button onclick="window.location.hash='#calculadora'" class="col-span-2 bg-blue-600 text-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-blue-800 mt-[-10px]"><span class="font-black text-[11px] uppercase text-white">Calculadora Operativa</span></button>
                 
-                ${adm ? `<button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white h-16 rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Egresos</button><button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 h-16 rounded-2xl flex items-center justify-center gap-2 border border-zinc-800 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Reporte Financiero</button>` : `<div class="col-span-2 h-16 rounded-2xl flex items-center justify-center bg-zinc-950 text-zinc-700 text-[10px] uppercase">Seccion Restringida</div>`}
+                ${adm ? `<button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white h-16 rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Egresos</button><button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 h-16 rounded-2xl flex items-center justify-center gap-2 border border-zinc-800 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Reporte Finanzas</button>` : ``}
             </div>
         </div>
         <button onclick="window.cerrarSesionTotal()" class="text-zinc-700 text-[10px] font-bold uppercase pt-4 border-t border-zinc-900 italic mt-8">FINALIZAR SESION</button>
     </div>`;
 }
 
-window.cerrarSesionTotal = () => {
-    localStorage.clear();
-    window.location.hash = '';
-    window.location.reload();
-};
+window.cerrarSesionTotal = () => { localStorage.clear(); window.location.hash = ''; window.location.reload(); };
 
 function enrutador() {
-    const h = window.location.hash;
-    const adm = localStorage.getItem('a_wr') === 'true';
-    const u = localStorage.getItem('u_wr');
-
+    const h = window.location.hash, adm = localStorage.getItem('a_wr') === 'true', u = localStorage.getItem('u_wr');
     if (!u && h !== '') { window.location.hash = ''; return; }
-
     if (h === '#asistencia') dibujarAsistencia();
     else if (h === '#cotizaciones') dibujarCotizador();
     else if (h === '#calculadora') dibujarCalculadora();
     else if (h === '#menu') dibujarMenu();
-    else if (!adm && (h === '#planilla' || h === '#obras' || h === '#personal' || h === '#utilidad' || h === '#contabilidad' || h === '#almacen')) {
-        alert("ACCESO DENEGADO: Nivel de seguridad insuficiente.");
-        window.location.hash = '#menu';
-    }
+    else if (!adm && (h === '#planilla' || h === '#obras' || h === '#personal' || h === '#utilidad' || h === '#contabilidad' || h === '#almacen' || h === '#tratos')) { window.location.hash = '#menu'; }
     else if (h === '#planilla') dibujarPlanilla();
     else if (h === '#obras') dibujarObras();
     else if (h === '#personal') dibujarPersonal();
     else if (h === '#almacen') dibujarAlmacen();
     else if (h === '#utilidad') dibujarUtilidad();
     else if (h === '#contabilidad') dibujarCaja();
+    else if (h === '#tratos') dibujarTratos();
     else dibujarAcceso();
 }
 
