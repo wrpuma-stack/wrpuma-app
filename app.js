@@ -362,7 +362,11 @@ function dibujarTratos() {
                 <input id="t-esp" type="text" placeholder="Especialidad (Ej. Cemento Quemado)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm outline-none">
                 <input id="t-monto" type="number" placeholder="Monto Total del Trato (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-black text-lg text-center text-purple-700 outline-none">
                 <button onclick="window.saveTrato()" class="w-full bg-black text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform uppercase">Registrar Nuevo Trato</button>
-                <h3 class="mt-6 mb-2 font-black text-zinc-500 uppercase text-xs border-b-2 pb-1">TRATOS ACTIVOS</h3>
+                
+                <div class="mt-6 mb-2 flex justify-between items-end border-b-2 border-zinc-200 pb-1">
+                    <h3 class="font-black text-zinc-500 uppercase text-xs">TRATOS ACTIVOS</h3>
+                    <button onclick="window.verTratosArchivados()" class="text-[9px] text-purple-600 font-bold uppercase underline">Ver Archivados</button>
+                </div>
                 <div id="list-tratos" class="space-y-4 pt-2"></div>
             </div>
         </div>
@@ -417,6 +421,49 @@ window.pagarTrato = (id, obraNombre, contratista, saldoPendiente) => {
 };
 window.finTrato = (id) => { if(confirm("¿Archivar este trato? Ya no aparecerá en la lista activa.")) firebase.database().ref(getDbPath(`tratos/${id}`)).update({ estado: 'Finalizado' }); };
 
+// NUEVO: Ver Tratos Archivados
+window.verTratosArchivados = () => {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-zinc-800 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
+                <h2 class="text-lg font-black italic uppercase text-white">TRATOS ARCHIVADOS</h2>
+                <button onclick="window.dibujarTratos()" class="bg-white text-zinc-800 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
+                <div id="lista-tratos-arch" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>`;
+
+    firebase.database().ref(getDbPath('tratos')).once('value').then(snap => {
+        const c = document.getElementById('lista-tratos-arch');
+        const tratos = snap.val() || {};
+        let hayArchivados = false;
+        Object.keys(tratos).forEach(id => {
+            const t = tratos[id];
+            if (t.estado === 'Finalizado') {
+                hayArchivados = true;
+                c.innerHTML += `
+                <div class="p-4 bg-zinc-200 rounded-2xl border-2 border-zinc-300 shadow-sm relative opacity-80">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <b class="text-sm uppercase text-black font-black">${t.contratista}</b><br>
+                            <span class="text-[10px] text-zinc-600 font-bold uppercase">${t.especialidad}</span>
+                        </div>
+                        <span class="text-[9px] bg-zinc-400 text-white px-2 py-1 rounded-lg font-bold uppercase text-right">${t.obra}</span>
+                    </div>
+                    <div class="mt-2 pt-2 border-t border-zinc-300 flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-zinc-500 uppercase">Monto Total:</span>
+                        <span class="text-sm font-black text-zinc-800">Bs. ${t.monto_total}</span>
+                    </div>
+                </div>`;
+            }
+        });
+        if(!hayArchivados) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold uppercase">No hay tratos archivados.</p>`;
+    });
+};
+
 // ==========================================================
 // 💰 PLANILLA DE PAGOS (MEJORADA Y GIGANTE)
 // ==========================================================
@@ -429,6 +476,9 @@ function dibujarPlanilla() {
                 <div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes (Inicio Sem.)</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none"></div>
                 <div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte (Final Sem.)</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none"></div>
             </div>
+            
+            <button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 text-zinc-300 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 active:scale-95 shadow-md">🗂️ Ver Historial de Pagos Anteriores</button>
+            
             <div id="c-p" class="space-y-6 text-left pb-10"></div>
         </div>
     </div>`;
@@ -493,6 +543,46 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
     }
 };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
+
+// NUEVO: Ver Historial de Sueldos
+window.verHistorialSueldos = () => {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-black p-4 text-white font-sans text-center pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="flex justify-between mb-6">
+                <h2 class="text-xl font-black italic text-zinc-400 uppercase">Historial de Sueldos</h2>
+                <button onclick="window.dibujarPlanilla()" class="bg-red-600 px-4 py-1 rounded-full text-xs font-bold text-white">VOLVER</button>
+            </div>
+            <div id="lista-historial-sueldos" class="space-y-3 text-left"></div>
+        </div>
+    </div>`;
+
+    firebase.database().ref(getDbPath('pagos_historial')).once('value').then(snap => {
+        const c = document.getElementById('lista-historial-sueldos');
+        const pagos = snap.val() || {};
+        if(Object.keys(pagos).length === 0) {
+            c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold uppercase">No hay pagos registrados en el historial.</p>`;
+            return;
+        }
+        
+        const pagosArray = Object.values(pagos).sort((a,b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
+        
+        pagosArray.forEach(p => {
+            const fecha = new Date(p.fecha_pago).toLocaleDateString('es-ES', {day: '2-digit', month: 'short', year: 'numeric'});
+            c.innerHTML += `
+            <div class="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 flex justify-between items-center">
+                <div>
+                    <h3 class="font-black text-sm uppercase text-white">${p.trabajador}</h3>
+                    <p class="text-[9px] text-zinc-400 font-bold uppercase mt-1">Lunes Semanal: ${p.semana_ancla}</p>
+                    <p class="text-[9px] text-zinc-500 font-bold uppercase">Pagado el: ${fecha}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-green-500 font-black text-lg">Bs. ${p.monto}</span>
+                </div>
+            </div>`;
+        });
+    });
+};
 
 // ==========================================================
 // 📊 REGISTRO DE COMPRAS Y DEUDAS FERRETERÍAS (NUEVO EGRESOS)
