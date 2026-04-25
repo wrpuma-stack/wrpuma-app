@@ -544,9 +544,7 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
 };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
-// ==========================================================
-// 🗂️ HISTORIAL DE SUELDOS (REPARADO PARA PAGOS ANTIGUOS)
-// ==========================================================
+// NUEVO: Ver Historial de Sueldos AGRUPADO POR SEMANA
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black p-4 text-white font-sans text-center pb-10">
@@ -569,14 +567,12 @@ window.verHistorialSueldos = () => {
         
         const agrupados = {};
         Object.values(pagos).forEach(p => {
-            // Si el pago es muy antiguo y no tiene semana, lo mandamos a la bóveda "ANTIGUOS"
             const sem = p.semana_ancla || "ANTIGUOS"; 
             if(!agrupados[sem]) agrupados[sem] = { total: 0, pagos: [] };
             agrupados[sem].pagos.push(p);
             agrupados[sem].total += parseFloat(p.monto) || 0;
         });
 
-        // Ordenamos, dejando los antiguos al fondo
         const semanasOrdenadas = Object.keys(agrupados).sort((a,b) => {
             if(a === "ANTIGUOS") return 1;
             if(b === "ANTIGUOS") return -1;
@@ -601,10 +597,12 @@ window.verHistorialSueldos = () => {
 
             let listaTrabajadores = '';
             grupo.pagos.forEach(p => {
-                let fechaPagoReal = "Fecha no registrada";
+                let fechaPagoReal = "Fecha antigua";
                 if(p.fecha_pago) {
                     const d = new Date(p.fecha_pago);
-                    if(!isNaN(d)) fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+                    if(!isNaN(d)) {
+                        fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+                    }
                 }
                 const monto = parseFloat(p.monto) || 0;
 
@@ -837,7 +835,7 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
-// 📝 COTIZADOR WORD
+// 📝 COTIZADOR WORD (CON TINTA NEGRA FORZADA Y ALTA RESOLUCIÓN)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -854,16 +852,29 @@ function dibujarCotizador() {
             <button onclick="window.modoGarantia()" class="w-full bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-xs uppercase mb-4 border-b-4 border-yellow-800">MODO CERTIFICADO DE GARANTIA</button>
             <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
             <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">EL ENCABEZADO ES EDITABLE.</p>
+            
             <div class="overflow-x-auto w-full pb-10">
-                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial;">
+                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
+                    
+                    <style>
+                        #zona-editable table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 6px; color: #000 !important; }
+                        #zona-editable p, #zona-editable span, #zona-editable div { color: #000 !important; }
+                        .placeholder-gris { color: #999 !important; }
+                    </style>
+
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
                         <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
-                        <div style="text-align:right; color:#333;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+                        <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;"><p style="color:#999;text-align:center;margin-top:50px;">--- Ingrese la descripcion del presupuesto ---</p></div>
-                    <div style="margin-top:30px;border-top:2px solid #999;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#333;">
-                        <div><p style="margin:0;font-weight:bold;font-size:14px;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;">Cel.: 77396806, 76362867</p></div>
-                        <div style="text-align:right;"><p style="margin:0;font-size:12px;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
+                    
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerText.includes('---')) this.innerHTML='';">
+                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Ingrese la descripcion del presupuesto ---</p>
+                    </div>
+                    
+                    <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
+                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806, 76362867</p></div>
+                        <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;color:#000;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
                     </div>
                 </div>
             </div>
@@ -875,9 +886,35 @@ function dibujarCotizador() {
         if (z) { z.addEventListener('paste', () => { setTimeout(() => { let html = z.innerHTML; html = html.replace(/\*\*/g, ''); z.innerHTML = html; }, 50); }); }
     }, 200);
 }
-window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; document.getElementById('zona-editable').innerHTML = '<p style="color:#999;text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento ---</p>'; };
-window.modoGarantia = () => { document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; };
-window.generarPDF = () => { const btn = event.target; const txt = btn.innerText; btn.innerText = "PROCESANDO..."; btn.disabled = true; setTimeout(() => { html2pdf().set({ margin: 0, filename: `Doc_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4' } }).from(document.getElementById('hoja-pdf')).save().then(() => { btn.innerText = txt; btn.disabled = false; }); }, 1000); };
+
+window.setDocType = (t) => { 
+    document.getElementById('doc-title').innerText = t; 
+    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento ---</p>'; 
+};
+
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center; color:#000 !important;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900; color:#000 !important;">Walter Puma - Gerente General</p>`; 
+};
+
+window.generarPDF = () => { 
+    const btn = event.target; 
+    const txt = btn.innerText; 
+    btn.innerText = "PROCESANDO DOCUMENTO..."; 
+    btn.disabled = true; 
+    setTimeout(() => { 
+        html2pdf().set({ 
+            margin: 0, 
+            filename: `Doc_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 1 }, 
+            html2canvas: { scale: 3, useCORS: true }, // Se aumentó la escala a 3 para altísima resolución
+            jsPDF: { unit: 'mm', format: 'a4' } 
+        }).from(document.getElementById('hoja-pdf')).save().then(() => { 
+            btn.innerText = txt; 
+            btn.disabled = false; 
+        }); 
+    }, 1000); 
+};
 
 // ==========================================================
 // 🚀 MENU Y ENRUTADOR
