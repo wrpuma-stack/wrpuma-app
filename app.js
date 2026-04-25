@@ -464,7 +464,7 @@ window.verTratosArchivados = () => {
 };
 
 // ==========================================================
-// 💰 PLANILLA DE PAGOS (MEJORADA Y GIGANTE)
+// 💰 PLANILLA DE PAGOS 
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `
@@ -833,7 +833,7 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
-// 📝 COTIZADOR WORD (VUELVE EL COPIAR Y PEGAR ORIGINAL)
+// 📝 GESTOR DE DOCUMENTOS (CON BOTÓN DE ARREGLO MÁGICO)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -844,11 +844,13 @@ function dibujarCotizador() {
                 <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
             </div>
             
-            <div class="grid grid-cols-2 gap-2 mb-2">
-                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-xs uppercase">MODO COTIZACION</button>
-                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-xs uppercase">MODO RECIBO</button>
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
+                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
-            <button onclick="window.modoGarantia()" class="w-full bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-xs uppercase mb-4 border-b-4 border-yellow-800">MODO CERTIFICADO DE GARANTIA</button>
+            
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (Si se pega feo)</button>
             
             <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
             
@@ -882,25 +884,69 @@ function dibujarCotizador() {
             </div>
         </div>
     </div>`;
-
-    setTimeout(() => {
-        const z = document.getElementById('zona-editable');
-        if (z) { 
-            // Limpia asteriscos crudos en caso de que peguen texto simple
-            z.addEventListener('paste', () => { 
-                setTimeout(() => { 
-                    let html = z.innerHTML; 
-                    html = html.replace(/\*\*/g, ''); 
-                    z.innerHTML = html; 
-                }, 50); 
-            }); 
-        }
-    }, 200);
 }
 
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
     document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+};
+
+// BOTÓN MÁGICO: Arregla las tablas si el celular copia el código feo
+window.arreglarFormato = () => {
+    const z = document.getElementById('zona-editable');
+    let texto = z.innerText;
+    let htmlBase = z.innerHTML;
+
+    // Detecta si se pegó el código "crudo" de la tabla (con rayitas |---|)
+    if(texto.includes('|---')) {
+        let lineas = texto.split('\n');
+        let nuevoHTML = '';
+        let enTabla = false;
+
+        lineas.forEach(linea => {
+            let l = linea.trim();
+            if (l.match(/^\|[\-\s\|]+\|$/)) return; // Ignora la línea |---|
+
+            if (l.startsWith('|') && l.endsWith('|')) {
+                if (!enTabla) {
+                    enTabla = true;
+                    nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
+                }
+                let celdas = l.substring(1, l.length - 1).split('|');
+                nuevoHTML += '<tr style="border:1px solid #000;">';
+                celdas.forEach(celda => {
+                    let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    c = c.replace(/~/g, ' '); // Limpia tildes raras
+                    c = c.replace(/\^\{(.*?)\}/g, ''); // Limpia superíndices raros
+                    c = c.replace(/_\{(.*?)\}/g, '');
+                    c = c.replace(/[{}]/g, '');
+                    c = c.replace(/\$/g, ''); // Quita los signos de dólar de látex
+                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${c}</td>`;
+                });
+                nuevoHTML += '</tr>';
+            } else {
+                if (enTabla) {
+                    nuevoHTML += '</table>';
+                    enTabla = false;
+                }
+                if (l !== '') {
+                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    c = c.replace(/### (.*)/, '<b>$1</b>');
+                    c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
+                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                }
+            }
+        });
+        if (enTabla) nuevoHTML += '</table>';
+        z.innerHTML = nuevoHTML;
+    } else {
+        // Si no hay tabla con rayitas, solo limpia los asteriscos y basuras del texto
+        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        htmlBase = htmlBase.replace(/\*\*/g, '');
+        htmlBase = htmlBase.replace(/\$/g, '');
+        htmlBase = htmlBase.replace(/~/g, ' ');
+        z.innerHTML = htmlBase;
+    }
 };
 
 window.modoGarantia = () => { 
