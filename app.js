@@ -833,7 +833,7 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
-// 📝 COTIZADOR WORD (VUELVE EL COPIAR Y PEGAR 100% NATURAL)
+// 📝 GESTOR DE DOCUMENTOS (CON BOTÓN MÁGICO RESTAURADO)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -850,9 +850,11 @@ function dibujarCotizador() {
                 <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4 mt-2">GENERAR DOCUMENTO PDF</button>
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (Convertir texto a cuadro)</button>
             
-            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE LA TABLA DEL CHAT Y PÉGUELA ABAJO.</p>
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
+            
+            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE SU COTIZACIÓN Y PÉGUELA EN LA ZONA BLANCA.</p>
             
             <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
@@ -870,7 +872,7 @@ function dibujarCotizador() {
                         <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
                     
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí la cotización ---')) this.innerHTML='';">
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
                         <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
                     </div>
                     
@@ -887,6 +889,59 @@ function dibujarCotizador() {
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
     document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+};
+
+// LA MAGIA RESTAURADA: Este botón agarra el código sucio del celular y arma la tabla
+window.arreglarFormato = () => {
+    const z = document.getElementById('zona-editable');
+    let texto = z.innerText;
+    let htmlBase = z.innerHTML;
+
+    // Detecta si se pegó el código con las rayas de la tabla
+    if(texto.includes('|---') || texto.includes('| ---')) {
+        let lineas = texto.split('\n');
+        let nuevoHTML = '';
+        let enTabla = false;
+
+        lineas.forEach(linea => {
+            let l = linea.trim();
+            // Ignora la línea de separación fea de la tabla
+            if (l.match(/^\|[\-\s\|]+\|$/)) return; 
+
+            if (l.startsWith('|') && l.endsWith('|')) {
+                if (!enTabla) {
+                    enTabla = true;
+                    nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
+                }
+                let celdas = l.substring(1, l.length - 1).split('|');
+                nuevoHTML += '<tr style="border:1px solid #000;">';
+                celdas.forEach(celda => {
+                    // Pone en negrita lo que esté entre asteriscos
+                    let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${c}</td>`;
+                });
+                nuevoHTML += '</tr>';
+            } else {
+                if (enTabla) {
+                    nuevoHTML += '</table>';
+                    enTabla = false;
+                }
+                if (l !== '') {
+                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    c = c.replace(/### (.*)/, '<b>$1</b>');
+                    c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
+                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                }
+            }
+        });
+        if (enTabla) nuevoHTML += '</table>';
+        z.innerHTML = nuevoHTML;
+    } else {
+        // Si no hay tabla con rayitas, solo limpia los asteriscos y basuras del texto normal
+        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        htmlBase = htmlBase.replace(/\*\*/g, '');
+        z.innerHTML = htmlBase;
+    }
 };
 
 window.modoGarantia = () => { 
