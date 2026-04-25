@@ -833,7 +833,7 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
-// 📝 GESTOR DE DOCUMENTOS (CON BOTÓN MÁGICO RESTAURADO)
+// 📝 GESTOR DE DOCUMENTOS (CON MOTOR DE RENDERIZADO PRO)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -859,21 +859,13 @@ function dibujarCotizador() {
             <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
                     
-                    <style>
-                        #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
-                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
-                        #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
-                        #zona-editable p, #zona-editable div, #zona-editable span, #zona-editable ul, #zona-editable li { color: #000 !important; font-size: 14px !important; }
-                        .placeholder-gris { color: #999 !important; }
-                    </style>
-
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
                         <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
                         <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
                     
                     <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
-                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
+                        <p style="color:#999;text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
@@ -888,60 +880,78 @@ function dibujarCotizador() {
 
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
-    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+    document.getElementById('zona-editable').innerHTML = '<p style="color:#999;text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
 };
 
-// LA MAGIA RESTAURADA: Este botón agarra el código sucio del celular y arma la tabla
+// EL MOTOR DEFINITIVO DE RENDERIZADO: Construye todo desde cero limpiando el código del iPhone
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let texto = z.innerText;
-    let htmlBase = z.innerHTML;
+    let rawText = z.innerText; 
+    
+    // Limpieza profunda de basuras del portapapeles del celular
+    rawText = rawText.replace(/\$/g, '')
+                     .replace(/~/g, ' ')
+                     .replace(/\\/g, '')
+                     .replace(/\{|\}/g, '')
+                     .replace(/\^2/g, '2');
 
-    // Detecta si se pegó el código con las rayas de la tabla
-    if(texto.includes('|---') || texto.includes('| ---')) {
-        let lineas = texto.split('\n');
-        let nuevoHTML = '';
-        let enTabla = false;
+    let lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    let finalHTML = '';
+    let inTable = false;
 
-        lineas.forEach(linea => {
-            let l = linea.trim();
-            // Ignora la línea de separación fea de la tabla
-            if (l.match(/^\|[\-\s\|]+\|$/)) return; 
+    lines.forEach(l => {
+        // Ignorar la fila de guiones inútil de la tabla Markdown
+        if (l.replace(/[\-\| :]/g, '').length === 0 && l.includes('|')) return;
 
-            if (l.startsWith('|') && l.endsWith('|')) {
-                if (!enTabla) {
-                    enTabla = true;
-                    nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
-                }
-                let celdas = l.substring(1, l.length - 1).split('|');
-                nuevoHTML += '<tr style="border:1px solid #000;">';
-                celdas.forEach(celda => {
-                    // Pone en negrita lo que esté entre asteriscos
-                    let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${c}</td>`;
-                });
-                nuevoHTML += '</tr>';
-            } else {
-                if (enTabla) {
-                    nuevoHTML += '</table>';
-                    enTabla = false;
-                }
-                if (l !== '') {
-                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                    c = c.replace(/### (.*)/, '<b>$1</b>');
-                    c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
-                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
-                }
+        if (l.startsWith('|') && l.endsWith('|')) {
+            if (!inTable) {
+                inTable = true;
+                finalHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000; border:1px solid #000;">';
             }
-        });
-        if (enTabla) nuevoHTML += '</table>';
-        z.innerHTML = nuevoHTML;
-    } else {
-        // Si no hay tabla con rayitas, solo limpia los asteriscos y basuras del texto normal
-        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        htmlBase = htmlBase.replace(/\*\*/g, '');
-        z.innerHTML = htmlBase;
-    }
+            
+            let cells = l.substring(1, l.length - 1).split('|').map(c => c.trim());
+            
+            // Detecta si es encabezado (ítem, descripción)
+            let isHeader = cells.some(c => c.toLowerCase().includes('ítem') || c.toLowerCase().includes('descripción') || c.toLowerCase().includes('item'));
+
+            finalHTML += '<tr>';
+            cells.forEach((c, index) => {
+                let cellText = c.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\*(.*?)\*/g, '<i>$1</i>');
+                
+                // Alineación automática de columnas
+                let align = "left";
+                if (index === 0 || index === 2) align = "center";
+                if (index === 3) align = "right";
+
+                if (isHeader) {
+                    finalHTML += `<th style="border:1px solid #000; padding:8px; background-color:#f2f2f2; text-align:${align}; font-weight:bold; color:#000;">${cellText}</th>`;
+                } else {
+                    finalHTML += `<td style="border:1px solid #000; padding:8px; text-align:${align}; color:#000;">${cellText}</td>`;
+                }
+            });
+            finalHTML += '</tr>';
+        } else {
+            if (inTable) {
+                finalHTML += '</table>';
+                inTable = false;
+            }
+            
+            // Renderiza textos fuera de la tabla
+            let text = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            if (text.startsWith('# ')) {
+                finalHTML += `<h2 style="font-size:16px; font-weight:900; color:#000; margin-top:20px; margin-bottom:10px; text-transform:uppercase;">${text.replace('# ', '')}</h2>`;
+            } else if (text.startsWith('## ') || text.startsWith('### ')) {
+                finalHTML += `<h3 style="font-size:13px; font-weight:bold; color:#cc0000; margin-top:15px; margin-bottom:5px; text-transform:uppercase;">${text.replace(/#/g, '').trim()}</h3>`;
+            } else if (text.startsWith('* ') || text.startsWith('- ')) {
+                finalHTML += `<ul style="margin:5px 0; padding-left:20px; color:#000; list-style-type: disc;"><li style="margin-bottom:4px; font-size:13px;">${text.substring(2)}</li></ul>`;
+            } else {
+                finalHTML += `<p style="margin-bottom:8px; font-size:13px; color:#000;">${text}</p>`;
+            }
+        }
+    });
+    
+    if (inTable) finalHTML += '</table>';
+    z.innerHTML = finalHTML;
 };
 
 window.modoGarantia = () => { 
