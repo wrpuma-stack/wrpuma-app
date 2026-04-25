@@ -10,7 +10,7 @@ const getLocalISODate = (dateObj = new Date()) => {
 };
 
 let fechaSel = getLocalISODate();
-window.carritoPresupuesto = window.carritoPresupuesto || []; 
+window.carritoPresupuesto = [];
 
 const getDbPath = (path) => {
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -54,6 +54,7 @@ window.verAccesoPro = (usuario) => {
 // 🧮 CALCULADORA COMPUTOS PRO
 // ==========================================================
 function dibujarCalculadora() {
+    window.carritoPresupuesto = [];
     appDiv.innerHTML = `
     <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
         <div class="max-w-md mx-auto">
@@ -62,12 +63,10 @@ function dibujarCalculadora() {
                 <button onclick="window.location.hash='#menu'" class="bg-white text-blue-700 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
             </div>
             <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-5">
-                <div class="flex justify-between items-end mb-2 border-b-2 border-blue-100 pb-2">
+                <div class="mb-2">
                     <label class="text-[10px] text-zinc-500 font-bold uppercase ml-1">NOMBRE DEL AMBIENTE:</label>
-                    <button onclick="window.limpiarCarritoTotal()" class="text-[9px] text-red-500 font-black uppercase underline">Borrar Toda la Lista</button>
+                    <input id="calc-nombre" type="text" placeholder="Ej: Dormitorio, Sala, Techo" class="w-full p-3 border-2 border-blue-400 rounded-xl font-black text-lg text-blue-900 uppercase focus:outline-none focus:border-blue-600 shadow-inner bg-blue-50">
                 </div>
-                <input id="calc-nombre" type="text" placeholder="Ej: Dormitorio, Sala, Techo" class="w-full p-3 border-2 border-blue-400 rounded-xl font-black text-lg text-blue-900 uppercase focus:outline-none focus:border-blue-600 shadow-inner bg-blue-50 -mt-3">
-                
                 <div class="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 shadow-sm">
                     <select id="calc-tipo" onchange="window.cambiarTipoCalc(); window.calcularParcial();" class="w-full p-3 mb-3 border border-zinc-300 rounded-xl font-black text-zinc-700 uppercase text-xs outline-none">
                         <option value="cuarto">MODO: CUARTO COMPLETO</option>
@@ -137,16 +136,8 @@ function dibujarCalculadora() {
             matSelect.innerHTML += `<option value="${mats[id].precio}">${mats[id].nombre} (${mats[id].marca}) - Bs. ${mats[id].precio}</option>`;
         });
     });
-    
-    setTimeout(() => { window.calcularParcial(); window.renderCarrito(); }, 100);
+    setTimeout(window.calcularParcial, 100);
 }
-
-window.limpiarCarritoTotal = () => {
-    if(confirm("¿Estás seguro de borrar toda la lista de la cotización actual?")){
-        window.carritoPresupuesto = [];
-        window.renderCarrito();
-    }
-};
 
 window.cargarPrecioDeAlmacen = (precio) => {
     if (precio) { document.getElementById('calc-precio-m2').value = precio; window.calcularParcial(); }
@@ -194,19 +185,13 @@ window.agregarAlCarrito = () => {
 
 window.renderCarrito = () => {
     const c = document.getElementById('contenedor-carrito'), l = document.getElementById('lista-carrito');
-    if (!window.carritoPresupuesto || window.carritoPresupuesto.length === 0) {
-        if(c) c.style.display = 'none';
-        return;
-    }
-    if(c) c.style.display = 'block'; 
-    if(l) l.innerHTML = ''; 
-    let t = 0;
+    if (window.carritoPresupuesto.length === 0) return c.style.display = 'none';
+    c.style.display = 'block'; l.innerHTML = ''; let t = 0;
     window.carritoPresupuesto.forEach((i, idx) => {
         t += parseFloat(i.total);
-        if(l) l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`;
+        l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`;
     });
-    const gt = document.getElementById('carrito-gran-total');
-    if(gt) gt.innerText = t.toFixed(2);
+    document.getElementById('carrito-gran-total').innerText = t.toFixed(2);
 };
 
 window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
@@ -850,11 +835,11 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
-// 📝 COTIZADOR WORD (CON TINTA NEGRA FORZADA Y ALTA RESOLUCIÓN SEGURA)
+// 📝 COTIZADOR WORD (CON TINTA NEGRA Y PLANTILLA DE TABLA)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
-    <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
+    <div class="min-h-screen p-2 text-black bg-zinc-200">
         <div class="max-w-4xl mx-auto">
             <div class="bg-zinc-900 p-4 text-white flex justify-between items-center rounded-2xl mb-4">
                 <h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2>
@@ -864,16 +849,22 @@ function dibujarCotizador() {
                 <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-xs uppercase">MODO COTIZACION</button>
                 <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-xs uppercase">MODO RECIBO</button>
             </div>
-            <button onclick="window.modoGarantia()" class="w-full bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-xs uppercase mb-4 border-b-4 border-yellow-800">MODO CERTIFICADO DE GARANTIA</button>
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
-            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">Pega tu tabla de Excel aquí abajo. El sistema la pintará de negro automáticamente al generar el PDF.</p>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[11px] uppercase border-b-4 border-yellow-800">MODO GARANTIA</button>
+                <button onclick="window.insertarTablaCotizacion()" class="bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[11px] uppercase border-b-4 border-blue-800">PLANTILLA TABLA</button>
+            </div>
             
-            <div class="overflow-x-auto w-full pb-10 shadow-2xl">
-                <div id="hoja-pdf" class="bg-white text-black mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
+            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">TOCA EL BOTÓN AZUL PARA INSERTAR UNA TABLA PROFESIONAL.</p>
+            
+            <div class="overflow-x-auto w-full pb-10">
+                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
                     
                     <style>
-                        #zona-editable table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 6px; }
+                        #zona-editable table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
+                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 6px; color: #000 !important; }
+                        #zona-editable th { background-color: #f2f2f2 !important; }
+                        #zona-editable p, #zona-editable span, #zona-editable div, #zona-editable li { color: #000 !important; }
                         .placeholder-gris { color: #999 !important; }
                     </style>
 
@@ -882,8 +873,8 @@ function dibujarCotizador() {
                         <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
                     
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onfocus="if(this.innerText.includes('--- Ingrese')) { this.innerHTML=''; }">
-                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Ingrese la descripcion del presupuesto o pegue su tabla aquí ---</p>
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Ingrese la descripcion')) this.innerHTML='';">
+                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento o toque "PLANTILLA TABLA" ---</p>
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
@@ -894,11 +885,71 @@ function dibujarCotizador() {
             </div>
         </div>
     </div>`;
+
+    setTimeout(() => {
+        const z = document.getElementById('zona-editable');
+        if (z) { z.addEventListener('paste', () => { setTimeout(() => { let html = z.innerHTML; html = html.replace(/\*\*/g, ''); z.innerHTML = html; }, 50); }); }
+    }, 200);
 }
 
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
-    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento o pegue su tabla ---</p>'; 
+    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Ingrese la descripcion del documento o toque "PLANTILLA TABLA" ---</p>'; 
+};
+
+// NUEVA FUNCIÓN: Inserta una tabla profesional sin necesidad de copiar/pegar
+window.insertarTablaCotizacion = () => {
+    const z = document.getElementById('zona-editable');
+    const tablaHTML = `
+    <div style="font-family: Arial, sans-serif; color: #000;">
+        <p style="margin: 0 0 10px 0;"><strong>CLIENTE:</strong> [Nombre del Cliente]</p>
+        <p style="margin: 0 0 15px 0;"><strong>PROYECTO:</strong> [Nombre de la Obra]</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #000; font-size: 13px;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 5%;">N°</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: left; width: 55%;">DESCRIPCIÓN DEL SERVICIO (Llave en mano)</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 15%;">MEDIDA</th>
+                    <th style="border: 1px solid #000; padding: 6px; text-align: right; width: 25%;">TOTAL (Bs)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">1</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: left;"><strong>Pintura Látex Premium:</strong> Preparación de muros, empaste ligero y aplicación de pintura lavable.</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">0.00 m2</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">0.00</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">2</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: left;"><strong>Efecto Cemento Quemado:</strong> Acabado arquitectónico de alta gama con protección.</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: center;">0.00 m2</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">0.00</td>
+                </tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold;">INVERSIÓN TOTAL:</td>
+                    <td style="border: 1px solid #000; padding: 6px; text-align: right; font-weight: bold; color: #cc0000; font-size: 14px;">Bs. 0.00</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <p style="font-weight: bold; margin: 15px 0 5px 0; font-size: 13px;">CONDICIONES DE PAGO Y TRABAJO:</p>
+        <ul style="padding-left: 20px; margin-bottom: 15px; font-size: 13px;">
+            <li style="margin-bottom: 4px;"><strong>Anticipo (50%):</strong> Bs. 0.00 (Para reserva de agenda y compra de materiales).</li>
+            <li style="margin-bottom: 4px;"><strong>Saldo (50%):</strong> Bs. 0.00 (Al finalizar y entregar la obra a satisfacción).</li>
+            <li style="margin-bottom: 4px;"><strong>Validez:</strong> Esta cotización es válida por 15 días.</li>
+        </ul>
+    </div>
+    `;
+    
+    if (z.innerHTML.includes('--- Ingrese la descripcion')) {
+        z.innerHTML = tablaHTML;
+    } else {
+        z.innerHTML += tablaHTML;
+    }
 };
 
 window.modoGarantia = () => { 
@@ -909,35 +960,20 @@ window.modoGarantia = () => {
 window.generarPDF = () => { 
     const btn = event.target; 
     const txt = btn.innerText; 
-    btn.innerText = "FORZANDO TINTA NEGRA Y PROCESANDO..."; 
+    btn.innerText = "PROCESANDO DOCUMENTO..."; 
     btn.disabled = true; 
-
-    // FORZAR TINTA NEGRA Y BORDES A TODO LO PEGADO
-    const zona = document.getElementById('zona-editable');
-    const elementos = zona.querySelectorAll('*');
-    elementos.forEach(el => {
-        el.style.color = '#000000';
-        if(el.tagName === 'TD' || el.tagName === 'TH' || el.tagName === 'TABLE') {
-            el.style.borderColor = '#000000';
-        }
-    });
-
     setTimeout(() => { 
         html2pdf().set({ 
             margin: 0, 
-            filename: `WRPUMA_Doc_${Date.now()}.pdf`, 
-            image: { type: 'jpeg', quality: 0.98 }, 
-            html2canvas: { scale: 2, useCORS: true }, 
+            filename: `Doc_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 1 }, 
+            html2canvas: { scale: 3, useCORS: true }, 
             jsPDF: { unit: 'mm', format: 'a4' } 
         }).from(document.getElementById('hoja-pdf')).save().then(() => { 
             btn.innerText = txt; 
             btn.disabled = false; 
-        }).catch(err => {
-            alert("Error de memoria en el celular. Intente de nuevo.");
-            btn.innerText = txt; 
-            btn.disabled = false;
         }); 
-    }, 800); 
+    }, 1000); 
 };
 
 // ==========================================================
