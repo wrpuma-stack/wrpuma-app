@@ -210,7 +210,7 @@ window.enviarCarritoWhatsApp = () => {
 };
 
 // ==========================================================
-// 📋 ASISTENCIA PRO (JORNALEROS CON FILTRO DE HORAS ATRASO)
+// 📋 ASISTENCIA PRO (CON HORAS DE ATRASO)
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -517,7 +517,6 @@ function dibujarPlanilla() {
             const dNormPagar = d.dNorm + compensacion;
             const sTotBruto = (dNormPagar + d.dExt) * sDia;
             
-            // CÁLCULO DE DESCUENTO POR HORAS (Sueldo diario / 8 horas de jornada base)
             const descAtraso = d.horasAtraso * (sDia / 8);
             const saldo = sTotBruto - d.ant - descAtraso;
             tP += saldo;
@@ -549,7 +548,6 @@ function dibujarPlanilla() {
     });
 }
 
-// CAPTURA EL DESGLOSE COMPLETO EN LA BASE DE DATOS AL CONFIRMAR EL PAGO
 window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant, horasAtraso, descAtraso, compensacion) => {
     if (confirm(`¿Transferencia de Bs. ${monto.toFixed(2)} a ${nombre} completada? \n\nSe descontará de la utilidad de: ${obraNombre}`)) {
         firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
@@ -557,21 +555,12 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant
             if (idObra) {
                 data.registrarMovimiento(idObra, 'pago_sueldo', monto, `Sueldo Semanal: ${nombre}`);
                 
-                // GUARDADO DE RECIBO DIGITAL DESGLOSADO
                 firebase.database().ref(getDbPath(`pagos_historial/${nombre}_semana_${pFIni}`)).set({ 
                     fecha_pago: new Date().toISOString(), 
                     trabajador: nombre, 
                     monto: monto, 
                     semana_ancla: pFIni,
-                    detalles: {
-                        sueldo_dia: sDia,
-                        dias_normales: dNorm,
-                        dias_extras: dExt,
-                        anticipos: ant,
-                        horas_atraso: horasAtraso,
-                        descuento_atraso: descAtraso,
-                        compensacion: compensacion
-                    }
+                    detalles: { sueldo_dia: sDia, dias_normales: dNorm, dias_extras: dExt, anticipos: ant, horas_atraso: horasAtraso, descuento_atraso: descAtraso, compensacion: compensacion }
                 }).then(() => { alert(`Pago registrado con desglose técnico.`);    dibujarPlanilla(); });
             } else { alert("Error de sistema: No se encontró la obra."); }
         });
@@ -580,7 +569,7 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
 // ==========================================================
-// 🗂️ HISTORIAL DE SUELDOS CON DESGLOSE VISIBLE AL TRABAJADOR
+// 🗂️ HISTORIAL DE SUELDOS
 // ==========================================================
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `
@@ -641,7 +630,6 @@ window.verHistorialSueldos = () => {
                 }
                 const monto = parseFloat(p.monto) || 0;
 
-                // DIBUJA EL DESGLOSE EXTENDIDO DE FORMA VISIBLE SI EXISTE EN LOS DATOS
                 let desgloseUI = '';
                 if(p.detalles) {
                     const det = p.detalles;
@@ -688,6 +676,128 @@ window.verHistorialSueldos = () => {
             </details>`;
         });
     });
+};
+
+// ==========================================================
+// 🛠️ MÓDULO NUEVO: CONTROL DE HERRAMIENTAS (INVENTARIO)
+// ==========================================================
+function dibujarHerramientas() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-yellow-600 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic uppercase">INVENTARIO</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-yellow-700 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
+                
+                <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4">
+                    <h3 class="text-[10px] font-black text-yellow-800 uppercase mb-3 text-center">NUEVA HERRAMIENTA O EQUIPO</h3>
+                    <input id="h-nom" type="text" placeholder="Herramienta (Ej. Lijadora Jirafa)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm mb-2 outline-none">
+                    <input id="h-marca" type="text" placeholder="Marca / Serie (Ej. Mirka, Festool)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm mb-3 outline-none">
+                    <button onclick="window.saveHerr()" class="w-full bg-black text-white font-black py-4 rounded-xl active:scale-95 shadow-lg uppercase text-sm">Registrar en Bodega</button>
+                </div>
+
+                <h3 class="mt-6 mb-2 font-black text-yellow-700 uppercase text-xs border-b-2 border-yellow-200 pb-1">ESTADO DE HERRAMIENTAS</h3>
+                <div id="list-herr" class="space-y-4 pt-2"></div>
+            </div>
+        </div>
+    </div>`;
+
+    data.obtenerTodo((db) => {
+        const h = db.herramientas || {};
+        const p = db.personal || {};
+        const o = db.obras || {};
+
+        let selP = `<option value="">- Asignar a -</option>`;
+        Object.keys(p).forEach(k => selP += `<option value="${k}">${k}</option>`);
+
+        let selO = `<option value="">- En Obra -</option><option value="BODEGA">EN TALLER / BODEGA</option>`;
+        Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') selO += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
+
+        const c = document.getElementById('list-herr'); if (!c) return; c.innerHTML = '';
+        const ids = Object.keys(h);
+        if(ids.length === 0) c.innerHTML = `<p class="text-center text-[10px] text-zinc-400 font-bold uppercase py-4">No hay herramientas registradas.</p>`;
+
+        ids.forEach(id => {
+            const item = h[id];
+            const enBodega = !item.asignado_a || item.asignado_a === 'BODEGA';
+            
+            let cardContent = '';
+            if (enBodega) {
+                cardContent = `
+                <div class="p-4 bg-zinc-50 rounded-2xl border-2 border-green-500 shadow-sm relative">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <b class="text-sm uppercase text-black font-black">${item.nombre}</b><br>
+                            <span class="text-[10px] text-zinc-500 font-bold uppercase">${item.marca || 'S/M'}</span>
+                        </div>
+                        <span class="text-[9px] bg-green-500 text-white px-2 py-1 rounded-lg font-bold uppercase">EN BODEGA</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <select id="selP_${id}" class="p-2 border border-zinc-300 rounded-lg text-[10px] font-bold outline-none uppercase bg-white">${selP}</select>
+                        <select id="selO_${id}" class="p-2 border border-zinc-300 rounded-lg text-[10px] font-bold outline-none uppercase bg-white">${selO}</select>
+                    </div>
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="window.asignarHerr('${id}')" class="flex-[3] bg-yellow-500 text-white text-[10px] font-black py-2 rounded-xl active:scale-95 shadow-md uppercase">Entregar Equipo</button>
+                        <button onclick="window.delHerr('${id}')" class="flex-1 bg-red-100 text-red-600 text-[10px] font-black py-2 rounded-xl active:scale-95 uppercase border border-red-300">Borrar</button>
+                    </div>
+                </div>`;
+            } else {
+                let fechaAsig = new Date(item.fecha_asignacion).toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+                cardContent = `
+                <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm relative opacity-90">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <b class="text-sm uppercase text-black font-black">${item.nombre}</b><br>
+                            <span class="text-[10px] text-zinc-600 font-bold uppercase">${item.marca || 'S/M'}</span>
+                        </div>
+                        <span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg font-bold uppercase text-center">EN USO<br>${fechaAsig}</span>
+                    </div>
+                    <div class="my-2 p-2 bg-orange-100 border border-orange-300 rounded-lg text-center">
+                        <span class="text-[10px] font-bold text-orange-800 uppercase block">Responsable actual:</span>
+                        <span class="text-sm font-black text-orange-900 uppercase">${item.asignado_a} - ${item.obra}</span>
+                    </div>
+                    <button onclick="window.devolverHerr('${id}')" class="w-full bg-black text-white text-[11px] font-black py-3 rounded-xl active:scale-95 shadow-md uppercase mt-1">Recibir en Bodega</button>
+                </div>`;
+            }
+            c.innerHTML += cardContent;
+        });
+    });
+}
+
+window.saveHerr = () => {
+    const nom = document.getElementById('h-nom').value.trim();
+    const mar = document.getElementById('h-marca').value.trim();
+    if (nom) {
+        firebase.database().ref(getDbPath(`herramientas/HERR_${Date.now()}`)).set({
+            nombre: nom, marca: mar, asignado_a: 'BODEGA', obra: 'Ninguna', fecha_asignacion: new Date().toISOString()
+        }).then(() => { dibujarHerramientas(); });
+    } else { alert("Ingrese el nombre de la herramienta."); }
+};
+
+window.asignarHerr = (id) => {
+    const trabajador = document.getElementById(`selP_${id}`).value;
+    const obra = document.getElementById(`selO_${id}`).value;
+    if(trabajador && obra) {
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({
+            asignado_a: trabajador, obra: obra, fecha_asignacion: new Date().toISOString()
+        }).then(() => { dibujarHerramientas(); });
+    } else { alert("Debe seleccionar un trabajador responsable y una obra."); }
+};
+
+window.devolverHerr = (id) => {
+    if(confirm("¿Confirmas que recibiste esta herramienta de vuelta y está en buen estado?")) {
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({
+            asignado_a: 'BODEGA', obra: 'Ninguna', fecha_asignacion: new Date().toISOString()
+        }).then(() => { dibujarHerramientas(); });
+    }
+};
+
+window.delHerr = (id) => {
+    if(confirm("¿Eliminar esta herramienta del inventario de la empresa?")) {
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).remove().then(() => { dibujarHerramientas(); });
+    }
 };
 
 // ==========================================================
@@ -832,7 +942,7 @@ window.editarNombreObra = (id, nombreAntiguo) => {
     const nuevo = prompt("CORREGIR NOMBRE DEL PROYECTO:", nombreAntiguo);
     if (nuevo && nuevo.trim() !== "" && nuevo.trim().toUpperCase() !== nombreAntiguo.toUpperCase()) {
         const nMayus = nuevo.trim().toUpperCase();
-        if (confirm("¿Guardar modification?")) {
+        if (confirm("¿Guardar modificación?")) {
             firebase.database().ref(getDbPath(`obras/${id}`)).update({ nombre: nMayus });
             data.obtenerTodo((db) => {
                 const hist = db.asistencia_semanal || {};
@@ -1019,7 +1129,7 @@ window.generarPDF = () => {
 };
 
 // ==========================================================
-// 🚀 MENU Y ENRUTADOR
+// 🚀 MENU Y ENRUTADOR (NUEVO BOTON INVENTARIO)
 // ==========================================================
 function dibujarMenu() {
     const u = localStorage.getItem('u_wr'); const adm = localStorage.getItem('a_wr') === 'true'; const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -1040,6 +1150,7 @@ function dibujarMenu() {
                 <button onclick="window.location.hash='#obras'" class="bg-zinc-900 text-white aspect-square rounded-3xl border border-zinc-800 active:scale-95 shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Proyectos</span></button>
                 <button onclick="window.location.hash='#personal'" class="bg-zinc-100 text-black aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Personal</span></button>
                 <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Catálogo APU</span></button>
+                <button onclick="window.location.hash='#herramientas'" class="col-span-2 bg-yellow-600 text-white h-16 rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-lg font-black text-[12px] uppercase italic border-b-4 border-yellow-800">Inventario / Herramientas</button>
                 ` : `<div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div><div class="bg-zinc-950 text-zinc-700 aspect-square rounded-3xl border border-zinc-900"></div>`}
 
                 <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-zinc-300"><span class="font-black text-[11px] uppercase text-red-600">Generar Documentos Word</span></button>
@@ -1057,11 +1168,12 @@ function enrutador() {
     if (!u && h !== '') { window.location.hash = ''; return; }
     if (h === '#asistencia') dibujarAsistencia(); else if (h === '#cotizaciones') dibujarCotizador();
     else if (h === '#calculadora') dibujarCalculadora(); else if (h === '#menu') dibujarMenu();
-    else if (!adm && ['#planilla', '#obras', '#personal', '#utilidad', '#contabilidad', '#almacen', '#tratos', '#historial-sueldos'].includes(h)) { window.location.hash = '#menu'; }
+    else if (!adm && ['#planilla', '#obras', '#personal', '#utilidad', '#contabilidad', '#almacen', '#tratos', '#historial-sueldos', '#herramientas'].includes(h)) { window.location.hash = '#menu'; }
     else if (h === '#planilla') dibujarPlanilla(); else if (h === '#obras') dibujarObras();
     else if (h === '#personal') dibujarPersonal(); else if (h === '#almacen') dibujarAlmacen();
     else if (h === '#utilidad') dibujarUtilidad(); else if (h === '#contabilidad') dibujarCaja();
-    else if (h === '#tratos') dibujarTratos(); else if (h === '#historial-sueldos') window.verHistorialSueldos(); else dibujarAcceso();
+    else if (h === '#tratos') dibujarTratos(); else if (h === '#historial-sueldos') window.verHistorialSueldos(); 
+    else if (h === '#herramientas') dibujarHerramientas(); else dibujarAcceso();
 }
 
 function dibujarAcceso() {
