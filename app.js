@@ -210,7 +210,7 @@ window.enviarCarritoWhatsApp = () => {
 };
 
 // ==========================================================
-// 📋 ASISTENCIA PRO (JORNALEROS)
+// 📋 ASISTENCIA PRO (JORNALEROS CON FILTRO DE HORAS ATRASO)
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -242,6 +242,11 @@ function dibujarAsistencia() {
                 <div class="bg-blue-50 p-2 rounded-xl border border-blue-200">
                     <label class="text-[9px] text-blue-600 font-bold uppercase mb-1 block">TURNO EXTRA:</label>
                     <select id="modal-j-extra" class="w-full p-2 bg-white border border-blue-300 rounded-lg font-black text-blue-700 text-xs outline-none"><option value="0">Sin Extra</option><option value="0.5">0.5 Dias (Hasta 10pm)</option><option value="1">1 Dia (Hasta 1am)</option><option value="1.5">1.5 Dias (Amanecida/Dom)</option></select>
+                </div>
+                
+                <div class="bg-orange-50 p-2 rounded-xl border border-orange-200 col-span-2">
+                    <label class="text-[9px] text-orange-700 font-bold uppercase mb-1 block text-center">Horas de Atraso / No Trabajadas hoy:</label>
+                    <input id="modal-atraso-horas" type="number" value="0" step="0.5" min="0" max="8" class="w-full p-2 bg-white border border-orange-300 rounded-lg font-black text-center text-zinc-900 text-xs outline-none">
                 </div>
             </div>
             <div class="mb-5 bg-red-50 p-3 rounded-xl border border-red-200">
@@ -301,6 +306,7 @@ window.renderListaPintores = () => {
             let jE = record.jornada_extra || 0;
             if (jN > 0) infoArr.push(`Normal: ${jN}D`);
             if (jE > 0) infoArr.push(`Extra: ${jE}D`);
+            if (parseFloat(record.horas_atraso || 0) > 0) infoArr.push(`Atraso: ${record.horas_atraso}h`);
             if (record.monto_anticipo > 0) infoArr.push(`Anticipo: Bs.${record.monto_anticipo}`);
             if (infoArr.length > 0) resumenInfo = `<br><span class="text-[10px] text-green-700 font-bold uppercase">${infoArr.join(' | ')}</span>`;
         }
@@ -318,6 +324,7 @@ window.abrirModalAsistencia = (n, existe) => {
     document.getElementById('modal-j-normal').value = record.jornada_normal !== undefined ? record.jornada_normal : (record.jornada || "1");
     document.getElementById('modal-j-extra').value = record.jornada_extra || "0";
     document.getElementById('modal-anticipo').value = record.monto_anticipo || "0";
+    document.getElementById('modal-atraso-horas').value = record.horas_atraso || "0";
     const btnQuitar = document.getElementById('btn-quitar-asist');
     existe ? btnQuitar.classList.remove('hidden') : btnQuitar.classList.add('hidden');
     document.getElementById('modal-asistencia').classList.remove('hidden');
@@ -331,7 +338,8 @@ window.guardarAsistenciaModal = () => {
         nombre: n, obra: obraSel,
         jornada_normal: parseFloat(document.getElementById('modal-j-normal').value) || 0,
         jornada_extra: parseFloat(document.getElementById('modal-j-extra').value) || 0,
-        monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value) || 0
+        monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value) || 0,
+        horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value) || 0
     });
     document.getElementById('modal-asistencia').classList.add('hidden');
 };
@@ -464,7 +472,7 @@ window.verTratosArchivados = () => {
 };
 
 // ==========================================================
-// 💰 PLANILLA DE PAGOS 
+// 💰 PLANILLA DE PAGOS (CON DESGLOSE DETALLADO Y HORAS)
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `
@@ -491,10 +499,11 @@ function dibujarPlanilla() {
                 Object.values(hist[f]).forEach(reg => {
                     const idPagoReferencia = `${reg.nombre}_semana_${pFIni}`;
                     if (pagosRealizados[idPagoReferencia]) return;
-                    if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, obraPrincipal: reg.obra };
+                    if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, horasAtraso: 0, obraPrincipal: reg.obra };
                     res[reg.nombre].dNorm += parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : (reg.jornada || 1));
                     res[reg.nombre].dExt += parseFloat(reg.jornada_extra || 0);
                     res[reg.nombre].ant += parseFloat(reg.monto_anticipo) || 0;
+                    res[reg.nombre].horasAtraso += parseFloat(reg.horas_atraso || 0);
                 });
             }
         });
@@ -506,43 +515,73 @@ function dibujarPlanilla() {
             const d = res[n], sDia = parseFloat(per[n]?.sueldo_dia) || 0;
             const compensacion = d.dNorm >= 5.5 ? 0.5 : 0;
             const dNormPagar = d.dNorm + compensacion;
-            const sTot = (dNormPagar + d.dExt) * sDia;
-            const saldo = sTot - d.ant;
+            const sTotBruto = (dNormPagar + d.dExt) * sDia;
+            
+            // CÁLCULO DE DESCUENTO POR HORAS (Sueldo diario / 8 horas de jornada base)
+            const descAtraso = d.horasAtraso * (sDia / 8);
+            const saldo = sTotBruto - d.ant - descAtraso;
             tP += saldo;
 
             let textoCompensacion = compensacion > 0 ? `<span class="text-green-400 font-black text-sm">+0.5 D (Ahorro)</span>` : `<span class="text-red-500 font-bold text-xs">Pierde Sáb. Tarde</span>`;
+            let renglonAtrasoUI = d.horasAtraso > 0 ? `
+                <div class="bg-black p-3 rounded-2xl border border-red-900 flex flex-col justify-center col-span-2">
+                    <span class="text-[9px] text-red-400 uppercase font-bold">Descuento por Atrasos / Horas faltantes:</span>
+                    <span class="text-red-500 font-black text-sm">-${d.horasAtraso} Horas (-Bs. ${descAtraso.toFixed(1)})</span>
+                </div>` : '';
 
             c.innerHTML += `
             <div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 shadow-2xl relative">
                 <div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3">
                     <h3 class="font-black text-xl uppercase tracking-tight text-white">${n}</h3>
-                    <span class="bg-red-600 px-3 rounded-lg font-black text-sm py-1 text-center shadow-inner leading-tight">${(dNormPagar + d.dExt).toFixed(1)} D<br><span class="text-[8px] text-red-200">A PAGAR</span></span>
+                    <span class="bg-red-600 text-white px-3 rounded-lg font-black text-sm py-1 text-center shadow-inner leading-tight">${(dNormPagar + d.dExt).toFixed(1)} D<br><span class="text-[8px] text-red-200">A PAGAR</span></span>
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-5">
                     <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Salario Base</span><span class="text-white font-black text-lg">Bs. ${sDia}</span></div>
                     <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-red-500 uppercase font-bold">Anticipos Sem.</span><span class="text-red-400 font-black text-lg">-Bs. ${d.ant}</span></div>
                     <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Días (N + Extra)</span><span class="text-white font-black text-lg">${d.dNorm} <span class="text-xs text-zinc-500">+ ${d.dExt}</span></span></div>
                     <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-blue-400 uppercase font-bold">Compensación Sábado</span>${textoCompensacion}</div>
+                    ${renglonAtrasoUI}
                 </div>
-                <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}')" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_15px_rgba(34,197,94,0.2)] active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">PAGAR: Bs. ${saldo.toFixed(2)}</button>
+                <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.horasAtraso}, ${descAtraso}, ${compensacion})" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_15px_rgba(34,197,94,0.2)] active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">PAGAR: Bs. ${saldo.toFixed(2)}</button>
             </div>`;
         });
         if (tP > 0) { c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center shadow-2xl border-b-4 border-green-800"><p class="text-[10px] font-black mb-1 uppercase text-green-200">Desembolso de Sueldos</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML; }
     });
 }
-window.ejecutarPagoEfectivo = (nombre, monto, obraNombre) => {
+
+// CAPTURA EL DESGLOSE COMPLETO EN LA BASE DE DATOS AL CONFIRMAR EL PAGO
+window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant, horasAtraso, descAtraso, compensacion) => {
     if (confirm(`¿Transferencia de Bs. ${monto.toFixed(2)} a ${nombre} completada? \n\nSe descontará de la utilidad de: ${obraNombre}`)) {
         firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
             const obras = snap.val() || {}; const idObra = Object.keys(obras).find(id => obras[id].nombre === obraNombre);
             if (idObra) {
                 data.registrarMovimiento(idObra, 'pago_sueldo', monto, `Sueldo Semanal: ${nombre}`);
-                firebase.database().ref(getDbPath(`pagos_historial/${nombre}_semana_${pFIni}`)).set({ fecha_pago: new Date().toISOString(), trabajador: nombre, monto: monto, semana_ancla: pFIni }).then(() => { alert(`Pago registrado.`); dibujarPlanilla(); });
+                
+                // GUARDADO DE RECIBO DIGITAL DESGLOSADO
+                firebase.database().ref(getDbPath(`pagos_historial/${nombre}_semana_${pFIni}`)).set({ 
+                    fecha_pago: new Date().toISOString(), 
+                    trabajador: nombre, 
+                    monto: monto, 
+                    semana_ancla: pFIni,
+                    detalles: {
+                        sueldo_dia: sDia,
+                        dias_normales: dNorm,
+                        dias_extras: dExt,
+                        anticipos: ant,
+                        horas_atraso: horasAtraso,
+                        descuento_atraso: descAtraso,
+                        compensacion: compensacion
+                    }
+                }).then(() => { alert(`Pago registrado con desglose técnico.`);    dibujarPlanilla(); });
             } else { alert("Error de sistema: No se encontró la obra."); }
         });
     }
 };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
+// ==========================================================
+// 🗂️ HISTORIAL DE SUELDOS CON DESGLOSE VISIBLE AL TRABAJADOR
+// ==========================================================
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black p-4 text-white font-sans text-center pb-10">
@@ -598,19 +637,35 @@ window.verHistorialSueldos = () => {
                 let fechaPagoReal = "Fecha antigua";
                 if(p.fecha_pago) {
                     const d = new Date(p.fecha_pago);
-                    if(!isNaN(d)) {
-                        fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
-                    }
+                    if(!isNaN(d)) fechaPagoReal = d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
                 }
                 const monto = parseFloat(p.monto) || 0;
 
+                // DIBUJA EL DESGLOSE EXTENDIDO DE FORMA VISIBLE SI EXISTE EN LOS DATOS
+                let desgloseUI = '';
+                if(p.detalles) {
+                    const det = p.detalles;
+                    desgloseUI = `
+                    <div class="text-[10px] text-zinc-400 grid grid-cols-2 gap-x-2 gap-y-1 mt-2 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+                        <div>💵 Pago x Día: <span class="text-white font-bold">Bs. ${det.sueldo_dia}</span></div>
+                        <div>📅 Días Normales: <span class="text-white font-bold">${det.dias_normales}</span></div>
+                        <div>🚀 Días Extra: <span class="text-white font-bold">${det.dias_extras}</span></div>
+                        <div>🎁 Premio Sáb: <span class="text-white font-bold">+${det.compensacion || 0} D</span></div>
+                        <div>💸 Anticipos: <span class="text-red-400 font-bold">-Bs. ${det.anticipos}</span></div>
+                        ${parseFloat(det.horas_atraso || 0) > 0 ? `<div class="text-orange-400 col-span-2">⚠️ Atrasos: ${det.horas_atraso} hrs (-Bs. ${parseFloat(det.descuento_atraso).toFixed(1)})</div>` : ''}
+                    </div>`;
+                }
+
                 listaTrabajadores += `
-                <div class="flex justify-between items-center py-3 border-b border-zinc-800 last:border-0">
-                    <div>
-                        <p class="text-sm font-black uppercase text-white">${p.trabajador || 'Desconocido'}</p>
-                        <p class="text-[9px] text-zinc-500 uppercase">Transferido el ${fechaPagoReal}</p>
+                <div class="py-3 border-b border-zinc-800 last:border-0">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-sm font-black uppercase text-white">${p.trabajador || 'Desconocido'}</p>
+                            <p class="text-[9px] text-zinc-500 uppercase">Transferido el ${fechaPagoReal}</p>
+                        </div>
+                        <span class="text-green-400 font-bold text-sm">Bs. ${monto.toFixed(2)}</span>
                     </div>
-                    <span class="text-green-400 font-bold text-sm">Bs. ${monto.toFixed(2)}</span>
+                    ${desgloseUI}
                 </div>`;
             });
 
@@ -623,8 +678,8 @@ window.verHistorialSueldos = () => {
                     </div>
                     <div class="text-right flex flex-col items-end">
                         <span class="text-green-500 font-black text-xl">Bs. ${grupo.total.toFixed(2)}</span>
-                        <span class="text-[9px] text-zinc-500 uppercase mt-1 group-open:hidden">▼ Tocar para Desplegar</span>
-                        <span class="text-[9px] text-red-500 uppercase mt-1 hidden group-open:block">▲ Ocultar Lista</span>
+                        <span class="text-[9px] text-zinc-500 uppercase mt-1 group-open:hidden">▼ Tocar para ver recibos</span>
+                        <span class="text-[9px] text-red-500 uppercase mt-1 hidden group-open:block">▲ Ocultar recibos</span>
                     </div>
                 </summary>
                 <div class="px-5 pb-2 bg-black border-t border-zinc-800">
@@ -777,7 +832,7 @@ window.editarNombreObra = (id, nombreAntiguo) => {
     const nuevo = prompt("CORREGIR NOMBRE DEL PROYECTO:", nombreAntiguo);
     if (nuevo && nuevo.trim() !== "" && nuevo.trim().toUpperCase() !== nombreAntiguo.toUpperCase()) {
         const nMayus = nuevo.trim().toUpperCase();
-        if (confirm("¿Guardar modificación?")) {
+        if (confirm("¿Guardar modification?")) {
             firebase.database().ref(getDbPath(`obras/${id}`)).update({ nombre: nMayus });
             data.obtenerTodo((db) => {
                 const hist = db.asistencia_semanal || {};
@@ -833,7 +888,7 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
 
 // ==========================================================
-// 📝 GESTOR DE DOCUMENTOS (CON MOTOR DE RENDERIZADO PRO)
+// 📝 COTIZADOR WORD 
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -859,13 +914,21 @@ function dibujarCotizador() {
             <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
                     
+                    <style>
+                        #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
+                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
+                        #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
+                        #zona-editable * { color: #000 !important; }
+                        .placeholder-gris { color: #999 !important; }
+                    </style>
+
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
                         <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
                         <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
                     
                     <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
-                        <p style="color:#999;text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
+                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
@@ -880,83 +943,60 @@ function dibujarCotizador() {
 
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
-    document.getElementById('zona-editable').innerHTML = '<p style="color:#999;text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
 };
 
-// EL MOTOR DEFINITIVO DE RENDERIZADO: Construye todo desde cero limpiando el código del iPhone
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let rawText = z.innerText; 
-    
-    // Limpieza profunda de basuras del portapapeles del celular
-    rawText = rawText.replace(/\$/g, '')
-                     .replace(/~/g, ' ')
-                     .replace(/\\/g, '')
-                     .replace(/\{|\}/g, '')
-                     .replace(/\^2/g, '2');
+    let texto = z.innerText;
+    let htmlBase = z.innerHTML;
 
-    let lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    let finalHTML = '';
-    let inTable = false;
+    if(texto.includes('|---') || texto.includes('| ---')) {
+        let lineas = texto.split('\n');
+        let nuevoHTML = '';
+        let enTabla = false;
 
-    lines.forEach(l => {
-        // Ignorar la fila de guiones inútil de la tabla Markdown
-        if (l.replace(/[\-\| :]/g, '').length === 0 && l.includes('|')) return;
+        lineas.forEach(linea => {
+            let l = linea.trim();
+            if (l.match(/^\|[\-\s\|]+\|$/)) return; 
 
-        if (l.startsWith('|') && l.endsWith('|')) {
-            if (!inTable) {
-                inTable = true;
-                finalHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000; border:1px solid #000;">';
-            }
-            
-            let cells = l.substring(1, l.length - 1).split('|').map(c => c.trim());
-            
-            // Detecta si es encabezado (ítem, descripción)
-            let isHeader = cells.some(c => c.toLowerCase().includes('ítem') || c.toLowerCase().includes('descripción') || c.toLowerCase().includes('item'));
-
-            finalHTML += '<tr>';
-            cells.forEach((c, index) => {
-                let cellText = c.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\*(.*?)\*/g, '<i>$1</i>');
-                
-                // Alineación automática de columnas
-                let align = "left";
-                if (index === 0 || index === 2) align = "center";
-                if (index === 3) align = "right";
-
-                if (isHeader) {
-                    finalHTML += `<th style="border:1px solid #000; padding:8px; background-color:#f2f2f2; text-align:${align}; font-weight:bold; color:#000;">${cellText}</th>`;
-                } else {
-                    finalHTML += `<td style="border:1px solid #000; padding:8px; text-align:${align}; color:#000;">${cellText}</td>`;
+            if (l.startsWith('|') && l.endsWith('|')) {
+                if (!enTabla) {
+                    enTabla = true;
+                    nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
                 }
-            });
-            finalHTML += '</tr>';
-        } else {
-            if (inTable) {
-                finalHTML += '</table>';
-                inTable = false;
-            }
-            
-            // Renderiza textos fuera de la tabla
-            let text = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-            if (text.startsWith('# ')) {
-                finalHTML += `<h2 style="font-size:16px; font-weight:900; color:#000; margin-top:20px; margin-bottom:10px; text-transform:uppercase;">${text.replace('# ', '')}</h2>`;
-            } else if (text.startsWith('## ') || text.startsWith('### ')) {
-                finalHTML += `<h3 style="font-size:13px; font-weight:bold; color:#cc0000; margin-top:15px; margin-bottom:5px; text-transform:uppercase;">${text.replace(/#/g, '').trim()}</h3>`;
-            } else if (text.startsWith('* ') || text.startsWith('- ')) {
-                finalHTML += `<ul style="margin:5px 0; padding-left:20px; color:#000; list-style-type: disc;"><li style="margin-bottom:4px; font-size:13px;">${text.substring(2)}</li></ul>`;
+                let celdas = l.substring(1, l.length - 1).split('|');
+                nuevoHTML += '<tr style="border:1px solid #000;">';
+                celdas.forEach(celda => {
+                    let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${c}</td>`;
+                });
+                nuevoHTML += '</tr>';
             } else {
-                finalHTML += `<p style="margin-bottom:8px; font-size:13px; color:#000;">${text}</p>`;
+                if (enTabla) {
+                    nuevoHTML += '</table>';
+                    enTabla = false;
+                }
+                if (l !== '') {
+                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    c = c.replace(/### (.*)/, '<b>$1</b>');
+                    c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
+                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                }
             }
-        }
-    });
-    
-    if (inTable) finalHTML += '</table>';
-    z.innerHTML = finalHTML;
+        });
+        if (enTabla) nuevoHTML += '</table>';
+        z.innerHTML = nuevoHTML;
+    } else {
+        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        htmlBase = htmlBase.replace(/\*\*/g, '');
+        z.innerHTML = htmlBase;
+    }
 };
 
 window.modoGarantia = () => { 
     document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center; color:#000 !important;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900; color:#000 !important;">Walter Puma - Gerente General</p>`; 
+    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; 
 };
 
 window.generarPDF = () => { 
