@@ -578,26 +578,50 @@ window.delP = (n) => { if (confirm(`¿Proceder con la eliminación?`)) data.borr
 window.editarP = (oldName, oldSueldo) => { let nuevoNom = prompt("Modificar Nombre:", oldName); if(!nuevoNom) return; let nuevoSueldo = prompt("Modificar Sueldo:", oldSueldo); if(!nuevoSueldo) return; nuevoNom = nuevoNom.trim().toUpperCase(); if(nuevoNom !== oldName) { firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo }); firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal()); } else { firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal()); } };
 
 function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo APU Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
+// ==========================================================
+// 📝 COTIZADOR WORD Y PDF UNIVERSAL
+// ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
-    <div class="p-4 bg-zinc-100 min-h-screen text-black">
-        <div class="max-w-xl mx-auto bg-white p-6 rounded-2xl shadow-xl">
-            <h2 class="text-xl font-black mb-4 uppercase">Generador de Cotizaciones WRPUMA</h2>
-            
-            <div class="space-y-3">
-                <input type="text" id="inp-cliente" placeholder="Nombre del Cliente" class="w-full p-3 border rounded-lg">
-                <input type="text" id="inp-proyecto" placeholder="Nombre del Proyecto" class="w-full p-3 border rounded-lg">
-                <textarea id="inp-detalle" placeholder="Detalle técnico (Materiales, mano de obra...)" class="w-full p-3 border rounded-lg h-32"></textarea>
-                <input type="number" id="inp-total" placeholder="Precio Total (Bs)" class="w-full p-3 border rounded-lg">
+    <div class="min-h-screen p-4 text-black bg-zinc-200 pb-20">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-zinc-900 p-4 text-white flex justify-between items-center rounded-2xl mb-4">
+                <h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
             </div>
-
-            <div class="flex gap-2 mt-6">
-                <button onclick="window.location.hash='#menu'" class="flex-1 py-3 bg-zinc-800 text-white rounded-lg font-bold">CANCELAR</button>
-                <button onclick="generarPDFUniversal()" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold">GENERAR PDF</button>
+            
+            <div class="grid grid-cols-3 gap-2 mb-4">
+                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
+                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
+            </div>
+            
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-6">📥 GENERAR PDF PROFESIONAL</button>
+            
+            <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;padding:15mm 20mm;font-family:Arial;">
+                <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
+                    <div><h1 style="margin:0; font-size:24px;">WRPUMA</h1><p style="margin:0; font-size:10px;">INGENIERÍA EN PINTURA</p></div>
+                    <div style="text-align:right;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION</p><p style="margin:0;font-size:12px;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+                </div>
+                <div id="zona-editable" contenteditable="true" style="outline:none;font-size:14px;line-height:1.6;flex-grow:1;">
+                    <p style="color:#999;">Escriba aquí los datos del cliente, el presupuesto y los detalles del trabajo...</p>
+                </div>
             </div>
         </div>
     </div>`;
 }
+
+window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
+
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
+};
+
+window.generarPDF = () => { 
+    const element = document.getElementById('hoja-pdf');
+    html2pdf().set({ margin: 5, filename: 'Documento_WRPUMA.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4' } }).from(element).save(); 
+};
 
 window.generarPDFUniversal = () => {
     const cliente = document.getElementById('inp-cliente').value;
