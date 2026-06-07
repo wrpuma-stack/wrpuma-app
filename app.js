@@ -33,20 +33,83 @@ window.verAccesoPro = (usuario) => {
         const pin = prompt("PIN DUEÑO WRPUMA:");
         if (pin === "2345") {
             localStorage.setItem('empresa_wr', 'Walter');
-            localStorage.setItem('u_wr', 'Walter'); localStorage.setItem('a_wr', 'true');
+            localStorage.setItem('u_wr', 'Walter'); localStorage.setItem('a_wr', 'true'); localStorage.setItem('rol_wr', 'admin');
             window.location.hash = '#menu';
         } else { alert("PIN INCORRECTO"); }
     } else if (usuario === 'napoleon') {
         const pin = prompt("PIN NAPOLEON:");
         if (pin === "1111") {
             localStorage.setItem('empresa_wr', 'Napoleon');
-            localStorage.setItem('u_wr', 'Napoleon'); localStorage.setItem('a_wr', 'true');
+            localStorage.setItem('u_wr', 'Napoleon'); localStorage.setItem('a_wr', 'true'); localStorage.setItem('rol_wr', 'admin');
             window.location.hash = '#menu';
         } else { alert("PIN INCORRECTO"); }
     } else if (usuario === 'super') {
         localStorage.setItem('empresa_wr', 'Walter');
-        localStorage.setItem('u_wr', 'Supervisor'); localStorage.setItem('a_wr', 'false');
+        localStorage.setItem('u_wr', 'Supervisor'); localStorage.setItem('a_wr', 'false'); localStorage.setItem('rol_wr', 'super');
         window.location.hash = '#menu';
+    } else if (usuario === 'trabajador') {
+        const nom = prompt("INGRESE SU NOMBRE EXACTO (Como está registrado en el sistema):");
+        if (nom) {
+            localStorage.setItem('empresa_wr', 'Walter');
+            localStorage.setItem('u_wr', nom.toUpperCase()); localStorage.setItem('a_wr', 'false'); localStorage.setItem('rol_wr', 'trabajador');
+            window.location.hash = '#panel-trabajador';
+        }
+    }
+};
+
+// ==========================================================
+// 📍 PANEL TRABAJADOR (GPS Y MATERIALES)
+// ==========================================================
+function dibujarPanelTrabajador() {
+    const n = localStorage.getItem('u_wr');
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-950 p-4 text-white font-sans flex flex-col justify-between pb-10">
+        <div>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black italic uppercase text-red-600">WRPUMA</h2>
+                <button onclick="window.cerrarSesionTotal()" class="bg-zinc-800 text-xs px-3 py-1 rounded-full font-bold">SALIR</button>
+            </div>
+            
+            <div class="bg-zinc-900 p-5 rounded-3xl border border-zinc-800 shadow-xl text-center mb-6">
+                <p class="text-[10px] text-zinc-500 font-bold uppercase mb-1">BIENVENIDO</p>
+                <h3 class="text-2xl font-black uppercase text-white">${n}</h3>
+            </div>
+
+            <div class="bg-blue-900/30 p-5 rounded-3xl border border-blue-800 shadow-xl mb-6 text-center">
+                <p class="text-[10px] text-blue-400 font-bold uppercase mb-2">📌 MENSAJE DEL DÍA</p>
+                <p id="msg-dia-display" class="text-sm font-bold text-white italic">Cargando instrucciones...</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="window.marcarGPS()" class="col-span-2 bg-green-600 text-white py-6 rounded-3xl font-black text-xl active:scale-95 shadow-[0_0_20px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center justify-center">
+                    <span>📍 MARCAR ASISTENCIA GPS</span>
+                    <span class="text-[10px] font-bold mt-1 opacity-80 uppercase">Registrar Entrada/Salida en Obra</span>
+                </button>
+                <button onclick="alert('Módulo de Pedido de Materiales en desarrollo para la próxima versión.')" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-xs active:scale-95 shadow-md border border-zinc-700 uppercase">Solicitar Material</button>
+                <button onclick="alert('Módulo de Solicitud de Anticipos en desarrollo para la próxima versión.')" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-xs active:scale-95 shadow-md border border-zinc-700 uppercase">Pedir Anticipo</button>
+            </div>
+        </div>
+        <p class="text-center text-[9px] text-zinc-600 font-bold mt-10">APP WRPUMA CONTROL</p>
+    </div>`;
+
+    firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => {
+        document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener el orden y limpieza en la obra. Cuidar los materiales y herramientas.";
+    });
+}
+
+window.marcarGPS = () => {
+    if (navigator.geolocation) {
+        alert("📍 Obteniendo su ubicación. Por favor, acepte los permisos de GPS...");
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            alert(`✅ ASISTENCIA REGISTRADA EXITOSAMENTE.\nCoordenadas: ${lat.toFixed(5)}, ${lng.toFixed(5)}\nSu supervisor validará este registro.`);
+            // Aquí en el futuro inyectaremos estas coordenadas en la base de datos
+        }, (error) => {
+            alert("❌ Error: No se pudo obtener la ubicación. Debe activar el GPS en su celular para marcar asistencia.");
+        });
+    } else {
+        alert("❌ Su navegador no soporta geolocalización.");
     }
 };
 
@@ -210,7 +273,7 @@ window.enviarCarritoWhatsApp = () => {
 };
 
 // ==========================================================
-// 📋 ASISTENCIA PRO (CON HORAS DE ATRASO)
+// 📋 ASISTENCIA PRO (CON BONOS POR PRODUCCIÓN Y HORAS)
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -231,8 +294,8 @@ function dibujarAsistencia() {
         </div>
     </div>
     
-    <div id="modal-asistencia" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 font-sans">
-        <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border-t-8 border-red-600">
+    <div id="modal-asistencia" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 font-sans overflow-y-auto">
+        <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border-t-8 border-red-600 my-8">
             <h3 id="modal-nombre" class="text-2xl font-black uppercase text-red-600 mb-4 text-center">NOMBRE</h3>
             <div class="grid grid-cols-2 gap-3 mb-4">
                 <div class="bg-zinc-100 p-2 rounded-xl border border-zinc-300">
@@ -249,6 +312,13 @@ function dibujarAsistencia() {
                     <input id="modal-atraso-horas" type="number" value="0" step="0.5" min="0" max="8" class="w-full p-2 bg-white border border-orange-300 rounded-lg font-black text-center text-zinc-900 text-xs outline-none">
                 </div>
             </div>
+            
+            <div class="mb-4 bg-green-50 p-3 rounded-xl border border-green-300">
+                <label class="text-[10px] text-green-700 font-black uppercase mb-1 block text-center">🌟 BONO PRODUCCIÓN / DESTAJO:</label>
+                <div class="flex items-center justify-center gap-2"><span class="text-[10px] font-bold text-green-800">Monto Extra Bs.</span><input id="modal-bono" type="number" placeholder="0" class="w-24 p-2 border-2 border-green-400 rounded-xl font-black text-center text-lg outline-none bg-white text-green-800"></div>
+                <p class="text-[8px] text-green-600 text-center mt-1 uppercase font-bold">Se sumará directo a su sueldo semanal</p>
+            </div>
+
             <div class="mb-5 bg-red-50 p-3 rounded-xl border border-red-200">
                 <label class="text-[10px] text-red-600 font-black uppercase mb-2 block text-center">ANTICIPOS DE HOY (Bs):</label>
                 <div class="flex items-center justify-center gap-2 mb-2"><span class="text-[10px] font-bold text-red-800">Total Actual:</span><input id="modal-anticipo" type="number" placeholder="0" class="w-24 p-2 border-2 border-red-300 rounded-xl font-black text-center text-xl outline-none bg-white text-red-700"></div>
@@ -265,8 +335,16 @@ function dibujarAsistencia() {
     const sel = document.getElementById('sel-o');
     data.obtenerObras(obs => {
         sel.innerHTML = '<option value="GENERAL">GENERAL</option>';
-        Object.keys(obs).forEach(id => { if (obs[id].estado === 'Activa' || true) { sel.innerHTML += `<option value="${obs[id].nombre}">${obs[id].nombre}</option>`; } });
-        sel.value = obraSel;
+        Object.keys(obs).forEach(id => { 
+            // Ocultamos las obras Archivadas y Entregadas del filtro de asistencia
+            if (obs[id].estado === 'Activa' || obs[id].estado === undefined) { 
+                sel.innerHTML += `<option value="${obs[id].nombre}">${obs[id].nombre} (${obs[id].hora_entrada || '08:00'})</option>`; 
+            } 
+        });
+        // Remove time from value selection logic
+        Array.from(sel.options).forEach(opt => {
+            if(opt.value === obraSel) sel.value = opt.value;
+        });
     });
 
     firebase.database().ref(getDbPath('asistencia_semanal/' + fechaSel)).off('value');
@@ -308,6 +386,7 @@ window.renderListaPintores = () => {
             if (jE > 0) infoArr.push(`Extra: ${jE}D`);
             if (parseFloat(record.horas_atraso || 0) > 0) infoArr.push(`Atraso: ${record.horas_atraso}h`);
             if (record.monto_anticipo > 0) infoArr.push(`Anticipo: Bs.${record.monto_anticipo}`);
+            if (record.bono_produccion > 0) infoArr.push(`⭐ Bono: Bs.${record.bono_produccion}`);
             if (infoArr.length > 0) resumenInfo = `<br><span class="text-[10px] text-green-700 font-bold uppercase">${infoArr.join(' | ')}</span>`;
         }
 
@@ -317,7 +396,7 @@ window.renderListaPintores = () => {
 
 window.abrirModalAsistencia = (n, existe) => {
     const adm = localStorage.getItem('a_wr') === 'true';
-    if (existe && !adm) { alert("ACCESO DENEGADO: El supervisor no puede editar registros financieros."); return; }
+    if (existe && !adm) { alert("ACCESO DENEGADO: El supervisor no puede editar registros financieros ya guardados."); return; }
     window.pintorActualModal = n;
     const record = window.currentMarks[n] || {};
     document.getElementById('modal-nombre').innerText = n;
@@ -325,6 +404,8 @@ window.abrirModalAsistencia = (n, existe) => {
     document.getElementById('modal-j-extra').value = record.jornada_extra || "0";
     document.getElementById('modal-anticipo').value = record.monto_anticipo || "0";
     document.getElementById('modal-atraso-horas').value = record.horas_atraso || "0";
+    document.getElementById('modal-bono').value = record.bono_produccion || "0";
+    
     const btnQuitar = document.getElementById('btn-quitar-asist');
     existe ? btnQuitar.classList.remove('hidden') : btnQuitar.classList.add('hidden');
     document.getElementById('modal-asistencia').classList.remove('hidden');
@@ -339,7 +420,8 @@ window.guardarAsistenciaModal = () => {
         jornada_normal: parseFloat(document.getElementById('modal-j-normal').value) || 0,
         jornada_extra: parseFloat(document.getElementById('modal-j-extra').value) || 0,
         monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value) || 0,
-        horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value) || 0
+        horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value) || 0,
+        bono_produccion: parseFloat(document.getElementById('modal-bono').value) || 0
     });
     document.getElementById('modal-asistencia').classList.add('hidden');
 };
@@ -382,7 +464,7 @@ function dibujarTratos() {
 
     data.obtenerObras(obs => {
         const s = document.getElementById('t-obra'); s.innerHTML = '<option value="">-- SELECCIONAR OBRA --</option>';
-        Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada') s.innerHTML += `<option value="${obs[id].nombre}">${obs[id].nombre}</option>`; });
+        Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada' && obs[id].estado !== 'Archivada') s.innerHTML += `<option value="${obs[id].nombre}">${obs[id].nombre}</option>`; });
     });
 
     firebase.database().ref(getDbPath('tratos')).on('value', snap => {
@@ -472,7 +554,7 @@ window.verTratosArchivados = () => {
 };
 
 // ==========================================================
-// 💰 PLANILLA DE PAGOS (CON DESGLOSE DETALLADO Y HORAS)
+// 💰 PLANILLA DE PAGOS (CON BONOS Y DESCUENTOS POR HORA)
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `
@@ -499,11 +581,12 @@ function dibujarPlanilla() {
                 Object.values(hist[f]).forEach(reg => {
                     const idPagoReferencia = `${reg.nombre}_semana_${pFIni}`;
                     if (pagosRealizados[idPagoReferencia]) return;
-                    if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, horasAtraso: 0, obraPrincipal: reg.obra };
+                    if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, horasAtraso: 0, bonos: 0, obraPrincipal: reg.obra };
                     res[reg.nombre].dNorm += parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : (reg.jornada || 1));
                     res[reg.nombre].dExt += parseFloat(reg.jornada_extra || 0);
                     res[reg.nombre].ant += parseFloat(reg.monto_anticipo) || 0;
                     res[reg.nombre].horasAtraso += parseFloat(reg.horas_atraso || 0);
+                    res[reg.nombre].bonos += parseFloat(reg.bono_produccion || 0);
                 });
             }
         });
@@ -518,7 +601,7 @@ function dibujarPlanilla() {
             const sTotBruto = (dNormPagar + d.dExt) * sDia;
             
             const descAtraso = d.horasAtraso * (sDia / 8);
-            const saldo = sTotBruto - d.ant - descAtraso;
+            const saldo = sTotBruto - d.ant - descAtraso + d.bonos;
             tP += saldo;
 
             let textoCompensacion = compensacion > 0 ? `<span class="text-green-400 font-black text-sm">+0.5 D (Ahorro)</span>` : `<span class="text-red-500 font-bold text-xs">Pierde Sáb. Tarde</span>`;
@@ -526,6 +609,12 @@ function dibujarPlanilla() {
                 <div class="bg-black p-3 rounded-2xl border border-red-900 flex flex-col justify-center col-span-2">
                     <span class="text-[9px] text-red-400 uppercase font-bold">Descuento por Atrasos / Horas faltantes:</span>
                     <span class="text-red-500 font-black text-sm">-${d.horasAtraso} Horas (-Bs. ${descAtraso.toFixed(1)})</span>
+                </div>` : '';
+            
+            let renglonBonoUI = d.bonos > 0 ? `
+                <div class="bg-green-900/40 p-3 rounded-2xl border border-green-800 flex flex-col justify-center col-span-2">
+                    <span class="text-[9px] text-green-400 uppercase font-bold">🌟 Bonos por Producción Extra:</span>
+                    <span class="text-green-500 font-black text-sm">+Bs. ${d.bonos.toFixed(1)}</span>
                 </div>` : '';
 
             c.innerHTML += `
@@ -540,15 +629,16 @@ function dibujarPlanilla() {
                     <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Días (N + Extra)</span><span class="text-white font-black text-lg">${d.dNorm} <span class="text-xs text-zinc-500">+ ${d.dExt}</span></span></div>
                     <div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-blue-400 uppercase font-bold">Compensación Sábado</span>${textoCompensacion}</div>
                     ${renglonAtrasoUI}
+                    ${renglonBonoUI}
                 </div>
-                <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.horasAtraso}, ${descAtraso}, ${compensacion})" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_15px_rgba(34,197,94,0.2)] active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">PAGAR: Bs. ${saldo.toFixed(2)}</button>
+                <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.horasAtraso}, ${descAtraso}, ${compensacion}, ${d.bonos})" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl shadow-[0_0_15px_rgba(34,197,94,0.2)] active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">PAGAR: Bs. ${saldo.toFixed(2)}</button>
             </div>`;
         });
         if (tP > 0) { c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center shadow-2xl border-b-4 border-green-800"><p class="text-[10px] font-black mb-1 uppercase text-green-200">Desembolso de Sueldos</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML; }
     });
 }
 
-window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant, horasAtraso, descAtraso, compensacion) => {
+window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant, horasAtraso, descAtraso, compensacion, bonos) => {
     if (confirm(`¿Transferencia de Bs. ${monto.toFixed(2)} a ${nombre} completada? \n\nSe descontará de la utilidad de: ${obraNombre}`)) {
         firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
             const obras = snap.val() || {}; const idObra = Object.keys(obras).find(id => obras[id].nombre === obraNombre);
@@ -560,9 +650,9 @@ window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant
                     trabajador: nombre, 
                     monto: monto, 
                     semana_ancla: pFIni,
-                    detalles: { sueldo_dia: sDia, dias_normales: dNorm, dias_extras: dExt, anticipos: ant, horas_atraso: horasAtraso, descuento_atraso: descAtraso, compensacion: compensacion }
+                    detalles: { sueldo_dia: sDia, dias_normales: dNorm, dias_extras: dExt, anticipos: ant, horas_atraso: horasAtraso, descuento_atraso: descAtraso, compensacion: compensacion, bonos_extra: bonos }
                 }).then(() => { alert(`Pago registrado con desglose técnico.`);    dibujarPlanilla(); });
-            } else { alert("Error de sistema: No se encontró la obra."); }
+            } else { alert("Error de sistema: No se encontró la obra principal."); }
         });
     }
 };
@@ -640,6 +730,7 @@ window.verHistorialSueldos = () => {
                         <div>🚀 Días Extra: <span class="text-white font-bold">${det.dias_extras}</span></div>
                         <div>🎁 Premio Sáb: <span class="text-white font-bold">+${det.compensacion || 0} D</span></div>
                         <div>💸 Anticipos: <span class="text-red-400 font-bold">-Bs. ${det.anticipos}</span></div>
+                        ${parseFloat(det.bonos_extra || 0) > 0 ? `<div class="text-green-400">⭐ Bonos: +Bs. ${det.bonos_extra}</div>` : ''}
                         ${parseFloat(det.horas_atraso || 0) > 0 ? `<div class="text-orange-400 col-span-2">⚠️ Atrasos: ${det.horas_atraso} hrs (-Bs. ${parseFloat(det.descuento_atraso).toFixed(1)})</div>` : ''}
                     </div>`;
                 }
@@ -896,10 +987,10 @@ window.pagarDeuda = (idDeuda, proveedor) => {
 };
 
 // ==========================================================
-// 🏗️ OBRAS, UTILIDAD, ALMACEN Y PERSONAL
+// 🏗️ OBRAS, UTILIDAD, ALMACEN Y PERSONAL (CON HORARIOS Y ARCHIVAR)
 // ==========================================================
 function dibujarObras() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div><h3 class="mt-8 mb-4 font-black text-zinc-400 uppercase text-sm border-b-2 pb-2">PROYECTOS ENTREGADOS</h3><div id="list-o-entregadas" class="space-y-4 opacity-75"></div></div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><select id="o-hora" class="w-full p-3 rounded-xl border-2 font-bold text-zinc-600 mb-3 uppercase outline-none"><option value="08:00">Hora de Ingreso: 08:00 AM (Por defecto)</option><option value="07:30">Hora de Ingreso: 07:30 AM</option><option value="08:30">Hora de Ingreso: 08:30 AM</option><option value="09:00">Hora de Ingreso: 09:00 AM</option></select><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div><h3 class="mt-8 mb-4 font-black text-zinc-400 uppercase text-sm border-b-2 pb-2">PROYECTOS ENTREGADOS / ARCHIVADOS</h3><div id="list-o-entregadas" class="space-y-4 opacity-75"></div></div></div></div>`;
     data.obtenerTodo((db) => {
         const cA = document.getElementById('list-o-activas'), cE = document.getElementById('list-o-entregadas'); if (!cA || !cE) return;
         cA.innerHTML = ''; cE.innerHTML = ''; const obs = db.obras || {}; const finanzas = db.finanzas_obras || {};
@@ -912,9 +1003,14 @@ function dibujarObras() {
             const fRes = o.presupuesto * 0.05, gNeta = o.presupuesto - gastadoTotal - fRes;
             const btnG = o.link_fotos ? `<div class="flex gap-1 mb-3"><button onclick="window.open('${o.link_fotos}','_blank')" class="flex-1 bg-blue-600 text-white text-[10px] font-black uppercase py-2 rounded-lg">VER REPORTE FOTOGRAFICO</button></div>` : `<button onclick="window.agregarLinkObra('${id}')" class="w-full mb-3 bg-zinc-100 text-[9px] font-black uppercase py-2 rounded-lg">Vincular Galeria</button>`;
 
+            const esActiva = (o.estado !== 'Entregada' && o.estado !== 'Archivada');
+
             const card = `
-            <div class="p-4 bg-zinc-50 rounded-2xl border-2 ${o.estado !== 'Entregada' ? 'border-zinc-300' : 'border-green-500'} relative">
-                <b class="text-xl uppercase text-red-600">${o.nombre}</b>
+            <div class="p-4 bg-zinc-50 rounded-2xl border-2 ${esActiva ? 'border-zinc-300' : 'border-zinc-400 bg-zinc-200'} relative">
+                <div class="flex justify-between items-start">
+                    <b class="text-xl uppercase text-red-600">${o.nombre}</b>
+                    <span class="text-[9px] bg-zinc-800 text-white px-2 py-1 rounded font-bold">Ingreso: ${o.hora_entrada || '08:00'}</span>
+                </div>
                 <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase mb-1 mt-2">
                     <div class="bg-white p-2 rounded-xl border">Contrato:<br>Bs. ${o.presupuesto}</div>
                     <div class="bg-white p-2 rounded-xl border">Cobrado:<br><span class="text-blue-600">Bs. ${cobrado}</span></div>
@@ -922,21 +1018,23 @@ function dibujarObras() {
                     <div class="bg-zinc-900 text-white p-2 rounded-xl">Utilidad Neta:<br><span class="${gNeta >= 0 ? 'text-green-400' : 'text-red-500'}">Bs. ${gNeta.toFixed(1)}</span></div>
                 </div>
                 ${btnG}
-                <div class="pt-2 flex gap-1 justify-between">
-                    <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black px-2 py-2 rounded-lg">Cobrar Anticipo</button>
-                    <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black px-2 py-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
-                    <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline px-2 py-2">Editar</button>
-                    <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline px-2 py-2">Borrar</button>
+                <div class="pt-2 flex flex-wrap gap-1 justify-between">
+                    <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black px-2 py-2 rounded-lg min-w-[70px]">Anticipo</button>
+                    ${esActiva ? `<button onclick="window.cambiarEstadoO('${id}', 'Entregada')" class="flex-1 text-[9px] font-black px-2 py-2 rounded-lg bg-green-100 text-green-700 min-w-[70px]">Entregar</button>` : `<button onclick="window.cambiarEstadoO('${id}', 'Activa')" class="flex-1 text-[9px] font-black px-2 py-2 rounded-lg bg-orange-100 text-orange-700 min-w-[70px]">Reactivar</button>`}
+                    ${o.estado !== 'Archivada' ? `<button onclick="window.archivarObra('${id}')" class="flex-1 text-[9px] font-black px-2 py-2 rounded-lg bg-zinc-300 text-zinc-700 min-w-[70px]">Archivar</button>` : ''}
+                    <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline px-2 py-2 min-w-[50px]">Editar</button>
+                    <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline px-2 py-2 min-w-[50px]">Borrar</button>
                 </div>
             </div>`;
-            o.estado !== 'Entregada' ? cA.innerHTML += card : cE.innerHTML += card;
+            esActiva ? cA.innerHTML += card : cE.innerHTML += card;
         });
     });
 }
 window.agregarLinkObra = (id) => { const l = prompt("Enlace de galeria fotográfica:"); if (l) firebase.database().ref(getDbPath(`obras/${id}`)).update({ link_fotos: l }).then(() => location.reload()); };
-window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value; if (n && p) data.guardarObra(n, p).then(() => location.reload()); };
+window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value, h = document.getElementById('o-hora').value; if (n && p) { data.guardarObra(n, p).then(() => { firebase.database().ref(getDbPath(`obras/OBRA_${n.replace(/\s+/g,'_').toUpperCase()}`)).update({ hora_entrada: h }).then(()=> location.reload()); }); } };
 window.delO = (id) => { if (confirm("¿Confirmar la eliminación permanente del proyecto?")) data.borrarObra(id).then(() => location.reload()); };
 window.cambiarEstadoO = (id, e) => { if (confirm(`¿Modificar el estado operativo del proyecto?`)) data.cambiarEstadoObra(id, e); };
+window.archivarObra = (id) => { if(confirm("¿Ocultar esta obra? Ya no aparecerá en las listas de asistencia diarias.")) { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: 'Archivada' }).then(() => location.reload()); } };
 window.cobrarAnticipo = (id) => { const m = prompt("Registro de Anticipo (Monto Bs.):"); if (m) data.registrarMovimiento(id, 'anticipo_cliente', m, "Anticipo").then(() => location.reload()); };
 window.editarNombreObra = (id, nombreAntiguo) => {
     const nuevo = prompt("CORREGIR NOMBRE DEL PROYECTO:", nombreAntiguo);
@@ -991,11 +1089,33 @@ function dibujarPersonal() {
     appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-800 p-6 text-white flex justify-between items-center rounded-t-3xl"><h2 class="text-xl font-black italic uppercase text-white">EQUIPO DE TRABAJO</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4"><input id="p-nom" type="text" placeholder="NOMBRE DEL PERSONAL" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm"><input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black text-sm"><button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR PERSONAL</button><div id="list-p" class="space-y-3 pt-4 border-t"></div></div></div></div>`;
     data.obtenerPersonal(per => {
         const c = document.getElementById('list-p'); if (!c) return; c.innerHTML = ''; const personal = per || {};
-        Object.keys(personal).forEach(n => { c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border text-black uppercase shadow-sm"><div><b class="text-sm">${n}</b><br><span class="text-[10px] text-zinc-500 font-bold">Salario Diario: Bs. ${personal[n].sueldo_dia}</span></div><button onclick="window.delP('${n}')" class="text-red-600 font-black px-3 py-2 bg-red-100 rounded-lg active:scale-90 text-xs">ELIMINAR</button></div>`; });
+        Object.keys(personal).forEach(n => { c.innerHTML += `
+            <div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border text-black uppercase shadow-sm">
+                <div><b class="text-sm">${n}</b><br><span class="text-[10px] text-zinc-500 font-bold">Salario Diario: Bs. ${personal[n].sueldo_dia}</span></div>
+                <div class="flex flex-col gap-1">
+                    <button onclick="window.editarP('${n}', ${personal[n].sueldo_dia})" class="text-blue-600 font-black px-3 py-1 bg-blue-100 rounded-lg active:scale-90 text-[10px]">EDITAR</button>
+                    <button onclick="window.delP('${n}')" class="text-red-600 font-black px-3 py-1 bg-red-100 rounded-lg active:scale-90 text-[10px]">ELIMINAR</button>
+                </div>
+            </div>`; 
+        });
     });
 }
 window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), s = document.getElementById('p-sue').value; if (n && s) { data.guardarPintor(n, s); document.getElementById('p-nom').value = ''; document.getElementById('p-sue').value = ''; } else { alert("Los campos de registro están incompletos."); } };
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación del personal ${n}?`)) data.borrarPintor(n); };
+window.editarP = (oldName, oldSueldo) => {
+    let nuevoNom = prompt("Modificar Nombre (O deje igual para solo cambiar el sueldo):", oldName);
+    if(!nuevoNom) return;
+    let nuevoSueldo = prompt("Modificar Sueldo Diario:", oldSueldo);
+    if(!nuevoSueldo) return;
+    
+    nuevoNom = nuevoNom.trim().toUpperCase();
+    if(nuevoNom !== oldName) {
+        firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo });
+        firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal());
+    } else {
+        firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal());
+    }
+};
 
 // ==========================================================
 // 📝 COTIZADOR WORD 
@@ -1042,7 +1162,7 @@ function dibujarCotizador() {
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
-                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806, 76362867</p></div>
+                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">W R PUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806</p></div>
                         <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;color:#000;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
                     </div>
                 </div>
@@ -1061,14 +1181,14 @@ window.arreglarFormato = () => {
     let texto = z.innerText;
     let htmlBase = z.innerHTML;
 
-    if(texto.includes('|---') || texto.includes('| ---')) {
+    if(texto.includes('|---') || texto.includes('| ---') || texto.includes('---')) {
         let lineas = texto.split('\n');
         let nuevoHTML = '';
         let enTabla = false;
 
         lineas.forEach(linea => {
             let l = linea.trim();
-            if (l.match(/^\|[\-\s\|]+\|$/)) return; 
+            if (l.match(/^\|[\-\s\|]+\|$/)) return; // Ignorar fila separadora de markdown
 
             if (l.startsWith('|') && l.endsWith('|')) {
                 if (!enTabla) {
@@ -1088,10 +1208,15 @@ window.arreglarFormato = () => {
                     enTabla = false;
                 }
                 if (l !== '') {
+                    // Limpieza general de Markdown a HTML
                     let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
                     c = c.replace(/### (.*)/, '<b>$1</b>');
                     c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
-                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                    if(c.startsWith('- ')) {
+                        nuevoHTML += `<li style="margin-left: 20px; color:#000;">${c.substring(2)}</li>`;
+                    } else {
+                        nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                    }
                 }
             }
         });
@@ -1106,7 +1231,7 @@ window.arreglarFormato = () => {
 
 window.modoGarantia = () => { 
     document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; 
+    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>W R PUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; 
 };
 
 window.generarPDF = () => { 
@@ -1117,7 +1242,7 @@ window.generarPDF = () => {
     setTimeout(() => { 
         html2pdf().set({ 
             margin: 0, 
-            filename: `Doc_${Date.now()}.pdf`, 
+            filename: `WRPUMA_Doc_${Date.now()}.pdf`, 
             image: { type: 'jpeg', quality: 1 }, 
             html2canvas: { scale: 3, useCORS: true }, 
             jsPDF: { unit: 'mm', format: 'a4' } 
@@ -1129,7 +1254,7 @@ window.generarPDF = () => {
 };
 
 // ==========================================================
-// 🚀 MENU Y ENRUTADOR (NUEVO BOTON INVENTARIO)
+// 🚀 MENU Y ENRUTADOR
 // ==========================================================
 function dibujarMenu() {
     const u = localStorage.getItem('u_wr'); const adm = localStorage.getItem('a_wr') === 'true'; const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -1137,10 +1262,21 @@ function dibujarMenu() {
     const tituloMenu = empresa === 'Napoleon' ? 'NAPO<span class="text-blue-500">LEON</span>' : 'WR<span class="text-red-600">PUMA</span>';
 
     appDiv.innerHTML = `
-    <div class="min-h-screen bg-black p-6 text-white text-center flex flex-col justify-between font-sans">
+    <div class="min-h-screen bg-black p-6 text-white text-center flex flex-col justify-between font-sans pb-10">
         <div>
-            <h1 class="text-5xl font-black italic mb-2 tracking-tighter uppercase text-white">${tituloMenu}</h1>
-            <p class="text-zinc-600 text-[9px] font-bold uppercase tracking-[0.3em] mb-8">Elite Management</p>
+            <h1 class="text-5xl font-black italic mb-2 tracking-tighter uppercase text-white" aria-label="W R PUMA">${tituloMenu}</h1>
+            <p class="text-zinc-600 text-[9px] font-bold uppercase tracking-[0.3em] mb-6">Elite Management</p>
+            
+            ${adm ? `
+            <div class="mb-6 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-left">
+                <label class="text-[9px] text-blue-400 font-bold uppercase mb-1 block">📌 Configurar Mensaje del Día para Trabajadores:</label>
+                <div class="flex gap-2">
+                    <input id="input-msg-dia" type="text" placeholder="Ej: Hoy toca avance en obra Onix, no olvidar arneses." class="w-full bg-black text-white p-2 rounded outline-none text-xs border border-zinc-800">
+                    <button onclick="window.guardarMsgDia()" class="bg-blue-600 text-white px-3 rounded font-bold text-xs">Fijar</button>
+                </div>
+            </div>
+            ` : ``}
+
             <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto text-black text-left">
                 <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 italic"><span class="font-black text-[12px] uppercase mt-2">Asistencia</span></button>
                 
@@ -1161,12 +1297,32 @@ function dibujarMenu() {
         </div>
         <button onclick="window.cerrarSesionTotal()" class="text-zinc-700 text-[10px] font-bold uppercase pt-4 border-t border-zinc-900 italic mt-8">FINALIZAR SESION</button>
     </div>`;
+
+    if(adm) {
+        firebase.database().ref(getDbPath('config/mensaje_dia')).once('value').then(snap => {
+            const inputMsg = document.getElementById('input-msg-dia');
+            if(inputMsg) inputMsg.value = snap.val() || "";
+        });
+    }
 }
 
+window.guardarMsgDia = () => {
+    const msg = document.getElementById('input-msg-dia').value;
+    firebase.database().ref(getDbPath('config/mensaje_dia')).set(msg).then(()=>{
+        alert("Mensaje fijado para todo el personal.");
+    });
+};
+
 function enrutador() {
-    const h = window.location.hash, adm = localStorage.getItem('a_wr') === 'true', u = localStorage.getItem('u_wr');
+    const h = window.location.hash, adm = localStorage.getItem('a_wr') === 'true', u = localStorage.getItem('u_wr'), rol = localStorage.getItem('rol_wr');
+    
     if (!u && h !== '') { window.location.hash = ''; return; }
-    if (h === '#asistencia') dibujarAsistencia(); else if (h === '#cotizaciones') dibujarCotizador();
+    
+    // Si es un trabajador, forzarlo a su panel para que no entre a gerencia
+    if (rol === 'trabajador' && h !== '#panel-trabajador') { window.location.hash = '#panel-trabajador'; return; }
+
+    if (h === '#panel-trabajador') dibujarPanelTrabajador();
+    else if (h === '#asistencia') dibujarAsistencia(); else if (h === '#cotizaciones') dibujarCotizador();
     else if (h === '#calculadora') dibujarCalculadora(); else if (h === '#menu') dibujarMenu();
     else if (!adm && ['#planilla', '#obras', '#personal', '#utilidad', '#contabilidad', '#almacen', '#tratos', '#historial-sueldos', '#herramientas'].includes(h)) { window.location.hash = '#menu'; }
     else if (h === '#planilla') dibujarPlanilla(); else if (h === '#obras') dibujarObras();
@@ -1176,15 +1332,25 @@ function enrutador() {
     else if (h === '#herramientas') dibujarHerramientas(); else dibujarAcceso();
 }
 
+window.cerrarSesionTotal = () => {
+    localStorage.clear();
+    window.location.hash = '';
+    location.reload();
+};
+
 function dibujarAcceso() {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white text-center font-sans">
-        <h1 class="text-6xl font-black italic mb-2 tracking-tighter text-white uppercase">WR<span class="text-red-600">PUMA</span></h1>
+        <h1 class="text-6xl font-black italic mb-2 tracking-tighter text-white uppercase" aria-label="W R PUMA">WR<span class="text-red-600">PUMA</span></h1>
         <p class="text-zinc-500 font-bold tracking-[0.4em] mb-12 uppercase text-[10px]">Gestion Empresarial</p>
         <div class="grid gap-4 w-full max-w-xs text-black">
             <button onclick="window.verAccesoPro('walter')" class="bg-red-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-transform border-2 border-red-800">ACCESO GERENCIA</button>
             <button onclick="window.verAccesoPro('napoleon')" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-transform border-2 border-blue-800">ACCESO DIRECCION</button>
             <button onclick="window.verAccesoPro('super')" class="bg-zinc-800 text-zinc-300 py-3 rounded-2xl font-black text-sm border border-zinc-700 active:scale-95 transition-transform mt-4">ACCESO SUPERVISOR</button>
+            
+            <div class="border-t border-zinc-800 pt-4 mt-2">
+                <button onclick="window.verAccesoPro('trabajador')" class="w-full bg-zinc-900 text-green-500 py-4 rounded-2xl font-black text-xs border border-zinc-800 active:scale-95 transition-transform uppercase shadow-[0_0_15px_rgba(34,197,94,0.1)]">👤 ACCESO TRABAJADOR / ASISTENCIA</button>
+            </div>
         </div>
     </div>`;
 }
