@@ -590,6 +590,9 @@ function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc
 // ==========================================================
 // 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL (RESTAURADO)
 // ==========================================================
+// ==========================================================
+// 📝 COTIZADOR REEMPLAZO TOTAL (REEMPLAZAR BLOQUE COMPLETO)
+// ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
     <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
@@ -605,6 +608,7 @@ function dibujarCotizador() {
                 <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-2 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
             <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">📥 GENERAR PDF PROFESIONAL</button>
             
             <div class="overflow-x-auto w-full pb-10">
@@ -631,6 +635,22 @@ function dibujarCotizador() {
     </div>`;
 }
 
+window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
+
+window.arreglarFormato = () => {
+    const z = document.getElementById('zona-editable');
+    z.innerHTML = z.innerHTML.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    alert("Formato aplicado.");
+};
+
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
+};
+
+window.generarPDF = () => { 
+    html2pdf().set({ margin: 5, filename: 'Cotizacion_WRPUMA.pdf', html2canvas: { scale: 3, useCORS: true }, jsPDF: { format: 'a4' } }).from(document.getElementById('hoja-pdf')).save(); 
+};
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 
 window.modoGarantia = () => { 
