@@ -582,6 +582,9 @@ function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc
 // ==========================================================
 // 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL
 // ==========================================================
+// ==========================================================
+// 📝 COTIZADOR PROFESIONAL: OPCIÓN A (MÓVIL OPTIMIZADO)
+// ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
     <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
@@ -597,8 +600,9 @@ function dibujarCotizador() {
                 <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
-            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (Convertir texto a cuadro)</button>
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
+            
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">📥 GENERAR PDF PROFESIONAL</button>
             
             <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE SU COTIZACIÓN Y PÉGUELA EN LA ZONA BLANCA.</p>
             
@@ -606,6 +610,7 @@ function dibujarCotizador() {
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
                     
                     <style>
+                        /* Estilos inquebrantables para la tabla al generar PDF */
                         #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
                         #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
                         #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
@@ -614,23 +619,128 @@ function dibujarCotizador() {
                     </style>
 
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
-                        <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"><h1 style="margin:0; font-size:30px; font-weight:900; color:#cc0000; display:none;">WRPUMA</h1></div>
-                        <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+                        <div>
+                            <h1 style="margin:0; font-size:32px; font-weight:900; color:#cc0000; letter-spacing: -1px;">WRPUMA</h1>
+                            <p style="margin:0; font-size:11px; font-weight:bold; color:#555; text-transform:uppercase;">Servicio de Aplicación de Pintura</p>
+                        </div>
+                        <div style="text-align:right; color:#000;">
+                            <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p>
+                            <p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
+                        </div>
                     </div>
                     
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
-                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:14px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
+                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización desde el chat ---</p>
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
-                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806, 76362867</p></div>
-                        <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;color:#000;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
+                        <div>
+                            <p style="margin:0;font-weight:bold;font-size:13px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p>
+                            <p style="margin:0;font-size:11px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p>
+                            <p style="margin:0;font-size:11px;color:#000;">Cel.: 77396806, 76362867</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <p style="margin:0;font-size:11px;color:#000;">wrpuma@gmail.com</p>
+                            <p style="margin:0;font-size:11px;color:#000;">www.wrpuma.com</p>
+                            <p style="margin:0;font-size:12px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>`;
 }
+
+// FUNCIONES DE CONTROL DEL DOCUMENTO
+window.setDocType = (t) => { 
+    document.getElementById('doc-title').innerText = t; 
+    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización desde el chat ---</p>'; 
+};
+
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Escribir Nombre del Proyecto]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Escribir Nombre del Cliente]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de la obra.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad y adherencia exclusivamente en la superficie tratada por <b>UN (1) AÑO</b> calendario a partir de la fecha.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada o modificada por terceros (albañiles, plomeros, etc).</li><li style="margin-bottom: 6px;">Fisuras generadas por asentamientos estructurales del edificio.</li><li style="margin-bottom: 6px;">Acumulacion de agua por falta de limpieza de canaletas.</li></ul><br><p style="margin:40px 0 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900; font-size:14px;">Walter Puma<br>Gerente General - WRPUMA</p>`; 
+};
+
+// BOTÓN AZUL: INTELIGENCIA PARA ARREGLAR FORMATOS
+window.arreglarFormato = () => {
+    const z = document.getElementById('zona-editable');
+    let texto = z.innerText;
+
+    // Detectar si el texto pegado tiene formato de tabla Markdown (las barras "|")
+    if(texto.includes('|')) {
+        let lineas = texto.split('\n');
+        let nuevoHTML = '';
+        let enTabla = false;
+
+        lineas.forEach(linea => {
+            let l = linea.trim();
+            
+            // Ignorar lineas basura que separan las tablas como "|---|---|"
+            if (l.match(/^\|?[\-\s\|]+\|?$/) && l.includes('-')) return;
+
+            if (l.includes('|')) {
+                if (!enTabla) {
+                    enTabla = true;
+                    nuevoHTML += '<table>';
+                }
+                
+                // Limpiar barras de los extremos si existen
+                let fila = l;
+                if(fila.startsWith('|')) fila = fila.substring(1);
+                if(fila.endsWith('|')) fila = fila.substring(0, fila.length - 1);
+                
+                let celdas = fila.split('|');
+                nuevoHTML += '<tr>';
+                celdas.forEach(celda => {
+                    let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'); // Poner negritas
+                    nuevoHTML += `<td>${c}</td>`;
+                });
+                nuevoHTML += '</tr>';
+            } else {
+                if (enTabla) {
+                    nuevoHTML += '</table>';
+                    enTabla = false;
+                }
+                if (l !== '') {
+                    // Poner negritas a texto fuera de la tabla
+                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    c = c.replace(/### (.*)/, '<b style="color:#cc0000;">$1</b>'); // Títulos
+                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                }
+            }
+        });
+        if (enTabla) nuevoHTML += '</table>';
+        z.innerHTML = nuevoHTML;
+    } else {
+        // Si pegó algo sin tabla, al menos le respetamos las negritas
+        let htmlBase = z.innerHTML;
+        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        z.innerHTML = htmlBase;
+    }
+};
+
+// BOTÓN ROJO: GENERAR EL PDF
+window.generarPDF = () => { 
+    const btn = event.target; 
+    const txtOriginal = btn.innerText; 
+    btn.innerText = "PROCESANDO DOCUMENTO..."; 
+    btn.disabled = true; 
+    
+    setTimeout(() => { 
+        const elemento = document.getElementById('hoja-pdf');
+        html2pdf().set({ 
+            margin: 0, 
+            filename: `Doc_WRPUMA_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+        }).from(elemento).save().then(() => { 
+            btn.innerText = txtOriginal; 
+            btn.disabled = false; 
+        }); 
+    }, 500); 
+};
 
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
