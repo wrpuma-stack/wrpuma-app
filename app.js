@@ -587,6 +587,9 @@ function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc
 // ==========================================================
 // 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL
 // ==========================================================
+// ==========================================================
+// 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL (RESTAURADO)
+// ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
     <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
@@ -596,15 +599,15 @@ function dibujarCotizador() {
                 <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
             </div>
             
-            <div class="grid grid-cols-3 gap-2 mb-4">
-                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
-                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-3 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
-                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
+                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-6">📥 GENERAR PDF PROFESIONAL</button>
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">📥 GENERAR PDF PROFESIONAL</button>
             
-            <div class="overflow-x-auto w-full">
+            <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
                         <div><h1 style="margin:0; font-size:24px; font-weight:900;">WRPUMA</h1><p style="margin:0; font-size:10px; color:#555;">INGENIERÍA EN PINTURA</p></div>
@@ -619,7 +622,7 @@ function dibujarCotizador() {
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
-                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p></div>
+                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p></div>
                         <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final</p></div>
                     </div>
                 </div>
@@ -627,6 +630,22 @@ function dibujarCotizador() {
         </div>
     </div>`;
 }
+
+window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
+
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
+};
+
+window.generarPDF = () => { 
+    html2pdf().set({ 
+        margin: 5, 
+        filename: `Cotizacion_WRPUMA_${Date.now()}.pdf`, 
+        html2canvas: { scale: 3, useCORS: true }, 
+        jsPDF: { unit: 'mm', format: 'a4' } 
+    }).from(document.getElementById('hoja-pdf')).save(); 
+};
 
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 
