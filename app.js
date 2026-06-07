@@ -44,7 +44,7 @@ window.verAccesoPro = (usuario) => {
         } else { alert("PIN INCORRECTO"); }
     } else if (usuario === 'super') {
         const pin = prompt("PIN SUPERVISOR (Ej. Chofer):");
-        if (pin === "7777") { // Puedes cambiar este PIN de supervisor luego
+        if (pin === "7777") {
             localStorage.setItem('empresa_wr', 'Walter');
             localStorage.setItem('u_wr', 'Supervisor'); localStorage.setItem('a_wr', 'false'); localStorage.setItem('rol_wr', 'super');
             window.location.hash = '#menu';
@@ -578,20 +578,9 @@ window.delP = (n) => { if (confirm(`¿Proceder con la eliminación?`)) data.borr
 window.editarP = (oldName, oldSueldo) => { let nuevoNom = prompt("Modificar Nombre:", oldName); if(!nuevoNom) return; let nuevoSueldo = prompt("Modificar Sueldo:", oldSueldo); if(!nuevoSueldo) return; nuevoNom = nuevoNom.trim().toUpperCase(); if(nuevoNom !== oldName) { firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo }); firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal()); } else { firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal()); } };
 
 function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo APU Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
-// ==========================================================
-// 📝 COTIZADOR WORD Y PDF UNIVERSAL
-// ==========================================================
-// ==========================================================
-// 📝 COTIZADOR WORD ORIGINAL (RESTAURADO CON GENERADOR PDF)
-// ==========================================================
+
 // ==========================================================
 // 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL
-// ==========================================================
-// ==========================================================
-// 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL (RESTAURADO)
-// ==========================================================
-// ==========================================================
-// 📝 COTIZADOR REEMPLAZO TOTAL (REEMPLAZAR BLOQUE COMPLETO)
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -608,26 +597,34 @@ function dibujarCotizador() {
                 <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
-            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-2 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">📥 GENERAR PDF PROFESIONAL</button>
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (Convertir texto a cuadro)</button>
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
+            
+            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE SU COTIZACIÓN Y PÉGUELA EN LA ZONA BLANCA.</p>
             
             <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
+                    
+                    <style>
+                        #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
+                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
+                        #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
+                        #zona-editable * { color: #000 !important; }
+                        .placeholder-gris { color: #999 !important; }
+                    </style>
+
                     <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
-                        <div><h1 style="margin:0; font-size:24px; font-weight:900;">WRPUMA</h1><p style="margin:0; font-size:10px; color:#555;">INGENIERÍA EN PINTURA</p></div>
-                        <div style="text-align:right; color:#000;">
-                            <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p>
-                            <p style="margin:0;font-size:12px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
-                        </div>
+                        <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"><h1 style="margin:0; font-size:30px; font-weight:900; color:#cc0000; display:none;">WRPUMA</h1></div>
+                        <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
                     </div>
                     
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;">
-                        <p style="color:#999;">--- Pegue aquí su cotización, tabla o texto ---</p>
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
+                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
                     </div>
                     
                     <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
-                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p></div>
-                        <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final</p></div>
+                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806, 76362867</p></div>
+                        <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;color:#000;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
                     </div>
                 </div>
             </div>
@@ -635,110 +632,81 @@ function dibujarCotizador() {
     </div>`;
 }
 
-window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
+window.setDocType = (t) => { 
+    document.getElementById('doc-title').innerText = t; 
+    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+};
 
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    z.innerHTML = z.innerHTML.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    alert("Formato aplicado.");
+    let texto = z.innerText;
+    let htmlBase = z.innerHTML;
+
+    if(texto.includes('|---') || texto.includes('| ---')) {
+        let lineas = texto.split('\n');
+        let nuevoHTML = '';
+        let enTabla = false;
+
+        lineas.forEach(linea => {
+            let l = linea.trim();
+            if (l.match(/^\|[\-\s\|]+\|$/)) return; 
+
+            if (l.startsWith('|') && l.endsWith('|')) {
+                if (!enTabla) {
+                    enTabla = true;
+                    nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
+                }
+                let celdas = l.substring(1, l.length - 1).split('|');
+                nuevoHTML += '<tr style="border:1px solid #000;">';
+                celdas.forEach(celda => {
+                    let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${c}</td>`;
+                });
+                nuevoHTML += '</tr>';
+            } else {
+                if (enTabla) {
+                    nuevoHTML += '</table>';
+                    enTabla = false;
+                }
+                if (l !== '') {
+                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                    c = c.replace(/### (.*)/, '<b>$1</b>');
+                    c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
+                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                }
+            }
+        });
+        if (enTabla) nuevoHTML += '</table>';
+        z.innerHTML = nuevoHTML;
+    } else {
+        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        htmlBase = htmlBase.replace(/\*\*/g, '');
+        z.innerHTML = htmlBase;
+    }
 };
 
 window.modoGarantia = () => { 
     document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
+    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; 
 };
 
 window.generarPDF = () => { 
-    html2pdf().set({ margin: 5, filename: 'Cotizacion_WRPUMA.pdf', html2canvas: { scale: 3, useCORS: true }, jsPDF: { format: 'a4' } }).from(document.getElementById('hoja-pdf')).save(); 
-};
-window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
-
-window.modoGarantia = () => { 
-    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
-};
-
-window.generarPDF = () => { 
-    html2pdf().set({ 
-        margin: 5, 
-        filename: `Cotizacion_WRPUMA_${Date.now()}.pdf`, 
-        html2canvas: { scale: 3, useCORS: true }, 
-        jsPDF: { unit: 'mm', format: 'a4' } 
-    }).from(document.getElementById('hoja-pdf')).save(); 
-};
-
-window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
-
-window.modoGarantia = () => { 
-    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
-};
-
-window.generarPDF = () => { 
-    html2pdf().set({ 
-        margin: 5, 
-        filename: `Cotizacion_${Date.now()}.pdf`, 
-        html2canvas: { scale: 2 }, 
-        jsPDF: { format: 'a4' } 
-    }).from(document.getElementById('hoja-pdf')).save(); 
-};
-
-window.generarPDF = () => { 
-    html2pdf().set({ 
-        margin: 5, 
-        filename: `Cotizacion_${Date.now()}.pdf`, 
-        image: { type: 'jpeg', quality: 1 }, 
-        html2canvas: { scale: 3, useCORS: true }, 
-        jsPDF: { unit: 'mm', format: 'a4' } 
-    }).from(document.getElementById('hoja-pdf')).save(); 
-};
-
-window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
-
-window.modoGarantia = () => { 
-    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b> [Escribir Nombre]</p><p><b>CLIENTE:</b> [Escribir Nombre]</p><p>WRPUMA certifica la calidad de los materiales y la correcta ejecución técnica. Se garantiza la estanqueidad por <b>UN (1) AÑO</b>.</p><p style="margin-top:50px; text-align:center;">_______________________<br>Walter Puma<br>Gerente General</p>`; 
-};
-
-window.generarPDF = () => { 
-    const element = document.getElementById('hoja-pdf');
-    html2pdf().set({ margin: 5, filename: 'Documento_WRPUMA.pdf', html2canvas: { scale: 2 }, jsPDF: { format: 'a4' } }).from(element).save(); 
-};
-
-window.generarPDFUniversal = () => {
-    const cliente = document.getElementById('inp-cliente').value;
-    const proyecto = document.getElementById('inp-proyecto').value;
-    const detalle = document.getElementById('inp-detalle').value;
-    const total = document.getElementById('inp-total').value;
-
-    // Creamos un contenedor temporal invisible para el PDF
-    const divTemporal = document.createElement('div');
-    divTemporal.style.padding = "20mm";
-    divTemporal.innerHTML = `
-        <h1 style="color: #cc0000; font-weight: 900;">WRPUMA</h1>
-        <p style="font-size: 12px;">Servicios profesionales de pintura e impermeabilización</p>
-        <hr style="border: 1px solid #000;">
-        <h2 style="font-size: 20px;">COTIZACIÓN DE SERVICIOS</h2>
-        <p><b>Cliente:</b> ${cliente}</p>
-        <p><b>Proyecto:</b> ${proyecto}</p>
-        <p><b>Fecha:</b> ${new Date().toLocaleDateString()}</p>
-        <div style="margin-top: 20px; padding: 10px; background: #f4f4f4;">
-            <p><b>Descripción del trabajo:</b></p>
-            <p>${detalle.replace(/\n/g, '<br>')}</p>
-        </div>
-        <h2 style="text-align: right; margin-top: 30px;">TOTAL: Bs. ${total}</h2>
-        <div style="margin-top: 50px; font-size: 10px; text-align: center;">
-            WRPUMA - Santa Cruz de la Sierra
-        </div>
-    `;
-
-    // Generar
-    html2pdf().from(divTemporal).set({
-        margin: 10,
-        filename: `Cotizacion_${cliente.replace(/\s+/g, '_')}.pdf`,
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).save();
+    const btn = event.target; 
+    const txt = btn.innerText; 
+    btn.innerText = "PROCESANDO DOCUMENTO..."; 
+    btn.disabled = true; 
+    setTimeout(() => { 
+        html2pdf().set({ 
+            margin: 0, 
+            filename: `Doc_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 1 }, 
+            html2canvas: { scale: 3, useCORS: true }, 
+            jsPDF: { unit: 'mm', format: 'a4' } 
+        }).from(document.getElementById('hoja-pdf')).save().then(() => { 
+            btn.innerText = txt; 
+            btn.disabled = false; 
+        }); 
+    }, 1000); 
 };
 
 // ==========================================================
@@ -750,7 +718,6 @@ function dibujarMenu() {
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
     const tituloMenu = empresa === 'Napoleon' ? 'NAPO<span class="text-blue-500">LEON</span>' : 'WR<span class="text-red-600">PUMA</span>';
 
-    // Verificamos si hay solicitudes pendientes solo si es administrador
     if(rol === 'admin') {
         firebase.database().ref(getDbPath('solicitudes')).once('value').then(snap => {
             let haySol = false;
@@ -826,7 +793,6 @@ function enrutador() {
     if (!rol && h !== '') { window.location.hash = ''; return; }
     if (rol === 'trabajador' && h !== '#panel-trabajador') { window.location.hash = '#panel-trabajador'; return; }
     
-    // BLOQUEO ESTRICTO: El supervisor no entra a finanzas, ni a generar cotizaciones
     if (rol === 'super' && !['#menu', '#asistencia', '#herramientas', '#obras', ''].includes(h)) { 
         alert("Acceso denegado: Seguridad de Gerencia. El supervisor solo audita Herramientas y Asistencia."); 
         window.location.hash = '#menu'; return; 
