@@ -578,7 +578,62 @@ window.delP = (n) => { if (confirm(`¿Proceder con la eliminación?`)) data.borr
 window.editarP = (oldName, oldSueldo) => { let nuevoNom = prompt("Modificar Nombre:", oldName); if(!nuevoNom) return; let nuevoSueldo = prompt("Modificar Sueldo:", oldSueldo); if(!nuevoSueldo) return; nuevoNom = nuevoNom.trim().toUpperCase(); if(nuevoNom !== oldName) { firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo }); firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal()); } else { firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal()); } };
 
 function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo APU Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
-function dibujarCotizador() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo Cotizador Word Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
+function dibujarCotizador() {
+    appDiv.innerHTML = `
+    <div class="p-4 bg-zinc-100 min-h-screen text-black">
+        <div class="max-w-xl mx-auto bg-white p-6 rounded-2xl shadow-xl">
+            <h2 class="text-xl font-black mb-4 uppercase">Generador de Cotizaciones WRPUMA</h2>
+            
+            <div class="space-y-3">
+                <input type="text" id="inp-cliente" placeholder="Nombre del Cliente" class="w-full p-3 border rounded-lg">
+                <input type="text" id="inp-proyecto" placeholder="Nombre del Proyecto" class="w-full p-3 border rounded-lg">
+                <textarea id="inp-detalle" placeholder="Detalle técnico (Materiales, mano de obra...)" class="w-full p-3 border rounded-lg h-32"></textarea>
+                <input type="number" id="inp-total" placeholder="Precio Total (Bs)" class="w-full p-3 border rounded-lg">
+            </div>
+
+            <div class="flex gap-2 mt-6">
+                <button onclick="window.location.hash='#menu'" class="flex-1 py-3 bg-zinc-800 text-white rounded-lg font-bold">CANCELAR</button>
+                <button onclick="generarPDFUniversal()" class="flex-1 py-3 bg-blue-600 text-white rounded-lg font-bold">GENERAR PDF</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+window.generarPDFUniversal = () => {
+    const cliente = document.getElementById('inp-cliente').value;
+    const proyecto = document.getElementById('inp-proyecto').value;
+    const detalle = document.getElementById('inp-detalle').value;
+    const total = document.getElementById('inp-total').value;
+
+    // Creamos un contenedor temporal invisible para el PDF
+    const divTemporal = document.createElement('div');
+    divTemporal.style.padding = "20mm";
+    divTemporal.innerHTML = `
+        <h1 style="color: #cc0000; font-weight: 900;">WRPUMA</h1>
+        <p style="font-size: 12px;">Servicios profesionales de pintura e impermeabilización</p>
+        <hr style="border: 1px solid #000;">
+        <h2 style="font-size: 20px;">COTIZACIÓN DE SERVICIOS</h2>
+        <p><b>Cliente:</b> ${cliente}</p>
+        <p><b>Proyecto:</b> ${proyecto}</p>
+        <p><b>Fecha:</b> ${new Date().toLocaleDateString()}</p>
+        <div style="margin-top: 20px; padding: 10px; background: #f4f4f4;">
+            <p><b>Descripción del trabajo:</b></p>
+            <p>${detalle.replace(/\n/g, '<br>')}</p>
+        </div>
+        <h2 style="text-align: right; margin-top: 30px;">TOTAL: Bs. ${total}</h2>
+        <div style="margin-top: 50px; font-size: 10px; text-align: center;">
+            WRPUMA - Santa Cruz de la Sierra
+        </div>
+    `;
+
+    // Generar
+    html2pdf().from(divTemporal).set({
+        margin: 10,
+        filename: `Cotizacion_${cliente.replace(/\s+/g, '_')}.pdf`,
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).save();
+};
 
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR (BLINDAJE DE SEGURIDAD)
