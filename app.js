@@ -550,4 +550,155 @@ function dibujarCaja() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-10
 function dibujarUtilidad() { appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white text-center pb-10"><h1>Módulo de Finanzas Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
 
 function dibujarObras() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div></div></div></div>`;
+    data.obtenerTodo((db) => {
+        const cA = document.getElementById('list-o-activas'); if (!cA) return; cA.innerHTML = ''; const obs = db.obras || {};
+        const rol = localStorage.getItem('rol_wr');
+        Object.keys(obs).forEach(id => {
+            const o = obs[id];
+            if(o.estado !== 'Archivada') {
+                cA.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border-2 border-zinc-300 relative"><b class="text-xl uppercase text-red-600">${o.nombre}</b>${rol === 'admin' ? `<div class="pt-2 flex flex-wrap gap-1 justify-between"><button onclick="window.archivarObra('${id}')" class="flex-1 text-[9px] font-black px-2 py-2 rounded-lg bg-zinc-300 text-zinc-700 min-w-[70px]">Archivar</button><button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline px-2 py-2 min-w-[50px]">Borrar</button></div>` : ``}</div>`;
+            }
+        });
+    });
+}
+window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value; if (n && p) { data.guardarObra(n, p).then(() => location.reload()); } };
+window.delO = (id) => { if (confirm("¿Confirmar la eliminación del proyecto?")) data.borrarObra(id).then(() => location.reload()); };
+window.archivarObra = (id) => { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: 'Archivada' }).then(() => location.reload()); };
+
+function dibujarPersonal() {
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-800 p-6 text-white flex justify-between items-center rounded-t-3xl"><h2 class="text-xl font-black italic uppercase text-white">EQUIPO DE TRABAJO</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4"><input id="p-nom" type="text" placeholder="NOMBRE DEL PERSONAL" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black text-sm"><input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black text-sm"><button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">REGISTRAR PERSONAL</button><div id="list-p" class="space-y-3 pt-4 border-t"></div></div></div></div>`;
+    data.obtenerPersonal(per => {
+        const c = document.getElementById('list-p'); if (!c) return; c.innerHTML = ''; const personal = per || {};
+        Object.keys(personal).forEach(n => { c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border text-black uppercase shadow-sm"><div><b class="text-sm">${n}</b><br><span class="text-[10px] text-zinc-500 font-bold">Salario Diario: Bs. ${personal[n].sueldo_dia}</span></div><div class="flex flex-col gap-1"><button onclick="window.editarP('${n}', ${personal[n].sueldo_dia})" class="text-blue-600 font-black px-3 py-1 bg-blue-100 rounded-lg active:scale-90 text-[10px]">EDITAR</button><button onclick="window.delP('${n}')" class="text-red-600 font-black px-3 py-1 bg-red-100 rounded-lg active:scale-90 text-[10px]">ELIMINAR</button></div></div>`; });
+    });
+}
+window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), s = document.getElementById('p-sue').value; if (n && s) { data.guardarPintor(n, s); document.getElementById('p-nom').value = ''; document.getElementById('p-sue').value = ''; } };
+window.delP = (n) => { if (confirm(`¿Proceder con la eliminación?`)) data.borrarPintor(n); };
+window.editarP = (oldName, oldSueldo) => { let nuevoNom = prompt("Modificar Nombre:", oldName); if(!nuevoNom) return; let nuevoSueldo = prompt("Modificar Sueldo:", oldSueldo); if(!nuevoSueldo) return; nuevoNom = nuevoNom.trim().toUpperCase(); if(nuevoNom !== oldName) { firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo }); firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal()); } else { firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal()); } };
+
+function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo APU Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
+function dibujarCotizador() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo Cotizador Word Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
+
+// ==========================================================
+// 🚀 MENU MAESTRO Y ENRUTADOR (BLINDAJE DE SEGURIDAD)
+// ==========================================================
+function dibujarMenu() {
+    const rol = localStorage.getItem('rol_wr');
+    if (!rol) { window.location.hash = ''; return; }
+    const empresa = localStorage.getItem('empresa_wr') || 'Walter';
+    const tituloMenu = empresa === 'Napoleon' ? 'NAPO<span class="text-blue-500">LEON</span>' : 'WR<span class="text-red-600">PUMA</span>';
+
+    // Verificamos si hay solicitudes pendientes solo si es administrador
+    if(rol === 'admin') {
+        firebase.database().ref(getDbPath('solicitudes')).once('value').then(snap => {
+            let haySol = false;
+            const sol = snap.val() || {};
+            Object.keys(sol).forEach(k => { if(sol[k].estado === 'Pendiente') haySol = true; });
+            if(haySol && document.getElementById('btn-solicitudes')) {
+                document.getElementById('btn-solicitudes').classList.remove('hidden');
+            }
+        });
+    }
+
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-black p-6 text-white text-center flex flex-col justify-between font-sans pb-10">
+        <div>
+            <h1 class="text-5xl font-black italic mb-2 tracking-tighter uppercase text-white">${tituloMenu}</h1>
+            <p class="text-zinc-600 text-[9px] font-bold uppercase tracking-[0.3em] mb-6">Elite Management ${rol === 'super' ? '- SUPERVISOR' : ''}</p>
+            
+            ${rol === 'admin' ? `
+            <div class="mb-6 bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-left">
+                <label class="text-[9px] text-blue-400 font-bold uppercase mb-1 block">📌 Configurar Mensaje del Día para Trabajadores:</label>
+                <div class="flex gap-2">
+                    <input id="input-msg-dia" type="text" placeholder="Ej: Hoy toca avance en obra Onix." class="w-full bg-black text-white p-2 rounded outline-none text-xs border border-zinc-800">
+                    <button onclick="window.guardarMsgDia()" class="bg-blue-600 text-white px-3 rounded font-bold text-xs">Fijar</button>
+                </div>
+            </div>
+            
+            <button id="btn-solicitudes" onclick="window.location.hash='#solicitudes'" class="hidden w-full mb-4 bg-orange-500 text-black py-3 rounded-2xl font-black text-xs uppercase animate-pulse shadow-[0_0_15px_rgba(249,115,22,0.5)] border-2 border-orange-300">
+                ⚠️ Tienes Pedidos de Material / Anticipos de los trabajadores
+            </button>
+            ` : ``}
+
+            <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto text-black text-left">
+                <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 italic"><span class="font-black text-[12px] uppercase mt-2">Asistencia</span></button>
+                
+                ${rol === 'admin' ? `
+                <button onclick="window.location.hash='#tratos'" class="bg-purple-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 italic"><span class="font-black text-[12px] uppercase mt-2">Tratos</span></button>
+                <button onclick="window.location.hash='#obras'" class="bg-zinc-900 text-white aspect-square rounded-3xl border border-zinc-800 active:scale-95 shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Proyectos</span></button>
+                <button onclick="window.location.hash='#personal'" class="bg-zinc-100 text-black aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Personal</span></button>
+                <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Catálogo APU</span></button>
+                <button onclick="window.location.hash='#herramientas'" class="bg-yellow-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 font-black text-[11px] text-center uppercase italic border-b-4 border-yellow-800">Inventario</button>
+                <button onclick="window.location.hash='#planilla'" class="col-span-2 bg-zinc-900 text-white h-16 rounded-2xl border border-zinc-800 active:scale-95 shadow-xl font-black text-[12px] uppercase italic">Pagar Sueldos</button>
+                <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-zinc-300"><span class="font-black text-[11px] uppercase text-red-600">Generar Documentos Word</span></button>
+                <button onclick="window.location.hash='#calculadora'" class="col-span-2 bg-blue-600 text-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-blue-800 mt-[-10px]"><span class="font-black text-[11px] uppercase text-white">Calculadora Operativa</span></button>
+                <button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white h-16 rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Control Gastos</button><button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 h-16 rounded-2xl flex items-center justify-center gap-2 border border-zinc-800 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Reporte Finanzas</button>
+                ` : ``}
+
+                ${rol === 'super' ? `
+                <button onclick="window.location.hash='#herramientas'" class="bg-yellow-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 font-black text-[11px] text-center uppercase italic border-b-4 border-yellow-800">Auditoría Inventario</button>
+                <button onclick="window.location.hash='#obras'" class="col-span-2 bg-zinc-900 text-white h-16 rounded-2xl border border-zinc-800 active:scale-95 shadow-xl font-black text-[12px] uppercase italic">Ver Proyectos Activos</button>
+                ` : ``}
+            </div>
+        </div>
+        <button onclick="window.cerrarSesionTotal()" class="text-zinc-700 text-[10px] font-bold uppercase pt-4 border-t border-zinc-900 italic mt-8">FINALIZAR SESION</button>
+    </div>`;
+
+    if(rol === 'admin') {
+        firebase.database().ref(getDbPath('config/mensaje_dia')).once('value').then(snap => {
+            const inputMsg = document.getElementById('input-msg-dia');
+            if(inputMsg) inputMsg.value = snap.val() || "";
+        });
+    }
+}
+
+window.guardarMsgDia = () => {
+    const msg = document.getElementById('input-msg-dia').value;
+    firebase.database().ref(getDbPath('config/mensaje_dia')).set(msg).then(()=>{
+        alert("Mensaje fijado para todo el personal.");
+    });
+};
+
+function enrutador() {
+    const h = window.location.hash, rol = localStorage.getItem('rol_wr');
+    if (!rol && h !== '') { window.location.hash = ''; return; }
+    if (rol === 'trabajador' && h !== '#panel-trabajador') { window.location.hash = '#panel-trabajador'; return; }
+    
+    // BLOQUEO ESTRICTO: El supervisor no entra a finanzas, ni a generar cotizaciones
+    if (rol === 'super' && !['#menu', '#asistencia', '#herramientas', '#obras', ''].includes(h)) { 
+        alert("Acceso denegado: Seguridad de Gerencia. El supervisor solo audita Herramientas y Asistencia."); 
+        window.location.hash = '#menu'; return; 
+    }
+
+    if (h === '#panel-trabajador') dibujarPanelTrabajador();
+    else if (h === '#asistencia') dibujarAsistencia(); else if (h === '#cotizaciones') dibujarCotizador();
+    else if (h === '#calculadora') dibujarCalculadora(); else if (h === '#menu') dibujarMenu();
+    else if (h === '#planilla') dibujarPlanilla(); else if (h === '#obras') dibujarObras();
+    else if (h === '#personal') dibujarPersonal(); else if (h === '#almacen') dibujarAlmacen();
+    else if (h === '#utilidad') dibujarUtilidad(); else if (h === '#contabilidad') dibujarCaja();
+    else if (h === '#tratos') dibujarTratos(); else if (h === '#herramientas') dibujarHerramientas();
+    else if (h === '#solicitudes') dibujarSolicitudes();
+    else dibujarAcceso();
+}
+
+window.cerrarSesionTotal = () => { localStorage.clear(); window.location.hash = ''; location.reload(); };
+
+function dibujarAcceso() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-white text-center font-sans">
+        <h1 class="text-6xl font-black italic mb-2 tracking-tighter text-white uppercase" aria-label="W R PUMA">WR<span class="text-red-600">PUMA</span></h1>
+        <p class="text-zinc-500 font-bold tracking-[0.4em] mb-12 uppercase text-[10px]">Gestion Empresarial</p>
+        <div class="grid gap-4 w-full max-w-xs text-black">
+            <button onclick="window.verAccesoPro('walter')" class="bg-red-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-transform border-2 border-red-800">ACCESO GERENCIA</button>
+            <button onclick="window.verAccesoPro('napoleon')" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-transform border-2 border-blue-800">ACCESO DIRECCION</button>
+            <button onclick="window.verAccesoPro('super')" class="bg-zinc-800 text-zinc-300 py-3 rounded-2xl font-black text-sm border border-zinc-700 active:scale-95 transition-transform mt-4">ACCESO SUPERVISOR</button>
+            
+            <div class="border-t border-zinc-800 pt-4 mt-2">
+                <button onclick="window.verAccesoPro('trabajador')" class="w-full bg-zinc-900 text-green-500 py-4 rounded-2xl font-black text-xs border border-zinc-800 active:scale-95 transition-transform uppercase shadow-[0_0_15px_rgba(34,197,94,0.1)]">👤 ACCESO TRABAJADOR / ASISTENCIA</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+window.addEventListener('hashchange', enrutador); window.addEventListener('load', enrutador); enrutador();
