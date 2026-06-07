@@ -585,6 +585,9 @@ function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc
 // ==========================================================
 // 📝 COTIZADOR PROFESIONAL: OPCIÓN A (MÓVIL OPTIMIZADO)
 // ==========================================================
+// ==========================================================
+// 📝 COTIZADOR REEMPLAZADO: DISEÑO PROFESIONAL CON ETIQUETA WRPUMA
+// ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
     <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
@@ -595,62 +598,40 @@ function dibujarCotizador() {
             </div>
             
             <div class="grid grid-cols-3 gap-2 mb-2">
-                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
-                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
-                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
+                <button onclick="window.setDocType('COTIZACION')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl active:scale-95 text-[10px] uppercase">COTIZACION</button>
+                <button onclick="window.setDocType('RECIBO')" class="bg-green-600 text-white font-bold py-2 rounded-xl active:scale-95 text-[10px] uppercase">RECIBO</button>
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
-            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
-            
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">📥 GENERAR PDF PROFESIONAL</button>
-            
-            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE SU COTIZACIÓN Y PÉGUELA EN LA ZONA BLANCA.</p>
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-lg mb-2 text-xs uppercase border-b-4 border-blue-800 active:scale-95">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-lg mb-6 active:scale-95 shadow-lg">📥 GENERAR PDF PROFESIONAL</button>
             
             <div class="overflow-x-auto w-full pb-10">
-                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
+                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col" style="width:210mm; min-height:295mm; padding:20mm; font-family:Arial;">
                     
-                    <style>
-                        /* Estilos inquebrantables para la tabla al generar PDF */
-                        #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
-                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
-                        #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
-                        #zona-editable * { color: #000 !important; }
-                        .placeholder-gris { color: #999 !important; }
-                    </style>
-
-                    <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
-                        <div>
-                            <h1 style="margin:0; font-size:32px; font-weight:900; color:#cc0000; letter-spacing: -1px;">WRPUMA</h1>
-                            <p style="margin:0; font-size:11px; font-weight:bold; color:#555; text-transform:uppercase;">Servicio de Aplicación de Pintura</p>
-                        </div>
-                        <div style="text-align:right; color:#000;">
-                            <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p>
-                            <p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
-                        </div>
-                    </div>
-                    
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:14px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
-                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización desde el chat ---</p>
-                    </div>
-                    
-                    <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
-                        <div>
-                            <p style="margin:0;font-weight:bold;font-size:13px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p>
-                            <p style="margin:0;font-size:11px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p>
-                            <p style="margin:0;font-size:11px;color:#000;">Cel.: 77396806, 76362867</p>
+                    <div style="display:flex; justify-content:space-between; border-bottom: 4px solid #cc0000; padding-bottom: 10px; margin-bottom: 20px;">
+                        <div style="display:flex; align-items:center;">
+                            <div style="background-color:#cc0000; color:white; font-weight:900; font-size:24px; padding:10px 15px; border-radius:5px; margin-right:15px;">WRPUMA</div>
+                            <p style="margin:0; font-size:11px; font-weight:bold; color:#333; text-transform:uppercase;">Ingeniería en Pintura<br>Soluciones Profesionales</p>
                         </div>
                         <div style="text-align:right;">
-                            <p style="margin:0;font-size:11px;color:#000;">wrpuma@gmail.com</p>
-                            <p style="margin:0;font-size:11px;color:#000;">www.wrpuma.com</p>
-                            <p style="margin:0;font-size:12px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p>
+                            <p id="doc-title" contenteditable="true" style="margin:0; font-weight:900; font-size:18px; outline:none;">COTIZACION</p>
+                            <p style="margin:0; font-size:12px;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
                         </div>
+                    </div>
+                    
+                    <div id="zona-editable" contenteditable="true" style="outline:none; font-size:14px; line-height:1.5; flex-grow:1; text-align:justify;">
+                        <p style="color:#999;">--- Pegue aquí su cotización ---</p>
+                    </div>
+                    
+                    <div style="margin-top:40px; border-top: 1px solid #000; padding-top:10px; text-align:center; font-size: 11px;">
+                        <p>Plan 3000 Av. Piraisito N° 8560 | Cel: 77396806 | Dando el toque final a su construcción</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>`;
-}
-
+};
 // FUNCIONES DE CONTROL DEL DOCUMENTO
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
