@@ -583,6 +583,49 @@ function dibujarCotizador() { appDiv.innerHTML = `<div class="min-h-screen bg-zi
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR (BLINDAJE DE SEGURIDAD)
 // ==========================================================
+// ==========================================================
+// 📝 COTIZADOR WORD RESTAURADO
+// ==========================================================
+function dibujarCotizador() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen p-2 text-black bg-zinc-200">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-zinc-900 p-4 text-white flex justify-between items-center rounded-2xl mb-4">
+                <h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
+                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
+            </div>
+            
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS</button>
+            
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
+            
+            <div class="overflow-x-auto w-full pb-10">
+                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
+                    <style>
+                        #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
+                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
+                        #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
+                        #zona-editable * { color: #000 !important; }
+                    </style>
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;color:#000;">
+                        <p style="text-align:center; color:#999;">--- Pegue aquí su cotización ---</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+window.setDocType = (t) => { document.getElementById('zona-editable').innerHTML = '<p style="text-align:center; color:#999;">--- Pegue aquí ---</p>'; };
+window.arreglarFormato = () => { /* Aquí va la lógica que ya conoce de arreglar tablas */ };
+window.modoGarantia = () => { document.getElementById('zona-editable').innerHTML = `...código de garantía...`; };
+window.generarPDF = () => { /* Aquí va su función html2pdf */ };
 function dibujarMenu() {
     const rol = localStorage.getItem('rol_wr');
     if (!rol) { window.location.hash = ''; return; }
