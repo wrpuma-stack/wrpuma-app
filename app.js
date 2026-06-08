@@ -604,7 +604,7 @@ function dibujarObras() {
             }
         });
     });
-}
+
 window.saveO = () => { 
     const n = document.getElementById('o-nom').value.trim(); 
     const p = document.getElementById('o-pre').value; 
