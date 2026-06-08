@@ -774,4 +774,28 @@ function dibujarAcceso() {
     </div>`;
 }
 
+// ==========================================================
+// 📥 MOTOR DE PDF PROFESIONAL (Última versión)
+// ==========================================================
+window.generarPDF = () => {
+    const elemento = document.getElementById('hoja-pdf');
+    if (!elemento) {
+        alert("Error: No se encuentra el área de impresión.");
+        return;
+    }
+
+    // Opciones para asegurar que la cotización se vea profesional
+    const opt = {
+        margin:       0.3,
+        filename:     'Cotizacion_WRPUMA.pdf',
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    // Esto es lo que ejecuta la magia:
+    html2pdf().set(opt).from(elemento).save();
+};
+
+
 window.addEventListener('hashchange', enrutador); window.addEventListener('load', enrutador); enrutador();
