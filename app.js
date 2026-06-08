@@ -608,21 +608,15 @@ function dibujarCotizador() {
                 <h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2>
                 <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
             </div>
-            
             <div class="grid grid-cols-3 gap-2 mb-2">
                 <button onclick="window.setDocType('COTIZACION')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl active:scale-95 text-[10px] uppercase">COTIZACION</button>
                 <button onclick="window.setDocType('RECIBO')" class="bg-green-600 text-white font-bold py-2 rounded-xl active:scale-95 text-[10px] uppercase">RECIBO</button>
                 <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
-            
             <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-lg mb-2 text-xs uppercase border-b-4 border-blue-800 active:scale-95">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
             <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-lg mb-6 active:scale-95 shadow-lg">📥 GENERAR PDF PROFESIONAL</button>
-            
-            <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE SU COTIZACIÓN Y PÉGUELA EN LA ZONA BLANCA.</p>
-
             <div class="overflow-x-auto w-full pb-10">
                 <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col" style="width:210mm; min-height:295mm; padding:20mm; font-family:Arial;">
-                    
                     <div style="display:flex; justify-content:space-between; border-bottom: 4px solid #cc0000; padding-bottom: 10px; margin-bottom: 20px; align-items: flex-end;">
                         <div style="display:flex; align-items:center;">
                             <div style="background-color:#cc0000; color:white; font-weight:900; font-size:26px; padding:8px 12px; border-radius:4px; margin-right:12px; letter-spacing: -1px;">WRPUMA</div>
@@ -633,11 +627,9 @@ function dibujarCotizador() {
                             <p style="margin:0; font-size:12px; color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
                         </div>
                     </div>
-                    
                     <div id="zona-editable" contenteditable="true" style="outline:none; font-size:14px; line-height:1.5; flex-grow:1; text-align:justify; color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
                         <p style="color:#999; text-align:center; margin-top:50px;">--- Pegue aquí su cotización ---</p>
                     </div>
-                    
                     <div style="margin-top:40px; border-top: 2px solid #000; padding-top:10px; display:flex; justify-content:space-between; font-size: 11px; color:#000;">
                         <div><b>WRPUMA - Ingeniería en Pintura</b><br>Plan 3000 Av. Piraisito N° 8560 | Cel: 77396806</div>
                         <div style="text-align:right;">wrpuma@gmail.com<br><i style="color:#cc0000; font-weight:bold;">Dando el toque final a su construcción</i></div>
