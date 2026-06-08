@@ -551,7 +551,7 @@ function dibujarUtilidad() { appDiv.innerHTML = `<div class="min-h-screen bg-bla
 
 function dibujarObras() {
     appDiv.innerHTML = `
-    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10">
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
         <div class="max-w-md mx-auto">
             <div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
                 <h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2>
@@ -566,6 +566,34 @@ function dibujarObras() {
             </div>
         </div>
     </div>`;
+
+    // CONSULTA REAL A FIREBASE
+    firebase.database().ref(getDbPath('obras')).on('value', snap => {
+        const cA = document.getElementById('list-o-activas');
+        if (!cA) return;
+        cA.innerHTML = '';
+        const obs = snap.val() || {};
+        Object.keys(obs).forEach(id => {
+            const o = obs[id];
+            if(o.estado !== 'Archivada') {
+                cA.innerHTML += `
+                <div class="p-4 bg-zinc-50 rounded-2xl border-2 border-zinc-300 relative shadow-sm">
+                    <b class="text-xl uppercase text-red-600">${o.nombre}</b>
+                    <p class="text-[10px] font-bold text-zinc-500">PRESUPUESTO: Bs. ${o.presupuesto}</p>
+                    <button onclick="window.delO('${id}')" class="text-red-500 text-[10px] font-black underline mt-2">Borrar Proyecto</button>
+                </div>`;
+            }
+        });
+    });
+}
+window.saveO = () => { 
+    const n = document.getElementById('o-nom').value.trim(); 
+    const p = document.getElementById('o-pre').value; 
+    if (n && p) { 
+        firebase.database().ref(getDbPath('obras')).push({ nombre: n.toUpperCase(), presupuesto: p, estado: 'Activa' }).then(() => alert("Proyecto registrado.")); 
+    } else { alert("Complete los campos."); }
+};
+window.delO = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`obras/${id}`)).remove(); };
     
     data.obtenerTodo((db) => {
         const cA = document.getElementById('list-o-activas'); 
