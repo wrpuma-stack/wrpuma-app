@@ -550,18 +550,44 @@ function dibujarCaja() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-10
 function dibujarUtilidad() { appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white text-center pb-10"><h1>Módulo de Finanzas Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
 
 function dibujarObras() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div></div></div></div>`;
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
+                <input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2">
+                <input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3">
+                <button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button>
+                <h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3>
+                <div id="list-o-activas" class="space-y-4"></div>
+            </div>
+        </div>
+    </div>`;
+    
     data.obtenerTodo((db) => {
-        const cA = document.getElementById('list-o-activas'); if (!cA) return; cA.innerHTML = ''; const obs = db.obras || {};
-        const rol = localStorage.getItem('rol_wr');
+        const cA = document.getElementById('list-o-activas'); 
+        if (!cA) return; 
+        cA.innerHTML = ''; 
+        const obs = db.obras || {};
         Object.keys(obs).forEach(id => {
             const o = obs[id];
             if(o.estado !== 'Archivada') {
-                cA.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border-2 border-zinc-300 relative"><b class="text-xl uppercase text-red-600">${o.nombre}</b>${rol === 'admin' ? `<div class="pt-2 flex flex-wrap gap-1 justify-between"><button onclick="window.archivarObra('${id}')" class="flex-1 text-[9px] font-black px-2 py-2 rounded-lg bg-zinc-300 text-zinc-700 min-w-[70px]">Archivar</button><button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline px-2 py-2 min-w-[50px]">Borrar</button></div>` : ``}</div>`;
+                cA.innerHTML += `
+                <div class="p-4 bg-zinc-50 rounded-2xl border-2 border-zinc-300 relative">
+                    <b class="text-xl uppercase text-red-600">${o.nombre}</b>
+                    <div class="pt-2 flex gap-1 justify-between">
+                        <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline px-2 py-2">Borrar</button>
+                    </div>
+                </div>`;
             }
         });
     });
 }
+window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value; if (n && p) { data.guardarObra(n, p).then(() => location.reload()); } };
+window.delO = (id) => { if (confirm("¿Confirmar eliminación?")) data.borrarObra(id).then(() => location.reload()); };
 window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value; if (n && p) { data.guardarObra(n, p).then(() => location.reload()); } };
 window.delO = (id) => { if (confirm("¿Confirmar la eliminación del proyecto?")) data.borrarObra(id).then(() => location.reload()); };
 window.archivarObra = (id) => { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: 'Archivada' }).then(() => location.reload()); };
