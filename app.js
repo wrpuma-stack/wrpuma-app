@@ -651,7 +651,53 @@ window.delP = (n) => { if (confirm(`¿Proceder con la eliminación?`)) data.borr
 window.editarP = (oldName, oldSueldo) => { let nuevoNom = prompt("Modificar Nombre:", oldName); if(!nuevoNom) return; let nuevoSueldo = prompt("Modificar Sueldo:", oldSueldo); if(!nuevoSueldo) return; nuevoNom = nuevoNom.trim().toUpperCase(); if(nuevoNom !== oldName) { firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo }); firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal()); } else { firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal()); } };
 
 function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo APU Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
-function dibujarCotizador() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo Cotizador Word Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
+// ==========================================================
+// 📝 COTIZADOR WORD RESTAURADO Y FUNCIONAL
+// ==========================================================
+function dibujarCotizador() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen p-2 text-black bg-zinc-200">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-zinc-900 p-4 text-white flex justify-between items-center rounded-2xl mb-4">
+                <h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 rounded-full text-xs font-bold">VOLVER</button>
+            </div>
+            
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS</button>
+            
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">📥 GENERAR DOCUMENTO PDF</button>
+            
+            <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
+                <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;color:#000;">
+                    <p style="text-align:center; color:#999;">--- Pegue aquí su cotización ---</p>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+window.arreglarFormato = () => {
+    const z = document.getElementById('zona-editable');
+    let texto = z.innerText;
+    if(texto.includes('|')) {
+        let nuevoHTML = '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
+        texto.split('\n').forEach(linea => {
+            if (linea.includes('|')) {
+                nuevoHTML += '<tr style="border:1px solid #000;">';
+                linea.split('|').forEach(celda => {
+                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${celda.trim()}</td>`;
+                });
+                nuevoHTML += '</tr>';
+            }
+        });
+        nuevoHTML += '</table>';
+        z.innerHTML = nuevoHTML;
+    }
+};
+
+window.generarPDF = () => { 
+    html2pdf().from(document.getElementById('hoja-pdf')).save(); 
+};
 
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR (BLINDAJE DE SEGURIDAD)
