@@ -479,18 +479,19 @@ window.pagarTrato = (id, obraNombre, contratista, saldoPendiente) => { const m =
 window.finTrato = (id) => { if(confirm("¿Archivar este trato? Ya no aparecerá en la lista activa.")) firebase.database().ref(getDbPath(`tratos/${id}`)).update({ estado: 'Finalizado' }); };
 
 // ==========================================================
-// 💰 PLANILLA DE PAGOS (SOLO GERENCIA)
+// 💰 PLANILLA DE PAGOS Y SUELDOS
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white font-sans text-center"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS JORNALEROS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes (Inicio Sem.)</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte (Final Sem.)</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white outline-none"></div></div><div id="c-p" class="space-y-6 text-left pb-10"></div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
+        
         Object.keys(hist).forEach(f => {
             if (f >= pFIni && f <= pFFin) {
                 Object.values(hist[f]).forEach(reg => {
                     const idPagoReferencia = `${reg.nombre}_semana_${pFIni}`;
-                    if (pagosRealizados[idPagoReferencia]) return;
+                    if (pagosRealizados[idPagoReferencia]) return; // Oculta si ya fue pagado
                     if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, horasAtraso: 0, bonos: 0, obraPrincipal: reg.obra };
                     res[reg.nombre].dNorm += parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : (reg.jornada || 1));
                     res[reg.nombre].dExt += parseFloat(reg.jornada_extra || 0);
@@ -500,8 +501,8 @@ function dibujarPlanilla() {
                 });
             }
         });
-        c.innerHTML = ''; let tP = 0; const listaPendientes = Object.keys(res);
-        if (listaPendientes.length === 0) { c.innerHTML = `<div class="text-center p-10 text-zinc-500 font-bold uppercase text-xs border-2 border-dashed border-zinc-800 rounded-3xl mt-10">No hay sueldos pendientes esta semana.</div>`; return; }
+
+        let htmlPendientes = ''; let tP = 0; const listaPendientes = Object.keys(res);
         listaPendientes.forEach(n => {
             const d = res[n], sDia = parseFloat(per[n]?.sueldo_dia) || 0;
             const compensacion = d.dNorm >= 5.5 ? 0.5 : 0;
@@ -510,9 +511,27 @@ function dibujarPlanilla() {
             const descAtraso = d.horasAtraso * (sDia / 8);
             const saldo = sTotBruto - d.ant - descAtraso + d.bonos;
             tP += saldo;
-            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 shadow-2xl relative"><div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3"><h3 class="font-black text-xl uppercase tracking-tight text-white">${n}</h3><span class="bg-red-600 text-white px-3 rounded-lg font-black text-sm py-1 text-center shadow-inner leading-tight">${(dNormPagar + d.dExt).toFixed(1)} D<br><span class="text-[8px] text-red-200">A PAGAR</span></span></div><div class="grid grid-cols-2 gap-3 mb-5"><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Salario Base</span><span class="text-white font-black text-lg">Bs. ${sDia}</span></div><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-red-500 uppercase font-bold">Anticipos Sem.</span><span class="text-red-400 font-black text-lg">-Bs. ${d.ant}</span></div><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Días (N + Extra)</span><span class="text-white font-black text-lg">${d.dNorm} <span class="text-xs text-zinc-500">+ ${d.dExt}</span></span></div><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-blue-400 uppercase font-bold">Compensación Sábado</span>${compensacion > 0 ? `<span class="text-green-400 font-black text-sm">+0.5 D (Ahorro)</span>` : `<span class="text-red-500 font-bold text-xs">Pierde Sáb. Tarde</span>`}</div>${d.bonos > 0 ? `<div class="bg-green-900/40 p-3 rounded-2xl border border-green-800 flex flex-col justify-center col-span-2"><span class="text-[9px] text-green-400 uppercase font-bold">🌟 Bonos por Producción Extra:</span><span class="text-green-500 font-black text-sm">+Bs. ${d.bonos.toFixed(1)}</span></div>` : ''}</div><button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.horasAtraso}, ${descAtraso}, ${compensacion}, ${d.bonos})" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">PAGAR: Bs. ${saldo.toFixed(2)}</button></div>`;
+            htmlPendientes += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 shadow-2xl relative"><div class="flex justify-between items-center mb-4 border-b border-zinc-800 pb-3"><h3 class="font-black text-xl uppercase tracking-tight text-white">${n}</h3><span class="bg-red-600 text-white px-3 rounded-lg font-black text-sm py-1 text-center shadow-inner leading-tight">${(dNormPagar + d.dExt).toFixed(1)} D<br><span class="text-[8px] text-red-200">A PAGAR</span></span></div><div class="grid grid-cols-2 gap-3 mb-5"><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Salario Base</span><span class="text-white font-black text-lg">Bs. ${sDia}</span></div><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-red-500 uppercase font-bold">Anticipos Sem.</span><span class="text-red-400 font-black text-lg">-Bs. ${d.ant}</span></div><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-zinc-500 uppercase font-bold">Días (N + Extra)</span><span class="text-white font-black text-lg">${d.dNorm} <span class="text-xs text-zinc-500">+ ${d.dExt}</span></span></div><div class="bg-black p-3 rounded-2xl border border-zinc-800 flex flex-col justify-center"><span class="text-[9px] text-blue-400 uppercase font-bold">Compensación Sábado</span>${compensacion > 0 ? `<span class="text-green-400 font-black text-sm">+0.5 D (Ahorro)</span>` : `<span class="text-red-500 font-bold text-xs">Pierde Sáb. Tarde</span>`}</div>${d.bonos > 0 ? `<div class="bg-green-900/40 p-3 rounded-2xl border border-green-800 flex flex-col justify-center col-span-2"><span class="text-[9px] text-green-400 uppercase font-bold">🌟 Bonos por Producción Extra:</span><span class="text-green-500 font-black text-sm">+Bs. ${d.bonos.toFixed(1)}</span></div>` : ''}</div><button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.horasAtraso}, ${descAtraso}, ${compensacion}, ${d.bonos})" class="w-full bg-green-500 text-white py-5 rounded-2xl font-black text-xl active:scale-95 transition-all uppercase flex items-center justify-center border-b-4 border-green-700">PAGAR: Bs. ${saldo.toFixed(2)}</button></div>`;
         });
-        if (tP > 0) { c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center shadow-2xl border-b-4 border-green-800"><p class="text-[10px] font-black mb-1 uppercase text-green-200">Desembolso de Sueldos</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML; }
+
+        if (tP > 0) { htmlPendientes = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center shadow-2xl border-b-4 border-green-800"><p class="text-[10px] font-black mb-1 uppercase text-green-200">Total a Desembolsar</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + htmlPendientes; }
+        else if (htmlPendientes === '') { htmlPendientes = `<div class="text-center p-10 text-zinc-500 font-bold uppercase text-xs border-2 border-dashed border-zinc-800 rounded-3xl mt-10">No hay sueldos pendientes esta semana.</div>`; }
+
+        // MOSTRAR PAGOS REALIZADOS HISTÓRICOS DE LA SEMANA ACTUAL
+        let htmlPagados = '';
+        Object.keys(pagosRealizados).forEach(k => {
+            const pago = pagosRealizados[k];
+            if (pago.semana_ancla === pFIni) {
+                htmlPagados += `
+                <div class="bg-zinc-800 p-4 rounded-2xl border-l-4 border-green-500 flex justify-between items-center mt-2 shadow-md">
+                    <div><b class="text-sm uppercase text-white">${pago.trabajador}</b><br><span class="text-[9px] text-zinc-400 font-bold">Fecha: ${new Date(pago.fecha_pago).toLocaleString()}</span></div>
+                    <span class="text-green-400 font-black text-lg">Bs. ${pago.monto.toFixed(2)}</span>
+                </div>`;
+            }
+        });
+        if (htmlPagados !== '') { htmlPagados = `<h3 class="mt-8 mb-3 font-black text-green-500 uppercase text-xs border-b border-zinc-800 pb-2">PAGOS REALIZADOS ESTA SEMANA</h3>` + htmlPagados; }
+
+        c.innerHTML = htmlPendientes + htmlPagados;
     });
 }
 window.ejecutarPagoEfectivo = (nombre, monto, obraNombre, sDia, dNorm, dExt, ant, horasAtraso, descAtraso, compensacion, bonos) => { if (confirm(`¿Transferencia de Bs. ${monto.toFixed(2)} a ${nombre} completada?`)) { firebase.database().ref(getDbPath('obras')).once('value').then(snap => { const obras = snap.val() || {}; const idObra = Object.keys(obras).find(id => obras[id].nombre === obraNombre); if (idObra) { data.registrarMovimiento(idObra, 'pago_sueldo', monto, `Sueldo Semanal: ${nombre}`); firebase.database().ref(getDbPath(`pagos_historial/${nombre}_semana_${pFIni}`)).set({ fecha_pago: new Date().toISOString(), trabajador: nombre, monto: monto, semana_ancla: pFIni, detalles: { sueldo_dia: sDia, dias_normales: dNorm, dias_extras: dExt, anticipos: ant, horas_atraso: horasAtraso, descuento_atraso: descAtraso, compensacion: compensacion, bonos_extra: bonos } }).then(() => { alert(`Pago registrado.`); dibujarPlanilla(); }); } }); } };
@@ -544,10 +563,11 @@ window.devolverHerr = (id) => { if(confirm("¿Recibiste esta herramienta de vuel
 window.delHerr = (id) => { if(confirm("¿Eliminar herramienta del inventario?")) { firebase.database().ref(getDbPath(`herramientas/${id}`)).remove().then(() => dibujarHerramientas()); } };
 
 // ==========================================================
-// 📊 OTROS MÓDULOS DE GERENCIA
+// 📊 OTROS MÓDULOS DE GERENCIA (RESTAURADOS VISUALMENTE)
 // ==========================================================
-function dibujarCaja() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black text-center pb-10"><h1>Módulo de Gastos Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
-function dibujarUtilidad() { appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white text-center pb-10"><h1>Módulo de Finanzas Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
+function dibujarCaja() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><div class="max-w-md mx-auto"><div class="bg-green-600 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">GASTOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-green-700 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-10 shadow-xl rounded-b-3xl text-zinc-500 font-bold text-sm">Módulo en Desarrollo / Sin datos recientes</div></div></div>`; }
+function dibujarUtilidad() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-red-500 flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase text-white">FINANZAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-10 shadow-xl rounded-b-3xl text-zinc-500 font-bold text-sm">Módulo en Desarrollo / Sin datos recientes</div></div></div>`; }
+function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><div class="max-w-md mx-auto"><div class="bg-orange-600 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">ALMACÉN APU</h2><button onclick="window.location.hash='#menu'" class="bg-white text-orange-700 px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-10 shadow-xl rounded-b-3xl text-zinc-500 font-bold text-sm">Base de datos de Precios Unitarios en actualización</div></div></div>`; }
 
 function dibujarObras() {
     appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-left pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs shadow-md">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-black mb-2"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold text-black mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md active:scale-95 transition-all">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black text-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div></div></div></div>`;
@@ -577,10 +597,8 @@ window.saveP = () => { const n = document.getElementById('p-nom').value.trim(), 
 window.delP = (n) => { if (confirm(`¿Proceder con la eliminación?`)) data.borrarPintor(n); };
 window.editarP = (oldName, oldSueldo) => { let nuevoNom = prompt("Modificar Nombre:", oldName); if(!nuevoNom) return; let nuevoSueldo = prompt("Modificar Sueldo:", oldSueldo); if(!nuevoSueldo) return; nuevoNom = nuevoNom.trim().toUpperCase(); if(nuevoNom !== oldName) { firebase.database().ref(getDbPath(`personal/${nuevoNom}`)).set({ sueldo_dia: nuevoSueldo }); firebase.database().ref(getDbPath(`personal/${oldName}`)).remove().then(() => dibujarPersonal()); } else { firebase.database().ref(getDbPath(`personal/${oldName}`)).update({ sueldo_dia: nuevoSueldo }).then(() => dibujarPersonal()); } };
 
-function dibujarAlmacen() { appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans text-center pb-10"><h1>Módulo APU Operativo</h1><button onclick="window.location.hash='#menu'">VOLVER</button></div>`; }
-
 // ==========================================================
-// 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL
+// 📝 COTIZADOR WORD Y GENERADOR PDF PROFESIONAL BLINDADO
 // ==========================================================
 function dibujarCotizador() {
     appDiv.innerHTML = `
@@ -592,39 +610,37 @@ function dibujarCotizador() {
             </div>
             
             <div class="grid grid-cols-3 gap-2 mb-2">
-                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">COTIZACION</button>
-                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl shadow active:scale-95 text-[10px] uppercase">RECIBO</button>
-                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl shadow-lg active:scale-95 text-[10px] uppercase">GARANTIA</button>
+                <button onclick="window.setDocType('COTIZACION')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl active:scale-95 text-[10px] uppercase">COTIZACION</button>
+                <button onclick="window.setDocType('RECIBO')" class="bg-green-600 text-white font-bold py-2 rounded-xl active:scale-95 text-[10px] uppercase">RECIBO</button>
+                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl active:scale-95 text-[10px] uppercase">GARANTIA</button>
             </div>
             
-            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg active:scale-95 text-[12px] uppercase mb-4 border-b-4 border-blue-800">🪄 ARREGLAR TABLAS (Convertir texto a cuadro)</button>
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-lg mb-4">GENERAR DOCUMENTO PDF</button>
+            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-lg mb-2 text-xs uppercase border-b-4 border-blue-800 active:scale-95">🪄 ARREGLAR TABLAS (BOTÓN AZUL)</button>
+            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-lg mb-6 active:scale-95 shadow-lg">📥 GENERAR PDF PROFESIONAL</button>
             
             <p class="text-[10px] font-bold text-zinc-500 uppercase text-center mb-2">COPIE SU COTIZACIÓN Y PÉGUELA EN LA ZONA BLANCA.</p>
-            
-            <div class="overflow-x-auto w-full pb-10">
-                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col relative" style="width:210mm;min-height:295mm;box-sizing:border-box;padding:15mm 20mm;font-family:Arial; background-color: white;">
-                    
-                    <style>
-                        #zona-editable table { width: 100% !important; border-collapse: collapse !important; margin: 20px 0 !important; font-size: 13px !important; color: #000 !important; }
-                        #zona-editable th, #zona-editable td { border: 1px solid #000 !important; padding: 8px !important; text-align: left; color: #000 !important; }
-                        #zona-editable th { background-color: #f0f0f0 !important; font-weight: bold !important; text-align: center !important; }
-                        #zona-editable * { color: #000 !important; }
-                        .placeholder-gris { color: #999 !important; }
-                    </style>
 
-                    <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
-                        <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block';"><h1 style="margin:0; font-size:30px; font-weight:900; color:#cc0000; display:none;">WRPUMA</h1></div>
-                        <div style="text-align:right; color:#000;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;outline:none;color:#000;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+            <div class="overflow-x-auto w-full pb-10">
+                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto flex flex-col" style="width:210mm; min-height:295mm; padding:20mm; font-family:Arial;">
+                    
+                    <div style="display:flex; justify-content:space-between; border-bottom: 4px solid #cc0000; padding-bottom: 10px; margin-bottom: 20px; align-items: flex-end;">
+                        <div style="display:flex; align-items:center;">
+                            <div style="background-color:#cc0000; color:white; font-weight:900; font-size:26px; padding:8px 12px; border-radius:4px; margin-right:12px; letter-spacing: -1px;">WRPUMA</div>
+                            <p style="margin:0; font-size:10px; font-weight:bold; color:#555; text-transform:uppercase; line-height: 1.2;">Ingeniería en Pintura<br>e Impermeabilizaciones</p>
+                        </div>
+                        <div style="text-align:right;">
+                            <p id="doc-title" contenteditable="true" style="margin:0; font-weight:900; font-size:18px; outline:none; color:#000;">COTIZACION</p>
+                            <p style="margin:0; font-size:12px; color:#000;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
+                        </div>
                     </div>
                     
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;flex-grow:1;text-align:justify;color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
-                        <p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>
+                    <div id="zona-editable" contenteditable="true" style="outline:none; font-size:14px; line-height:1.5; flex-grow:1; text-align:justify; color:#000;" onclick="if(this.innerHTML.includes('--- Pegue aquí')) this.innerHTML='';">
+                        <p style="color:#999; text-align:center; margin-top:50px;">--- Pegue aquí su cotización ---</p>
                     </div>
                     
-                    <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;page-break-inside:avoid;color:#000;">
-                        <div><p style="margin:0;font-weight:bold;font-size:14px;color:#000;">WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</p><p style="margin:0;font-size:12px;color:#000;">Plan 3000 Av. Piraisito N° 8560</p><p style="margin:0;font-size:12px;color:#000;">Cel.: 77396806, 76362867</p></div>
-                        <div style="text-align:right;"><p style="margin:0;font-size:12px;color:#000;">wrpuma@gmail.com</p><p style="margin:0;font-size:12px;color:#000;">www.wrpuma.com</p><p style="margin:0;font-size:13px;font-weight:bold;color:#cc0000;font-style:italic;margin-top:4px;">Dando el toque final a su construccion</p></div>
+                    <div style="margin-top:40px; border-top: 2px solid #000; padding-top:10px; display:flex; justify-content:space-between; font-size: 11px; color:#000;">
+                        <div><b>WRPUMA - Ingeniería en Pintura</b><br>Plan 3000 Av. Piraisito N° 8560 | Cel: 77396806</div>
+                        <div style="text-align:right;">wrpuma@gmail.com<br><i style="color:#cc0000; font-weight:bold;">Dando el toque final a su construcción</i></div>
                     </div>
                 </div>
             </div>
@@ -634,79 +650,58 @@ function dibujarCotizador() {
 
 window.setDocType = (t) => { 
     document.getElementById('doc-title').innerText = t; 
-    document.getElementById('zona-editable').innerHTML = '<p class="placeholder-gris" style="text-align:center;margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+    document.getElementById('zona-editable').innerHTML = '<p style="color:#999; text-align:center; margin-top:50px;">--- Pegue aquí la cotización ---</p>'; 
+};
+
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; color:#000;"><b>PROYECTO:</b> [Escribir Nombre del Proyecto]</p><p style="margin:6px 0; color:#000;"><b>CLIENTE:</b> [Escribir Nombre del Cliente]</p><p style="margin:15px 0; line-height: 1.6; color:#000;">Por medio del presente documento, <b>WRPUMA</b> certifica la calidad de los materiales y la correcta ejecución técnica.</p><p style="margin:15px 0 5px; font-weight:900; font-size:14px; color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; line-height: 1.6; color:#000;">Se garantiza la estanqueidad y adherencia exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px; font-weight:900; font-size:14px; color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; line-height: 1.6; color:#000;"><li>Capa perforada por terceros.</li><li>Fisuras estructurales.</li><li>Falta de mantenimiento.</li></ul><p style="margin:50px 0 0; text-align:center; color:#000;">_______________________<br><b>Walter Puma</b><br>Gerente General - WRPUMA</p>`; 
 };
 
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
     let texto = z.innerText;
-    let htmlBase = z.innerHTML;
-
-    if(texto.includes('|---') || texto.includes('| ---')) {
+    if(texto.includes('|')) {
         let lineas = texto.split('\n');
         let nuevoHTML = '';
         let enTabla = false;
-
-        lineas.forEach(linea => {
-            let l = linea.trim();
-            if (l.match(/^\|[\-\s\|]+\|$/)) return; 
-
-            if (l.startsWith('|') && l.endsWith('|')) {
-                if (!enTabla) {
-                    enTabla = true;
-                    nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px; color:#000;">';
-                }
-                let celdas = l.substring(1, l.length - 1).split('|');
+        lineas.forEach(l => {
+            let trimL = l.trim();
+            if (trimL.match(/^\|?[\-\s\|]+\|?$/) && trimL.includes('-')) return; 
+            if (trimL.includes('|')) {
+                if (!enTabla) { enTabla = true; nuevoHTML += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:12px; color:#000; border:1px solid #000;">'; }
+                let fila = trimL.replace(/^\||\|$/g, '');
+                let celdas = fila.split('|');
                 nuevoHTML += '<tr style="border:1px solid #000;">';
                 celdas.forEach(celda => {
                     let c = celda.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                    nuevoHTML += `<td style="border:1px solid #000 !important; padding:6px; color:#000;">${c}</td>`;
+                    nuevoHTML += `<td style="border:1px solid #000; padding:6px; color:#000;">${c}</td>`;
                 });
                 nuevoHTML += '</tr>';
             } else {
-                if (enTabla) {
-                    nuevoHTML += '</table>';
-                    enTabla = false;
-                }
-                if (l !== '') {
-                    let c = l.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-                    c = c.replace(/### (.*)/, '<b>$1</b>');
-                    c = c.replace(/# (.*)/, '<b style="font-size:16px;">$1</b>');
-                    nuevoHTML += `<p style="margin-bottom:8px; color:#000;">${c}</p>`;
+                if (enTabla) { nuevoHTML += '</table>'; enTabla = false; }
+                if (trimL !== '') {
+                    let c = trimL.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/### (.*)/, '<b style="color:#cc0000;">$1</b>');
+                    nuevoHTML += `<p style="margin-bottom:6px; color:#000;">${c}</p>`;
                 }
             }
         });
         if (enTabla) nuevoHTML += '</table>';
         z.innerHTML = nuevoHTML;
     } else {
-        htmlBase = htmlBase.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        htmlBase = htmlBase.replace(/\*\*/g, '');
-        z.innerHTML = htmlBase;
+        z.innerHTML = z.innerHTML.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
     }
 };
 
-window.modoGarantia = () => { 
-    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `<p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>PROYECTO:</b> [Obra]</p><p style="margin:6px 0; text-align:justify; color:#000 !important;"><b>CLIENTE:</b> [Nombre]</p><p style="margin:15px 0 15px; text-align:justify; line-height: 1.6; color:#000 !important;">Por medio del presente documento, <b>WRPUMA</b>, certifica la calidad de los materiales y la correcta ejecucion tecnica de impermeabilizacion.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">1. ALCANCE DE LA COBERTURA (1 AÑO)</p><p style="margin:6px 0; text-align:justify; line-height: 1.6; color:#000 !important;">Se garantiza la total estanqueidad exclusivamente en la superficie tratada por <b>UN (1) AÑO</b>.</p><p style="margin:15px 0 5px;font-weight:900;font-size:14px;color:#cc0000;">2. EXCLUSIONES</p><ul style="margin:6px 0; padding-left: 20px; text-align:justify; line-height: 1.6; font-size: 14px; color:#000 !important;"><li style="margin-bottom: 6px;">Capa perforada por terceros.</li><li style="margin-bottom: 6px;">Asentamientos estructurales.</li><li style="margin-bottom: 6px;">Acumulacion por falta de limpieza de canaletas.</li></ul><br><p style="margin:6px 0; text-align:center;">_______________________</p><p style="margin:6px 0; text-align:center; font-weight:900;">Walter Puma - Gerente General</p>`; 
-};
-
 window.generarPDF = () => { 
-    const btn = event.target; 
-    const txt = btn.innerText; 
-    btn.innerText = "PROCESANDO DOCUMENTO..."; 
-    btn.disabled = true; 
+    const btn = event.target; const txt = btn.innerText; btn.innerText = "PROCESANDO..."; btn.disabled = true; 
     setTimeout(() => { 
         html2pdf().set({ 
-            margin: 0, 
-            filename: `Doc_${Date.now()}.pdf`, 
-            image: { type: 'jpeg', quality: 1 }, 
-            html2canvas: { scale: 3, useCORS: true }, 
-            jsPDF: { unit: 'mm', format: 'a4' } 
-        }).from(document.getElementById('hoja-pdf')).save().then(() => { 
-            btn.innerText = txt; 
-            btn.disabled = false; 
-        }); 
-    }, 1000); 
+            margin: 0, filename: `WRPUMA_Cotizacion_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+        }).from(document.getElementById('hoja-pdf')).save().then(() => { btn.innerText = txt; btn.disabled = false; }); 
+    }, 500); 
 };
 
 // ==========================================================
@@ -759,9 +754,10 @@ function dibujarMenu() {
                 <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-xl italic"><span class="font-black text-[12px] uppercase mt-2">Catálogo APU</span></button>
                 <button onclick="window.location.hash='#herramientas'" class="bg-yellow-600 text-white aspect-square rounded-3xl flex flex-col items-center justify-center shadow-lg active:scale-95 font-black text-[11px] text-center uppercase italic border-b-4 border-yellow-800">Inventario</button>
                 <button onclick="window.location.hash='#planilla'" class="col-span-2 bg-zinc-900 text-white h-16 rounded-2xl border border-zinc-800 active:scale-95 shadow-xl font-black text-[12px] uppercase italic">Pagar Sueldos</button>
-                <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-zinc-300"><span class="font-black text-[11px] uppercase text-red-600">Generar Documentos Word</span></button>
+                <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-zinc-300"><span class="font-black text-[11px] uppercase text-red-600">Generar Documentos PDF</span></button>
                 <button onclick="window.location.hash='#calculadora'" class="col-span-2 bg-blue-600 text-white h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg border-b-4 border-blue-800 mt-[-10px]"><span class="font-black text-[11px] uppercase text-white">Calculadora Operativa</span></button>
-                <button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white h-16 rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Control Gastos</button><button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 h-16 rounded-2xl flex items-center justify-center gap-2 border border-zinc-800 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Reporte Finanzas</button>
+                <button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white h-16 rounded-2xl flex items-center justify-center gap-2 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Control Gastos</button>
+                <button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 h-16 rounded-2xl flex items-center justify-center gap-2 border border-zinc-800 active:scale-95 shadow-lg font-black text-[10px] uppercase italic">Reporte Finanzas</button>
                 ` : ``}
 
                 ${rol === 'super' ? `
@@ -794,7 +790,7 @@ function enrutador() {
     if (rol === 'trabajador' && h !== '#panel-trabajador') { window.location.hash = '#panel-trabajador'; return; }
     
     if (rol === 'super' && !['#menu', '#asistencia', '#herramientas', '#obras', ''].includes(h)) { 
-        alert("Acceso denegado: Seguridad de Gerencia. El supervisor solo audita Herramientas y Asistencia."); 
+        alert("Acceso denegado: Seguridad de Gerencia."); 
         window.location.hash = '#menu'; return; 
     }
 
