@@ -632,7 +632,7 @@ window.delO = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbP
             }
         });
     });
-}
+
 window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value; if (n && p) { data.guardarObra(n, p).then(() => location.reload()); } };
 window.delO = (id) => { if (confirm("¿Confirmar eliminación?")) data.borrarObra(id).then(() => location.reload()); };
 window.saveO = () => { const n = document.getElementById('o-nom').value, p = document.getElementById('o-pre').value; if (n && p) { data.guardarObra(n, p).then(() => location.reload()); } };
