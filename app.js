@@ -200,10 +200,39 @@ window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database()
 // ==========================================================
 // 🏗️ OBRAS
 // ==========================================================
+// ==========================================================
+// 🏗️ MÓDULO OBRAS (CON FILTRO DE SEGURIDAD PRO)
+// ==========================================================
 function dibujarObras() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10"><div class="max-w-md mx-auto"><div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl"><h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 font-bold mb-2 uppercase"><input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3"><button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md">REGISTRAR PROYECTO</button><h3 class="mt-8 mb-4 font-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3><div id="list-o-activas" class="space-y-4"></div><h3 class="mt-8 mb-4 font-black uppercase text-sm border-b-2 pb-2 text-zinc-400">PROYECTOS ENTREGADOS</h3><div id="list-o-entregadas" class="space-y-4 opacity-75"></div></div></div></div>`;
+    const rol = localStorage.getItem('rol_wr');
+    const esAdmin = (rol === 'admin');
+
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-zinc-900 p-6 text-white flex justify-between items-center rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic uppercase">CONTROL DE OBRAS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
+                ${esAdmin ? `
+                <input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 font-bold mb-2 uppercase">
+                <input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3">
+                <button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md">REGISTRAR PROYECTO</button>
+                ` : ''}
+                
+                <h3 class="mt-8 mb-4 font-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3>
+                <div id="list-o-activas" class="space-y-4"></div>
+                
+                <h3 class="mt-8 mb-4 font-black uppercase text-sm border-b-2 pb-2 text-zinc-400">PROYECTOS ENTREGADOS</h3>
+                <div id="list-o-entregadas" class="space-y-4 opacity-75"></div>
+            </div>
+        </div>
+    </div>`;
+
     firebase.database().ref(getDbPath('obras')).on('value', snap => {
-        const cA = document.getElementById('list-o-activas'), cE = document.getElementById('list-o-entregadas'); if (!cA || !cE) return; cA.innerHTML = ''; cE.innerHTML = ''; 
+        const cA = document.getElementById('list-o-activas'), cE = document.getElementById('list-o-entregadas');
+        if (!cA || !cE) return; cA.innerHTML = ''; cE.innerHTML = ''; 
         const obs = snap.val() || {};
         firebase.database().ref(getDbPath('finanzas_obras')).once('value').then(fSnap => {
             const fin = fSnap.val() || {};
@@ -211,8 +240,31 @@ function dibujarObras() {
                 const o = obs[id]; let cob = 0, gas = 0;
                 if (fin[id]) Object.values(fin[id]).forEach(m => { if (m.tipo === 'anticipo_cliente') cob += parseFloat(m.monto); else gas += parseFloat(m.monto); });
                 const fRes = o.presupuesto * 0.05, gNeta = o.presupuesto - gas - fRes;
-                const btnG = o.link_fotos ? `<div class="mb-3"><button onclick="window.open('${o.link_fotos}','_blank')" class="w-full bg-blue-600 text-white text-[10px] font-black py-2 rounded-lg">VER FOTOS</button></div>` : `<button onclick="window.agregarLinkObra('${id}')" class="w-full mb-3 bg-zinc-100 text-[10px] font-black py-2 rounded-lg">Vincular Galeria</button>`;
-                const card = `<div class="p-4 bg-zinc-50 rounded-2xl border-2 ${o.estado !== 'Entregada' ? 'border-zinc-300' : 'border-green-500'} relative"><b class="text-xl uppercase text-red-600">${o.nombre}</b><div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase mb-2 mt-2"><div class="bg-white p-2 rounded-xl border">Contrato:<br>Bs. ${o.presupuesto}</div><div class="bg-white p-2 rounded-xl border">Cobrado:<br><span class="text-blue-600">Bs. ${cob}</span></div><div class="bg-zinc-900 text-white p-2 rounded-xl">Utilidad Neta:<br><span class="${gNeta >= 0 ? 'text-green-400' : 'text-red-500'}">Bs. ${gNeta.toFixed(1)}</span></div></div>${btnG}<div class="pt-2 flex flex-wrap gap-1 justify-between"><button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black p-2 rounded-lg">Cobrar Ant.</button><button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button><button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar</button><button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline p-2">Borrar</button></div></div>`;
+                
+                const btnG = o.link_fotos ? `<div class="mb-3"><button onclick="window.open('${o.link_fotos}','_blank')" class="w-full bg-blue-600 text-white text-[10px] font-black py-2 rounded-lg">VER FOTOS</button></div>` : (esAdmin ? `<button onclick="window.agregarLinkObra('${id}')" class="w-full mb-3 bg-zinc-100 text-[10px] font-black py-2 rounded-lg">Vincular Galeria</button>` : '');
+                
+                const card = `
+                <div class="p-4 bg-zinc-50 rounded-2xl border-2 ${o.estado !== 'Entregada' ? 'border-zinc-300' : 'border-green-500'} relative">
+                    <b class="text-xl uppercase text-red-600">${o.nombre}</b>
+                    
+                    ${esAdmin ? `
+                    <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase mb-2 mt-2">
+                        <div class="bg-white p-2 rounded-xl border">Contrato:<br>Bs. ${o.presupuesto}</div>
+                        <div class="bg-white p-2 rounded-xl border">Cobrado:<br><span class="text-blue-600">Bs. ${cob}</span></div>
+                        <div class="bg-zinc-900 text-white p-2 rounded-xl">Utilidad Neta:<br><span class="${gNeta >= 0 ? 'text-green-400' : 'text-red-500'}">Bs. ${gNeta.toFixed(1)}</span></div>
+                    </div>
+                    ` : `<div class="py-2 text-zinc-500 italic text-[10px] font-bold uppercase">Información financiera restringida</div>`}
+                    
+                    ${btnG}
+                    
+                    ${esAdmin ? `
+                    <div class="pt-2 flex flex-wrap gap-1 justify-between">
+                        <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black p-2 rounded-lg">Cobrar Ant.</button>
+                        <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
+                        <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar</button>
+                        <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline p-2">Borrar</button>
+                    </div>` : ''}
+                </div>`;
                 o.estado !== 'Entregada' ? cA.innerHTML += card : cE.innerHTML += card;
             });
         });
@@ -288,35 +340,72 @@ window.verHistorialSueldos = () => {
 // ==========================================================
 // 🛠️ INVENTARIO (HERRAMIENTAS)
 // ==========================================================
+// ==========================================================
+// 🛠️ INVENTARIO (INGRESO MÚLTIPLE EN LOTE)
+// ==========================================================
 function dibujarHerramientas() {
+    const rol = localStorage.getItem('rol_wr');
+    const esAdmin = (rol === 'admin');
+
     appDiv.innerHTML = `
     <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
         <div class="max-w-md mx-auto"><div class="bg-yellow-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic">INVENTARIO</h2><button onclick="window.location.hash='#menu'" class="bg-white text-yellow-700 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div>
         <div class="bg-white p-6 shadow-xl rounded-b-3xl">
-            <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4"><h3 class="text-[10px] font-black text-yellow-800 mb-3 text-center">NUEVA HERRAMIENTA</h3><input id="h-nom" type="text" placeholder="Herramienta" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-sm mb-2"><input id="h-marca" type="text" placeholder="Marca / Serie" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-sm mb-3"><button onclick="window.saveHerr()" class="w-full bg-black text-white font-black py-4 rounded-xl uppercase text-sm">Registrar en Bodega</button></div>
-            <h3 class="mt-6 mb-2 font-black text-yellow-700 uppercase text-xs border-b-2 border-yellow-200 pb-1">ESTADO</h3><div id="list-herr" class="space-y-4 pt-2">Cargando...</div>
+            
+            ${esAdmin ? `
+            <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4">
+                <h3 class="text-[10px] font-black text-yellow-800 mb-3 text-center">INGRESO MÚLTIPLE</h3>
+                <textarea id="h-nom" rows="4" placeholder="Escriba las herramientas (Una por línea).&#10;Ejemplo:&#10;3 Brochas&#10;1 Escalera&#10;2 Baldes" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-sm mb-2 resize-none"></textarea>
+                <input id="h-marca" type="text" placeholder="Marca / Serie (Opcional)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-sm mb-3">
+                <button onclick="window.saveHerr()" class="w-full bg-black text-white font-black py-4 rounded-xl uppercase text-sm">Registrar en Bodega</button>
+            </div>
+            ` : ''}
+
+            <h3 class="mt-6 mb-2 font-black text-yellow-700 uppercase text-xs border-b-2 border-yellow-200 pb-1">ESTADO DEL EQUIPO</h3><div id="list-herr" class="space-y-4 pt-2">Cargando...</div>
         </div></div>
     </div>`;
+
     data.obtenerTodo((db) => {
         const h = db.herramientas || {}, p = db.personal || {}, o = db.obras || {};
         let selP = `<option value="">- Asignar a -</option>`; Object.keys(p).forEach(k => selP += `<option value="${k}">${k}</option>`);
         let selO = `<option value="">- En Obra -</option><option value="BODEGA">EN TALLER / BODEGA</option>`; Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') selO += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
         const c = document.getElementById('list-herr'); if (!c) return; c.innerHTML = '';
+        
         Object.keys(h).forEach(id => {
             const item = h[id]; const enB = !item.asignado_a || item.asignado_a === 'BODEGA';
             if (enB) {
-                c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border-2 border-green-500 shadow-sm"><div class="flex justify-between mb-3"><div><b class="text-sm uppercase">${item.nombre}</b><br><span class="text-[10px] text-zinc-500">${item.marca || 'S/M'}</span></div><span class="text-[9px] bg-green-500 text-white px-2 py-1 rounded-lg">EN BODEGA</span></div><div class="grid grid-cols-2 gap-2 mb-2"><select id="selP_${id}" class="p-2 border rounded-lg text-[10px] bg-white">${selP}</select><select id="selO_${id}" class="p-2 border rounded-lg text-[10px] bg-white">${selO}</select></div><div class="flex gap-2 mt-3"><button onclick="window.asignarHerr('${id}')" class="flex-[3] bg-yellow-500 text-white text-[10px] font-black py-2 rounded-xl">Entregar Equipo</button><button onclick="window.delHerr('${id}')" class="flex-1 bg-red-100 text-red-600 text-[10px] font-black py-2 rounded-xl">Borrar</button></div></div>`;
+                c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border-2 border-green-500 shadow-sm"><div class="flex justify-between mb-3"><div><b class="text-sm uppercase">${item.nombre}</b><br><span class="text-[10px] text-zinc-500">${item.marca || 'S/M'}</span></div><span class="text-[9px] bg-green-500 text-white px-2 py-1 rounded-lg">EN BODEGA</span></div>
+                ${esAdmin ? `<div class="grid grid-cols-2 gap-2 mb-2"><select id="selP_${id}" class="p-2 border rounded-lg text-[10px] bg-white">${selP}</select><select id="selO_${id}" class="p-2 border rounded-lg text-[10px] bg-white">${selO}</select></div><div class="flex gap-2 mt-3"><button onclick="window.asignarHerr('${id}')" class="flex-[3] bg-yellow-500 text-white text-[10px] font-black py-2 rounded-xl">Entregar Equipo</button><button onclick="window.delHerr('${id}')" class="flex-1 bg-red-100 text-red-600 text-[10px] font-black py-2 rounded-xl">Borrar</button></div>` : `<div class="mt-2 text-[10px] text-zinc-500 italic">Solo Gerencia asigna.</div>`}
+                </div>`;
             } else {
-                c.innerHTML += `<div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${item.nombre}</b><br><span class="text-[10px] text-zinc-600">${item.marca || 'S/M'}</span></div><span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-300 rounded-lg text-center"><span class="text-[10px] font-bold text-orange-800 block">Responsable:</span><span class="text-sm font-black text-orange-900">${item.asignado_a} - ${item.obra}</span></div><button onclick="window.devolverHerr('${id}')" class="w-full bg-black text-white text-[11px] font-black py-3 rounded-xl mt-1">Recibir en Bodega</button></div>`;
+                c.innerHTML += `<div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${item.nombre}</b><br><span class="text-[10px] text-zinc-600">${item.marca || 'S/M'}</span></div><span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-300 rounded-lg text-center"><span class="text-[10px] font-bold text-orange-800 block">Responsable:</span><span class="text-sm font-black text-orange-900">${item.asignado_a} - ${item.obra}</span></div>
+                ${esAdmin ? `<button onclick="window.devolverHerr('${id}')" class="w-full bg-black text-white text-[11px] font-black py-3 rounded-xl mt-1">Recibir en Bodega</button>` : ''}
+                </div>`;
             }
         });
     });
 }
-window.saveHerr = () => { const nom = document.getElementById('h-nom').value.trim(), mar = document.getElementById('h-marca').value.trim(); if (nom) firebase.database().ref(getDbPath(`herramientas/HERR_${Date.now()}`)).set({ nombre: nom, marca: mar, asignado_a: 'BODEGA', obra: 'Ninguna', fecha_asignacion: new Date().toISOString() }); };
-window.asignarHerr = (id) => { const t = document.getElementById(`selP_${id}`).value, o = document.getElementById(`selO_${id}`).value; if(t && o) firebase.database().ref(getDbPath(`herramientas/${id}`)).update({ asignado_a: t, obra: o, fecha_asignacion: new Date().toISOString() }); };
-window.devolverHerr = (id) => { if(confirm("¿Recibiste la herramienta?")) firebase.database().ref(getDbPath(`herramientas/${id}`)).update({ asignado_a: 'BODEGA', obra: 'Ninguna' }); };
-window.delHerr = (id) => { if(confirm("¿Eliminar?")) firebase.database().ref(getDbPath(`herramientas/${id}`)).remove(); };
 
+window.saveHerr = () => { 
+    const nom = document.getElementById('h-nom').value.trim();
+    const mar = document.getElementById('h-marca').value.trim(); 
+    if (nom) {
+        const lineas = nom.split('\n');
+        lineas.forEach((linea, index) => {
+            if(linea.trim() !== '') {
+                firebase.database().ref(getDbPath(`herramientas/HERR_${Date.now()}_${index}`)).set({ 
+                    nombre: linea.trim().toUpperCase(), 
+                    marca: mar ? mar.toUpperCase() : 'S/M', 
+                    asignado_a: 'BODEGA', 
+                    obra: 'Ninguna', 
+                    fecha_asignacion: new Date().toISOString() 
+                });
+            }
+        });
+        document.getElementById('h-nom').value = '';
+        document.getElementById('h-marca').value = '';
+    } 
+};
 // ==========================================================
 // 🚀 TRATOS Y DESTAJOS
 // ==========================================================
