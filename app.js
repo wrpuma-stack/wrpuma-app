@@ -709,6 +709,9 @@ window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Cotizacion.pdf
 // ==========================================================
 // 📱 MENÚ PRINCIPAL (CON PRIVACIDAD ESTRICTA)
 // ==========================================================
+// ==========================================================
+// 🚀 MENU MAESTRO Y ENRUTADOR
+// ==========================================================
 function dibujarMenu() {
     const rol = localStorage.getItem('rol_wr');
     if (!rol) { window.location.hash = ''; return; }
@@ -721,6 +724,7 @@ function dibujarMenu() {
         <p class="text-zinc-600 text-[9px] font-bold uppercase tracking-[0.3em] mb-6">Elite Management ${rol === 'super' ? '- SUPERVISOR' : ''}</p>
         
         ${rol === 'admin' ? `
+        <button id="btn-solicitudes" onclick="window.location.hash='#solicitudes'" class="hidden w-full mb-4 bg-orange-500 text-black py-3 rounded-2xl font-black text-xs uppercase shadow-[0_0_15px_rgba(249,115,22,0.5)]">⚠️ Pedidos de Material / Anticipo</button>
         <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto text-left mb-4">
             <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">ASISTENCIA</button>
             <button onclick="window.location.hash='#tratos'" class="bg-purple-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">TRATOS</button>
@@ -729,6 +733,10 @@ function dibujarMenu() {
             <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">APU</button>
             <button onclick="window.location.hash='#herramientas'" class="bg-yellow-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">INVENTARIO</button>
             <button onclick="window.location.hash='#planilla'" class="col-span-2 bg-zinc-900 text-white py-4 rounded-2xl font-black text-[12px] border border-zinc-800">PAGOS Y SUELDOS</button>
+            <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white text-red-600 py-6 rounded-2xl font-black text-[12px] shadow-lg border-b-4 border-zinc-300">GENERAR PDF / WORD</button>
+            <button onclick="window.location.hash='#calculadora'" class="col-span-2 bg-blue-600 text-white py-6 rounded-2xl font-black text-[12px] shadow-lg border-b-4 border-blue-800">CALCULADORA OPERATIVA</button>
+            <button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white py-4 rounded-2xl font-black text-[10px] shadow-lg">CONTROL GASTOS</button>
+            <button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 py-4 rounded-2xl font-black text-[10px] border border-zinc-800">REPORTE FINANZAS</button>
         </div>` : ``}
         
         ${rol === 'super' ? `
@@ -739,9 +747,6 @@ function dibujarMenu() {
         
         <button onclick="window.cerrarSesionTotal()" class="text-zinc-700 text-[10px] font-bold mt-10">CERRAR SESIÓN</button>
     </div>`;
-}
-
-   
 
     if(rol === 'admin') {
         firebase.database().ref(getDbPath('solicitudes')).once('value').then(snap => {
@@ -750,6 +755,7 @@ function dibujarMenu() {
         });
     }
 }
+
 window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 
 function enrutador() {
