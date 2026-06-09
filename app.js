@@ -706,11 +706,40 @@ window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Cotizacion.pdf
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR
 // ==========================================================
+// ==========================================================
+// 📱 MENÚ PRINCIPAL (CON PRIVACIDAD ESTRICTA)
+// ==========================================================
 function dibujarMenu() {
     const rol = localStorage.getItem('rol_wr');
     if (!rol) { window.location.hash = ''; return; }
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
     const tituloMenu = empresa === 'Napoleon' ? 'NAPO<span class="text-blue-500">LEON</span>' : 'WR<span class="text-red-600">PUMA</span>';
+
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-black p-6 text-white text-center flex flex-col font-sans pb-10">
+        <h1 class="text-5xl font-black italic mb-2">${tituloMenu}</h1>
+        <p class="text-zinc-600 text-[9px] font-bold uppercase tracking-[0.3em] mb-6">Elite Management ${rol === 'super' ? '- SUPERVISOR' : ''}</p>
+        
+        ${rol === 'admin' ? `
+        <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto text-left mb-4">
+            <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">ASISTENCIA</button>
+            <button onclick="window.location.hash='#tratos'" class="bg-purple-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">TRATOS</button>
+            <button onclick="window.location.hash='#obras'" class="bg-zinc-900 text-white aspect-square rounded-3xl font-black text-[12px] border border-zinc-800">PROYECTOS</button>
+            <button onclick="window.location.hash='#personal'" class="bg-zinc-100 text-black aspect-square rounded-3xl font-black text-[12px]">PERSONAL</button>
+            <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">APU</button>
+            <button onclick="window.location.hash='#herramientas'" class="bg-yellow-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">INVENTARIO</button>
+            <button onclick="window.location.hash='#planilla'" class="col-span-2 bg-zinc-900 text-white py-4 rounded-2xl font-black text-[12px] border border-zinc-800">PAGOS Y SUELDOS</button>
+        </div>` : ``}
+        
+        ${rol === 'super' ? `
+        <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto text-left mb-4">
+            <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">ASISTENCIA</button>
+            <button onclick="window.location.hash='#herramientas'" class="bg-yellow-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">AUDITORÍA INV.</button>
+        </div>` : ``}
+        
+        <button onclick="window.cerrarSesionTotal()" class="text-zinc-700 text-[10px] font-bold mt-10">CERRAR SESIÓN</button>
+    </div>`;
+}
 
     appDiv.innerHTML = `
     <div class="min-h-screen bg-black p-6 text-white text-center flex flex-col font-sans pb-10">
