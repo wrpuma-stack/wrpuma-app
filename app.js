@@ -343,68 +343,221 @@ window.verHistorialSueldos = () => {
 // ==========================================================
 // 🛠️ INVENTARIO (INGRESO MÚLTIPLE EN LOTE)
 // ==========================================================
+// ==========================================================
+// 🛠️ INVENTARIO AUTOMATIZADO Y TRASPASO DIRECTO (WRPUMA)
+// ==========================================================
 function dibujarHerramientas() {
     const rol = localStorage.getItem('rol_wr');
     const esAdmin = (rol === 'admin');
 
     appDiv.innerHTML = `
     <div class="min-h-screen bg-zinc-100 p-4 text-black font-sans pb-10">
-        <div class="max-w-md mx-auto"><div class="bg-yellow-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic">INVENTARIO</h2><button onclick="window.location.hash='#menu'" class="bg-white text-yellow-700 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div>
-        <div class="bg-white p-6 shadow-xl rounded-b-3xl">
-            
-            ${esAdmin ? `
-            <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4">
-                <h3 class="text-[10px] font-black text-yellow-800 mb-3 text-center">INGRESO MÚLTIPLE</h3>
-                <textarea id="h-nom" rows="4" placeholder="Escriba las herramientas (Una por línea).&#10;Ejemplo:&#10;3 Brochas&#10;1 Escalera&#10;2 Baldes" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-sm mb-2 resize-none"></textarea>
-                <input id="h-marca" type="text" placeholder="Marca / Serie (Opcional)" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-sm mb-3">
-                <button onclick="window.saveHerr()" class="w-full bg-black text-white font-black py-4 rounded-xl uppercase text-sm">Registrar en Bodega</button>
+        <div class="max-w-md mx-auto">
+            <div class="bg-yellow-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic">INVENTARIO PRO</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-yellow-700 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
             </div>
-            ` : ''}
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
+                
+                ${esAdmin ? `
+                <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4">
+                    <h3 class="text-[10px] font-black text-yellow-800 mb-3 text-center">INGRESO Y ASIGNACIÓN EN LOTE</h3>
+                    
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                            <label class="text-[9px] font-black block text-zinc-500 mb-1">RESPONSABLE:</label>
+                            <select id="h-trabajador" class="w-full p-2 border rounded-xl text-xs font-bold bg-white outline-none">
+                                <option value="BODEGA">-- EN BODEGA --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-black block text-zinc-500 mb-1">UBICACIÓN / OBRA:</label>
+                            <select id="h-obra" class="w-full p-2 border rounded-xl text-xs font-bold bg-white outline-none">
+                                <option value="Ninguna">-- SIN OBRA --</option>
+                            </select>
+                        </div>
+                    </div>
 
-            <h3 class="mt-6 mb-2 font-black text-yellow-700 uppercase text-xs border-b-2 border-yellow-200 pb-1">ESTADO DEL EQUIPO</h3><div id="list-herr" class="space-y-4 pt-2">Cargando...</div>
-        </div></div>
+                    <textarea id="h-nom" rows="4" placeholder="Escriba las herramientas (Dando ENTER por línea).&#10;Ejemplo:&#10;Cortadora de azulejo&#10;Andamio tubular&#10;Rodillo de felpa" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-xs mb-2 resize-none outline-none"></textarea>
+                    
+                    <button onclick="window.saveHerr()" class="w-full bg-black text-white font-black py-3 rounded-xl uppercase text-xs shadow-md">REGISTRAR Y ASIGNAR</button>
+                </div>
+                ` : ''}
+
+                <h3 class="mt-6 mb-2 font-black text-yellow-700 uppercase text-xs border-b-2 border-yellow-200 pb-1">ESTADO DEL EQUIPO</h3>
+                <div class="flex gap-1 mb-4">
+                    <button onclick="window.filtrarHerr('TODAS')" class="flex-1 bg-zinc-900 text-white font-bold py-2 rounded-xl text-[9px]">TODAS</button>
+                    <button onclick="window.filtrarHerr('EN USO')" class="flex-1 bg-orange-100 text-orange-800 font-bold py-2 rounded-xl text-[9px]">EN USO</button>
+                    <button onclick="window.filtrarHerr('BODEGA')" class="flex-1 bg-green-100 text-green-800 font-bold py-2 rounded-xl text-[9px]">BODEGA</button>
+                </div>
+                <div id="list-herr" class="space-y-4 pt-2">Cargando herramientas...</div>
+            </div>
+        </div>
     </div>`;
 
     data.obtenerTodo((db) => {
         const h = db.herramientas || {}, p = db.personal || {}, o = db.obras || {};
-        let selP = `<option value="">- Asignar a -</option>`; Object.keys(p).forEach(k => selP += `<option value="${k}">${k}</option>`);
-        let selO = `<option value="">- En Obra -</option><option value="BODEGA">EN TALLER / BODEGA</option>`; Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') selO += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
-        const c = document.getElementById('list-herr'); if (!c) return; c.innerHTML = '';
-        
-        Object.keys(h).forEach(id => {
-            const item = h[id]; const enB = !item.asignado_a || item.asignado_a === 'BODEGA';
-            if (enB) {
-                c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border-2 border-green-500 shadow-sm"><div class="flex justify-between mb-3"><div><b class="text-sm uppercase">${item.nombre}</b><br><span class="text-[10px] text-zinc-500">${item.marca || 'S/M'}</span></div><span class="text-[9px] bg-green-500 text-white px-2 py-1 rounded-lg">EN BODEGA</span></div>
-                ${esAdmin ? `<div class="grid grid-cols-2 gap-2 mb-2"><select id="selP_${id}" class="p-2 border rounded-lg text-[10px] bg-white">${selP}</select><select id="selO_${id}" class="p-2 border rounded-lg text-[10px] bg-white">${selO}</select></div><div class="flex gap-2 mt-3"><button onclick="window.asignarHerr('${id}')" class="flex-[3] bg-yellow-500 text-white text-[10px] font-black py-2 rounded-xl">Entregar Equipo</button><button onclick="window.delHerr('${id}')" class="flex-1 bg-red-100 text-red-600 text-[10px] font-black py-2 rounded-xl">Borrar</button></div>` : `<div class="mt-2 text-[10px] text-zinc-500 italic">Solo Gerencia asigna.</div>`}
-                </div>`;
-            } else {
-                c.innerHTML += `<div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${item.nombre}</b><br><span class="text-[10px] text-zinc-600">${item.marca || 'S/M'}</span></div><span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-300 rounded-lg text-center"><span class="text-[10px] font-bold text-orange-800 block">Responsable:</span><span class="text-sm font-black text-orange-900">${item.asignado_a} - ${item.obra}</span></div>
-                ${esAdmin ? `<button onclick="window.devolverHerr('${id}')" class="w-full bg-black text-white text-[11px] font-black py-3 rounded-xl mt-1">Recibir en Bodega</button>` : ''}
-                </div>`;
+        window.todasHerramientas = h; 
+        window.personalDisponibles = p;
+        window.obrasDisponibles = o;
+
+        // Llenar selectores principales de carga
+        if(esAdmin) {
+            const selT = document.getElementById('h-trabajador');
+            const selO = document.getElementById('h-obra');
+            if(selT && selO) {
+                Object.keys(p).forEach(k => selT.innerHTML += `<option value="${k}">${k}</option>`);
+                Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') selO.innerHTML += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
             }
-        });
+        }
+        
+        window.renderListaHerr('TODAS');
     });
 }
 
+window.filtrarHerr = (filtro) => { window.renderListaHerr(filtro); };
+
+window.renderListaHerr = (filtro) => {
+    const c = document.getElementById('list-herr'); 
+    if (!c) return; 
+    c.innerHTML = '';
+    
+    const esAdmin = (localStorage.getItem('rol_wr') === 'admin');
+    const h = window.todasHerramientas || {};
+    const p = window.personalDisponibles || {};
+    const o = window.obrasDisponibles || {};
+    let hay = false;
+
+    // Generar opciones para las tarjetas individuales
+    let opcionesP = `<option value="BODEGA">-- EN BODEGA --</option>`;
+    Object.keys(p).forEach(k => opcionesP += `<option value="${k}">${k}</option>`);
+    
+    let opcionesO = `<option value="Ninguna">-- SIN OBRA --</option>`;
+    Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') opcionesO += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
+
+    Object.keys(h).forEach(id => {
+        const item = h[id]; 
+        const enB = !item.asignado_a || item.asignado_a === 'BODEGA';
+        
+        if (filtro === 'EN USO' && enB) return;
+        if (filtro === 'BODEGA' && !enB) return;
+
+        hay = true;
+
+        if (enB) {
+            // TARJETA: EN BODEGA
+            c.innerHTML += `
+            <div class="p-4 bg-zinc-50 rounded-2xl border-2 border-green-500 shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <b class="text-sm uppercase text-zinc-800">${item.nombre}</b>
+                    <span class="text-[9px] bg-green-500 text-white px-2 py-1 rounded-lg font-black">EN BODEGA</span>
+                </div>
+                ${esAdmin ? `
+                <div class="bg-white p-3 rounded-xl border border-zinc-200 mt-2">
+                    <span class="text-[9px] font-black text-zinc-400 block mb-1 uppercase">Entregar a:</span>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <select id="cardT_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesP}</select>
+                        <select id="cardO_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesO}</select>
+                    </div>
+                    <div class="flex gap-2 items-center mt-2 pt-2 border-t">
+                        <button onclick="window.cambiarDestinoHerr('${id}')" class="flex-[3] bg-yellow-500 text-white text-[10px] font-black py-2 rounded-lg uppercase">Despachar Equipo</button>
+                        <button onclick="window.delHerr('${id}')" class="flex-1 text-red-600 text-[10px] font-bold underline">Borrar</button>
+                    </div>
+                </div>
+                ` : `<div class="mt-1 text-[10px] text-zinc-500 italic font-bold">Solo Gerencia puede asignar esta herramienta.</div>`}
+            </div>`;
+        } else {
+            // TARJETA: EN USO (CON TRANSFERENCIA DIRECTA)
+            c.innerHTML += `
+            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <b class="text-sm uppercase text-orange-900">${item.nombre}</b>
+                    <span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg font-black">EN USO</span>
+                </div>
+                
+                <div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center">
+                    <span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span>
+                    <span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span>
+                </div>
+
+                ${esAdmin ? `
+                <div class="bg-white p-3 rounded-xl border border-orange-200 mt-2">
+                    <span class="text-[9px] font-black text-orange-700 block mb-1 uppercase">Transferir o mover directo a:</span>
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <select id="cardT_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesP}</select>
+                        <select id="cardO_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesO}</select>
+                    </div>
+                    <div class="flex gap-2 mt-2 pt-2 border-t">
+                        <button onclick="window.cambiarDestinoHerr('${id}')" class="flex-[2] bg-orange-600 text-white text-[10px] font-black py-2 rounded-lg uppercase">Confirmar Traspaso</button>
+                        <button onclick="window.devolverAFlotaHerr('${id}')" class="flex-1 bg-zinc-900 text-white text-[10px] font-black py-2 rounded-lg uppercase">Bodega</button>
+                        <button onclick="window.delHerr('${id}')" class="text-red-600 text-[10px] font-bold px-1 underline">Borrar</button>
+                    </div>
+                </div>
+                ` : `<div class="mt-2 text-[10px] text-zinc-600 italic font-bold text-center border-t pt-2 border-orange-200">Supervisor: Verifique que el operario posea físicamente este equipo en obra.</div>`}
+            </div>`;
+        }
+    });
+
+    if(!hay) c.innerHTML = `<p class="text-center text-[10px] text-zinc-500 font-bold italic py-6">No hay herramientas registradas en esta categoría.</p>`;
+};
+
+// FUNCIÓN: GUARDAR NUEVAS HERRAMIENTAS EN LOTE (O asignarlas directo)
 window.saveHerr = () => { 
-    const nom = document.getElementById('h-nom').value.trim();
-    const mar = document.getElementById('h-marca').value.trim(); 
-    if (nom) {
-        const lineas = nom.split('\n');
+    const nom = document.getElementById('h-nom').value; 
+    const trabajador = document.getElementById('h-trabajador').value;
+    const obra = document.getElementById('h-obra').value;
+
+    if (nom.trim() !== '') {
+        const lineas = nom.split('\n'); 
         lineas.forEach((linea, index) => {
             if(linea.trim() !== '') {
                 firebase.database().ref(getDbPath(`herramientas/HERR_${Date.now()}_${index}`)).set({ 
                     nombre: linea.trim().toUpperCase(), 
-                    marca: mar ? mar.toUpperCase() : 'S/M', 
-                    asignado_a: 'BODEGA', 
-                    obra: 'Ninguna', 
+                    marca: 'S/M', 
+                    asignado_a: trabajador, 
+                    obra: obra, 
                     fecha_asignacion: new Date().toISOString() 
                 });
             }
         });
         document.getElementById('h-nom').value = '';
-        document.getElementById('h-marca').value = '';
-    } 
+        alert("Equipo registrado y asignado correctamente.");
+    } else {
+        alert("Escriba el nombre de la herramienta.");
+    }
+};
+
+// FUNCIÓN: CAMBIAR DESTINO / TRANSFERIR DIRECTAMENTE OBRA A OBRA O PERSONA A PERSONA
+window.cambiarDestinoHerr = (id) => {
+    const t = document.getElementById(`cardT_${id}`).value;
+    const o = document.getElementById(`cardO_${id}`).value;
+    
+    if(confirm(`¿Confirmar el traspaso de este equipo a ${t} en la obra: ${o}?`)) {
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({
+            asignado_a: t,
+            obra: o,
+            fecha_asignacion: new Date().toISOString()
+        }, () => {
+            alert("Traspaso ejecutado con éxito.");
+        });
+    }
+};
+
+// FUNCIÓN: RETORNAR RÁPIDO A BODEGA
+window.devolverAFlotaHerr = (id) => {
+    if(confirm("¿Este equipo está retornando al taller/bodega central?")) {
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({
+            asignado_a: 'BODEGA',
+            obra: 'Ninguna'
+        });
+    }
+};
+
+// FUNCIÓN: ELIMINAR ACTIVO
+window.delHerr = (id) => { 
+    if(confirm("¿Desea borrar esta herramienta del sistema WRPUMA definitivamente?")) {
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).remove(); 
+    }
 };
 // ==========================================================
 // 🚀 TRATOS Y DESTAJOS
