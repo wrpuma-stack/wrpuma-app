@@ -658,14 +658,42 @@ window.finTrato = (id) => { if(confirm("¿Archivar?")) firebase.database().ref(g
 // 📊 GASTOS Y FERRETERÍAS
 // ==========================================================
 function dibujarCaja() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black pb-10"><div class="max-w-md mx-auto"><div class="bg-green-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic">CONTROL GASTOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-green-700 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><div class="bg-green-50 p-4 rounded-2xl border border-green-200 mb-4"><h3 class="text-[10px] font-black text-green-800 mb-3">NUEVA COMPRA</h3><select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2"></select><input id="c-prov" type="text" placeholder="Proveedor (Ej. Casa Color)" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2"><input id="c-detalle" type="text" placeholder="Detalle (Ej. 3 Látex, Lijas)" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2"><div class="flex gap-2 mb-3"><select id="c-tipo" class="w-1/2 p-3 rounded-xl border-2 font-black text-xs"><option value="compra_contado">CONTADO</option><option value="compra_credito">CRÉDITO</option></select><input id="c-monto" type="number" placeholder="Monto Bs." class="w-1/2 p-3 rounded-xl border-2 font-black text-lg text-red-600"></div><button onclick="window.saveM()" class="w-full bg-black text-white font-black py-4 rounded-xl text-sm">Registrar Gasto</button></div><h3 class="mt-6 mb-2 font-black text-red-600 text-xs border-b-2 border-red-200 pb-1">Deudas Ferreterías</h3><div id="list-creditos" class="space-y-3 pt-2">Cargando...</div></div></div></div>`;
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-green-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic">CONTROL GASTOS</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-green-700 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
+                <div class="bg-green-50 p-4 rounded-2xl border border-green-200 mb-4">
+                    <h3 class="text-[10px] font-black text-green-800 mb-3">NUEVA COMPRA</h3>
+                    <select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2"></select>
+                    <input id="c-prov" type="text" placeholder="Proveedor / Ferretería" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2">
+                    
+                    <textarea id="c-detalle" rows="3" placeholder="Detalle Completo (Ej. 3 baldes de masilla, 5 lijas Festool, 1 cinta azul)" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2 resize-none outline-none"></textarea>
+                    
+                    <div class="flex gap-2 mb-3">
+                        <select id="c-tipo" class="w-1/2 p-3 rounded-xl border-2 font-black text-xs">
+                            <option value="compra_contado">CONTADO</option>
+                            <option value="compra_credito">CRÉDITO</option>
+                        </select>
+                        <input id="c-monto" type="number" placeholder="Monto Bs." class="w-1/2 p-3 rounded-xl border-2 font-black text-lg text-red-600">
+                    </div>
+                    <button onclick="window.saveM()" class="w-full bg-black text-white font-black py-4 rounded-xl text-sm shadow-md">Registrar Gasto</button>
+                </div>
+                <h3 class="mt-6 mb-2 font-black text-red-600 text-xs border-b-2 border-red-200 pb-1">Deudas Ferreterías</h3>
+                <div id="list-creditos" class="space-y-3 pt-2">Cargando...</div>
+            </div>
+        </div>
+    </div>`;
     data.obtenerObras((obs) => { const s = document.getElementById('c-obra'); s.innerHTML = '<option value="">-- PROYECTO --</option>'; Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada') s.innerHTML += `<option value="${id}">${obs[id].nombre}</option>`; }); });
     firebase.database().ref(getDbPath('cuentas_por_pagar')).on('value', snap => {
         const listC = document.getElementById('list-creditos'); if(!listC) return; listC.innerHTML = '';
         const deudas = snap.val() || {}; let hay = false;
         Object.keys(deudas).forEach(id => {
             const d = deudas[id];
-            if(d.estado === 'Pendiente') { hay = true; listC.innerHTML += `<div class="p-4 bg-red-50 rounded-2xl border-2 border-red-200"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${d.proveedor}</b><br><span class="text-[9px] text-zinc-500">${d.detalle}</span></div><span class="text-[9px] bg-red-600 text-white px-2 py-1 rounded-lg">${d.obra_nombre}</span></div><div class="flex justify-between items-center mt-3 pt-2 border-t border-red-200"><span class="text-lg font-black text-red-600">Bs. ${d.monto}</span><button onclick="window.pagarDeuda('${id}')" class="bg-green-500 text-white text-[10px] font-black px-3 py-2 rounded-lg">Liquidar</button></div></div>`; }
+            if(d.estado === 'Pendiente') { hay = true; listC.innerHTML += `<div class="p-4 bg-red-50 rounded-2xl border-2 border-red-200"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${d.proveedor}</b><br><span class="text-[9px] text-zinc-600 block mt-1">${d.detalle}</span></div><span class="text-[9px] bg-red-600 text-white px-2 py-1 rounded-lg h-fit">${d.obra_nombre}</span></div><div class="flex justify-between items-center mt-3 pt-2 border-t border-red-200"><span class="text-lg font-black text-red-600">Bs. ${d.monto}</span><button onclick="window.pagarDeuda('${id}')" class="bg-green-500 text-white text-[10px] font-black px-3 py-2 rounded-lg">Liquidar</button></div></div>`; }
         });
         if(!hay) listC.innerHTML = `<p class="text-center text-[10px] text-zinc-400 font-bold py-4">No hay deudas.</p>`;
     });
@@ -694,11 +722,31 @@ function dibujarUtilidad() {
 // 🗄️ CATÁLOGO APU
 // ==========================================================
 function dibujarAlmacen() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black pb-10"><div class="max-w-md mx-auto"><div class="bg-orange-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic">CATÁLOGO APU</h2><button onclick="window.location.hash='#menu'" class="bg-white text-orange-600 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4"><input id="m-nom" type="text" placeholder="Servicio (Ej. Impermeabilización)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase"><div class="grid grid-cols-2 gap-2"><input id="m-marca" type="text" placeholder="Detalle (Ej. Membrana)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase"><input id="m-uni" type="text" placeholder="Unidad (Ej. m2)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase"></div><input id="m-pre" type="number" placeholder="Precio Actual (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-lg text-center text-red-600"><button onclick="window.saveMat()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR APU</button><h3 class="mt-6 font-black text-zinc-500 text-xs border-b-2 pb-1">BASE DE DATOS</h3><div id="list-mat" class="space-y-3 pt-2">Cargando...</div></div></div></div>`;
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="bg-orange-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg">
+                <h2 class="text-xl font-black italic">CATÁLOGO APU</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-orange-600 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
+                <input id="m-nom" type="text" placeholder="Servicio (Ej. Efecto Carrara / Velvet)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase">
+                
+                <textarea id="m-marca" rows="3" placeholder="Detalle Técnico (Ej. Imprimación epóxica + 2 manos de base + sellador poliuretano)" class="w-full p-3 rounded-xl border-2 font-bold text-xs uppercase resize-none outline-none"></textarea>
+                
+                <input id="m-uni" type="text" placeholder="Unidad (Ej. m2, ml, gl)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase">
+                <input id="m-pre" type="number" placeholder="Precio Actual (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-lg text-center text-red-600">
+                
+                <button onclick="window.saveMat()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR APU</button>
+                <h3 class="mt-6 font-black text-zinc-500 text-xs border-b-2 pb-1">BASE DE DATOS</h3>
+                <div id="list-mat" class="space-y-3 pt-2">Cargando...</div>
+            </div>
+        </div>
+    </div>`;
     firebase.database().ref(getDbPath('materiales')).on('value', snap => {
         const c = document.getElementById('list-mat'); if (!c) return; c.innerHTML = ''; const mats = snap.val() || {};
         Object.keys(mats).forEach(id => {
-            const m = mats[id]; c.innerHTML += `<div class="p-3 bg-zinc-50 rounded-2xl border-2 border-zinc-200 flex justify-between items-center shadow-sm"><div><b class="text-sm uppercase text-black">${m.nombre}</b> <span class="text-[9px] bg-zinc-800 px-2 py-0.5 rounded text-white">${m.marca}</span><br><span class="text-[10px] text-zinc-500 font-bold">${m.unidad}</span></div><div class="text-right"><span class="text-lg font-black text-red-600">Bs. ${m.precio}</span><br><button onclick="window.delMat('${id}')" class="text-[9px] text-red-400 font-bold underline mt-1">Borrar</button></div></div>`;
+            const m = mats[id]; c.innerHTML += `<div class="p-3 bg-zinc-50 rounded-2xl border-2 border-zinc-200 flex justify-between items-center shadow-sm"><div><b class="text-sm uppercase text-black">${m.nombre}</b><br><span class="text-[9px] text-zinc-600 font-bold block mt-1">${m.marca}</span><span class="text-[10px] text-zinc-500 font-bold bg-zinc-200 px-2 py-0.5 rounded mt-1 inline-block">${m.unidad}</span></div><div class="text-right min-w-[80px]"><span class="text-lg font-black text-red-600">Bs. ${m.precio}</span><br><button onclick="window.delMat('${id}')" class="text-[9px] text-red-400 font-bold underline mt-1">Borrar</button></div></div>`;
         });
     });
 }
