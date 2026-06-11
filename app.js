@@ -124,6 +124,7 @@ function dibujarSolicitudes() {
 window.marcarSolicitudLeida = (id) => firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ estado: 'Atendido' });
 
 // ==========================================================
+// ==========================================================
 // 📋 ASISTENCIA PRO (CON HORAS DE ATRASO Y MODAL)
 // ==========================================================
 function dibujarAsistencia() {
@@ -200,6 +201,69 @@ window.renderListaPintores = () => {
         }
     });
 
+    // 2. RENDERIZAR PERSONAL YA ASIGNADO A OBRAS
+    Object.keys(window.currentPersonal).forEach(n => {
+        const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
+        const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
+        let btn = '', bColor = 'border-zinc-200';
+        
+        if (eO) { 
+            bColor = 'border-green-500 bg-green-50'; 
+            btn = `<button onclick="window.abrirModalAsistencia('${n}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; 
+        } else if (eOt) { 
+            bColor = 'border-orange-200'; 
+            btn = `<button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
+        } else { 
+            btn = `<button onclick="window.abrirModalAsistencia('${n}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; 
+        }
+        
+        let info = '';
+        if (r) {
+            let iA = [];
+            if (eO) {
+                let jN = r.jornada_normal !== undefined ? r.jornada_normal : 1;
+                if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
+                if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
+            }
+            
+            const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold block">${iA.join(' | ')}</span>` : '';
+            
+            let gpsLink = '';
+            if (r.hora_entrada) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-700 font-black text-[9px] uppercase mt-1 inline-block underline mr-2">☀️ ENTRADA: ${r.hora_entrada}</button>`;
+            }
+            if (r.hora_salida) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 inline-block underline">🌙 SALIDA: ${r.hora_salida}</button>`;
+            }
+            if (!gpsLink && r.hora_registro) {
+                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 block underline">🗺️ AUDITAR GPS (${r.hora_registro})</button>`;
+            }
+            
+            info = `<br>${textoAsistencia}${gpsLink}`;
+        }
+        
+        c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${n}</b>${info}</div>${btn}</div>`;
+    });
+};
+window.abrirModalAsistencia = (n, existe) => {
+    const adm = localStorage.getItem('a_wr') === 'true'; if (existe && !adm) { alert("Solo Gerencia edita."); return; }
+    window.pintorActualModal = n; const r = window.currentMarks[n] || {};
+    document.getElementById('modal-nombre').innerText = n;
+    document.getElementById('modal-j-normal').value = r.jornada_normal !== undefined ? r.jornada_normal : 1;
+    document.getElementById('modal-j-extra').value = r.jornada_extra || 0;
+    document.getElementById('modal-anticipo').value = r.monto_anticipo || 0;
+    document.getElementById('modal-atraso-horas').value = r.horas_atraso || 0;
+    existe ? document.getElementById('btn-quitar-asist').classList.remove('hidden') : document.getElementById('btn-quitar-asist').classList.add('hidden');
+    document.getElementById('modal-asistencia').classList.remove('hidden');
+};
+window.sumarAlAnticipo = (m) => { const i = document.getElementById('modal-anticipo'); i.value = (parseFloat(i.value) || 0) + m; };
+window.guardarAsistenciaModal = () => {
+    const n = window.pintorActualModal;
+    firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).set({ nombre: n, obra: obraSel, jornada_normal: parseFloat(document.getElementById('modal-j-normal').value), jornada_extra: parseFloat(document.getElementById('modal-j-extra').value), monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value), horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value) });
+    document.getElementById('modal-asistencia').classList.add('hidden');
+};
+window.quitarAsistenciaModal = () => { if (confirm(`¿Eliminar a ${window.pintorActualModal}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${window.pintorActualModal}`)).remove(); document.getElementById('modal-asistencia').classList.add('hidden'); } };
+window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); };
     // 2. RENDERIZAR PERSONAL YA ASIGNADO A OBRAS
     Object.keys(window.currentPersonal).forEach(n => {
         const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
