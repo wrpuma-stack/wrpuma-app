@@ -85,8 +85,6 @@ window.marcarGPS = (tipo) => {
             const lat = pos.coords.latitude, lng = pos.coords.longitude, n = localStorage.getItem('u_wr');
             const timeStr = new Date().toLocaleTimeString();
             const gpsStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-            window.pedirMaterialTrabajador = () => { const mat = prompt("Material a solicitar:"); if(mat) firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ tipo: 'MATERIAL', trabajador: localStorage.getItem('u_wr'), detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada a Gerencia.")); };
-window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto del Anticipo (Bs):"); if(monto) firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ tipo: 'ANTICIPO', trabajador: localStorage.getItem('u_wr'), detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada.")); };
             
             const updates = { nombre: n };
             
@@ -106,6 +104,10 @@ window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto del Anticip
         }, () => alert("❌ Active el GPS."));
     } else alert("❌ Navegador no soporta GPS.");
 };
+
+// AQUÍ VAN LAS FUNCIONES LIBRES E INDEPENDIENTES
+window.pedirMaterialTrabajador = () => { const mat = prompt("Material a solicitar:"); if(mat) firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ tipo: 'MATERIAL', trabajador: localStorage.getItem('u_wr'), detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada a Gerencia.")); };
+window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto del Anticipo (Bs):"); if(monto) firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ tipo: 'ANTICIPO', trabajador: localStorage.getItem('u_wr'), detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada.")); };
 // ==========================================================
 // 🛎️ SOLICITUDES
 // ==========================================================
