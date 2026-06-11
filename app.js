@@ -60,8 +60,17 @@ function dibujarPanelTrabajador() {
             <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-black italic uppercase text-red-600">WRPUMA</h2><button onclick="window.cerrarSesionTotal()" class="bg-zinc-800 text-xs px-3 py-1 rounded-full font-bold">SALIR</button></div>
             <div class="bg-zinc-900 p-5 rounded-3xl shadow-xl text-center mb-6"><p class="text-[10px] text-zinc-500 font-bold uppercase mb-1">BIENVENIDO</p><h3 class="text-2xl font-black uppercase text-white">${n}</h3></div>
             <div class="bg-blue-900/30 p-5 rounded-3xl shadow-xl mb-6 text-center"><p class="text-[10px] text-blue-400 font-bold uppercase mb-2">📌 MENSAJE DEL DÍA</p><p id="msg-dia-display" class="text-sm font-bold text-white italic">Cargando...</p></div>
+            
             <div class="grid grid-cols-2 gap-4">
-                <button onclick="window.marcarGPS()" class="col-span-2 bg-green-600 text-white py-6 rounded-3xl font-black text-xl shadow-[0_0_20px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center"><span>📍 MARCAR ASISTENCIA GPS</span><span class="text-[10px] font-bold mt-1 opacity-80 uppercase">Registrar Entrada/Salida</span></button>
+                <button onclick="window.marcarGPS('ENTRADA')" class="col-span-1 bg-green-600 text-white py-5 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(34,197,94,0.2)] border-b-4 border-green-800 flex flex-col items-center">
+                    <span>☀️ ENTRADA</span>
+                    <span class="text-[9px] font-bold mt-1 opacity-80 uppercase">Ingreso Mañana</span>
+                </button>
+                <button onclick="window.marcarGPS('SALIDA')" class="col-span-1 bg-red-600 text-white py-5 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(239,68,68,0.2)] border-b-4 border-red-800 flex flex-col items-center">
+                    <span>🌙 SALIDA</span>
+                    <span class="text-[9px] font-bold mt-1 opacity-80 uppercase">Egreso Tarde</span>
+                </button>
+                
                 <button onclick="window.pedirMaterialTrabajador()" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-xs uppercase">Solicitar Material</button>
                 <button onclick="window.pedirAnticipoTrabajador()" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-xs uppercase">Pedir Anticipo</button>
             </div>
@@ -69,18 +78,32 @@ function dibujarPanelTrabajador() {
     </div>`;
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
 }
-window.marcarGPS = () => {
+window.marcarGPS = (tipo) => {
     if (navigator.geolocation) {
-        alert("📍 Obteniendo ubicación...");
+        alert(`📍 Obteniendo ubicación para ${tipo}...`);
         navigator.geolocation.getCurrentPosition((pos) => {
             const lat = pos.coords.latitude, lng = pos.coords.longitude, n = localStorage.getItem('u_wr');
-            firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ nombre: n, obra: "POR ASIGNAR", gps_registro: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, hora_registro: new Date().toLocaleTimeString(), jornada_normal: 1 }).then(() => alert(`✅ ASISTENCIA REGISTRADA.`));
+            const timeStr = new Date().toLocaleTimeString();
+            const gpsStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            
+            const updates = { nombre: n };
+            
+            if (tipo === 'ENTRADA') {
+                updates.hora_entrada = timeStr;
+                updates.gps_entrada = gpsStr;
+                updates.obra = "POR ASIGNAR"; // Llega a la bandeja general por la mañana
+                updates.jornada_normal = 1;
+            } else if (tipo === 'SALIDA') {
+                updates.hora_salida = timeStr;
+                updates.gps_salida = gpsStr;
+                // CRÍTICO: En la salida NO tocamos el campo "obra" para conservar la asignación de la gerencia
+            }
+            
+            firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
+                .then(() => alert(`✅ ${tipo} REGISTRADA CON ÉXITO.`));
         }, () => alert("❌ Active el GPS."));
     } else alert("❌ Navegador no soporta GPS.");
 };
-window.pedirMaterialTrabajador = () => { const mat = prompt("Material:"); if(mat) firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ tipo: 'MATERIAL', trabajador: localStorage.getItem('u_wr'), detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Enviado.")); };
-window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto Bs:"); if(monto) firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ tipo: 'ANTICIPO', trabajador: localStorage.getItem('u_wr'), detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Enviado.")); };
-
 // ==========================================================
 // 🛎️ SOLICITUDES
 // ==========================================================
@@ -155,19 +178,72 @@ window.chF = (nuevaFecha) => { fechaSel = nuevaFecha; dibujarAsistencia(); };
 window.chO = (v) => { obraSel = v; window.renderListaPintores(); };
 window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
+    const esAdmin = (localStorage.getItem('rol_wr') === 'admin');
     
-    // 1. RENDERIZAR PERSONAL POR ASIGNAR (MARCAS GPS ENTRANTES)
+    // 1. RENDERIZAR PERSONAL POR ASIGNAR (MARCAS ENTRANTES DE LA MAÑANA)
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
         if(r.obra === "POR ASIGNAR") {
-            // Genera botón de mapa si existen coordenadas registradas
-            const gpsLink = r.gps_registro ? 
-                `<button onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${r.gps_registro}'), '_blank')" class="text-blue-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ VER EN MAPA (${r.hora_registro})</button>` : 
-                `<span class="text-[10px] font-bold text-yellow-800 block mt-1">📍 MANUAL: ${r.hora_registro}</span>`;
+            let gpsLink = '';
+            if (r.hora_entrada) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-600 font-black text-[9px] uppercase mt-1 block underline text-left">☀️ ENT: ${r.hora_entrada} 🗺️</button>`;
+            }
+            if (r.hora_salida) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-500 font-black text-[9px] uppercase mt-1 block underline text-left">🌙 SAL: ${r.hora_salida} 🗺️</button>`;
+            }
+            if (!gpsLink && r.hora_registro) { // Soporte para marcas antiguas
+                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-blue-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ VER REGISTRO (${r.hora_registro})</button>`;
+            }
+            if (!gpsLink) gpsLink = `<span class="text-[10px] font-bold text-yellow-800 block mt-1">📍 SIN MARCAS</span>`;
                 
             c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase">${n}</b><br>${gpsLink}</div><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24">ASIGNAR AQUÍ</button></div>`;
         }
     });
+
+    // 2. RENDERIZAR PERSONAL YA ASIGNADO A OBRAS
+    Object.keys(window.currentPersonal).forEach(n => {
+        const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
+        const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
+        let btn = '', bColor = 'border-zinc-200';
+        
+        if (eO) { 
+            bColor = 'border-green-500 bg-green-50'; 
+            btn = `<button onclick="window.abrirModalAsistencia('${n}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; 
+        } else if (eOt) { 
+            bColor = 'border-orange-200'; 
+            btn = `<button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
+        } else { 
+            btn = `<button onclick="window.abrirModalAsistencia('${n}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; 
+        }
+        
+        let info = '';
+        if (r) {
+            let iA = [];
+            if (eO) {
+                let jN = r.jornada_normal !== undefined ? r.jornada_normal : 1;
+                if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
+                if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
+            }
+            
+            const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold block">${iA.join(' | ')}</span>` : '';
+            
+            let gpsLink = '';
+            if (r.hora_entrada) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-700 font-black text-[9px] uppercase mt-1 inline-block underline mr-2">☀️ ENTRADA: ${r.hora_entrada}</button>`;
+            }
+            if (r.hora_salida) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 inline-block underline">🌙 SALIDA: ${r.hora_salida}</button>`;
+            }
+            if (!gpsLink && r.hora_registro) {
+                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 block underline">🗺️ AUDITAR GPS (${r.hora_registro})</button>`;
+            }
+            
+            info = `<br>${textoAsistencia}${gpsLink}`;
+        }
+        
+        c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${n}</b>${info}</div>${btn}</div>`;
+    });
+};
 
     // 2. RENDERIZAR LISTA GENERAL DE PERSONAL REGISTRADO O EN OTRAS OBRAS
     Object.keys(window.currentPersonal).forEach(n => {
