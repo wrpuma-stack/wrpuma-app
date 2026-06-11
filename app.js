@@ -85,6 +85,8 @@ window.marcarGPS = (tipo) => {
             const lat = pos.coords.latitude, lng = pos.coords.longitude, n = localStorage.getItem('u_wr');
             const timeStr = new Date().toLocaleTimeString();
             const gpsStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            window.pedirMaterialTrabajador = () => { const mat = prompt("Material a solicitar:"); if(mat) firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ tipo: 'MATERIAL', trabajador: localStorage.getItem('u_wr'), detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada a Gerencia.")); };
+window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto del Anticipo (Bs):"); if(monto) firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ tipo: 'ANTICIPO', trabajador: localStorage.getItem('u_wr'), detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada.")); };
             
             const updates = { nombre: n };
             
@@ -887,12 +889,14 @@ function enrutador() {
     const urlParams = new URLSearchParams(window.location.search);
     const directUser = urlParams.get('user');
 
-    // CORRECCIÓN: Prioridad absoluta al enlace. Si viene un nombre, sobreescribe cualquier sesión anterior automáticamente.
+    // CORRECCIÓN: Prioridad absoluta y limpieza automática de espacios (.trim())
     if (directUser) {
         const usuarioActual = localStorage.getItem('u_wr');
-        if (usuarioActual !== directUser.toUpperCase()) {
+        const nombreLimpio = directUser.toUpperCase().trim(); // <-- Este comando mata a los fantasmas
+        
+        if (usuarioActual !== nombreLimpio) {
             localStorage.setItem('empresa_wr', 'Walter');
-            localStorage.setItem('u_wr', directUser.toUpperCase());
+            localStorage.setItem('u_wr', nombreLimpio);
             localStorage.setItem('a_wr', 'false');
             localStorage.setItem('rol_wr', 'trabajador');
         }
@@ -920,9 +924,3 @@ function enrutador() {
     else if (h === '#menu') dibujarMenu();
     else window.dibujarAcceso();
 }
-
-window.dibujarAcceso = () => {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center"><h1 class="text-6xl font-black text-white italic mb-10">WR<span class="text-red-600">PUMA</span></h1><div class="grid gap-4 w-full max-w-xs"><button onclick="window.verAccesoPro('walter')" class="bg-red-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO GERENCIA</button><button onclick="window.verAccesoPro('napoleon')" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO DIRECCION</button><button onclick="window.verAccesoPro('super')" class="bg-zinc-800 text-zinc-300 py-3 rounded-2xl font-black text-sm border border-zinc-700 mt-4">ACCESO SUPERVISOR</button><div class="border-t border-zinc-800 pt-4 mt-2"><button onclick="window.verAccesoPro('trabajador')" class="w-full bg-zinc-900 text-green-500 py-4 rounded-2xl font-black text-xs border border-zinc-800">ACCESO TRABAJADOR / ASISTENCIA</button></div></div></div>`;
-};
-
-window.addEventListener('hashchange', enrutador); window.addEventListener('load', enrutador); enrutador();
