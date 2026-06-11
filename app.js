@@ -323,8 +323,17 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
         firebase.database().ref(getDbPath('obras')).once('value').then(s => {
             const obs = s.val() || {}; const idO = Object.keys(obs).find(id => obs[id].nombre === oN);
             if (idO) {
-                data.registrarMovimiento(idO, 'pago_sueldo', m, `Sueldo Semanal: ${n}`);
-                firebase.database().ref(getDbPath(`pagos_historial/${n}_semana_${pFIni}`)).set({ fecha_pago: new Date().toISOString(), trabajador: n, monto: m, semana_ancla: pFIni, detalles: { sueldo_dia: sDia, dias_normales: dN, dias_extras: dE, anticipos: ant, horas_atraso: hA, descuento_atraso: desc, compensacion: comp } }).then(() => dibujarPlanilla());
+                // CORRECCIÓN CONTABLE WRPUMA: El costo real para la obra es el SUELDO BRUTO (saldo líquido + anticipos + descuentos)
+                const sueldoBruto = m + ant + desc; 
+                
+                data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`);
+                firebase.database().ref(getDbPath(`pagos_historial/${n}_semana_${pFIni}`)).set({ 
+                    fecha_pago: new Date().toISOString(), 
+                    trabajador: n, 
+                    monto: m, 
+                    semana_ancla: pFIni, 
+                    detalles: { sueldo_dia: sDia, dias_normales: dN, dias_extras: dE, anticipos: ant, horas_atraso: hA, descuento_atraso: desc, compensacion: comp } 
+                }).then(() => dibujarPlanilla());
             }
         });
     }
@@ -759,6 +768,19 @@ function dibujarMenu() {
 window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 
 function enrutador() {
+    // NUEVO: SISTEMA DE ACCESO DIRECTO WRPUMA (EJ: ?user=franco)
+    const urlParams = new URLSearchParams(window.location.search);
+    const directUser = urlParams.get('user');
+    
+    // Si viene un nombre por enlace y no hay sesión activa, lo loguea automáticamente
+    if (directUser && !localStorage.getItem('rol_wr')) {
+        localStorage.setItem('empresa_wr', 'Walter'); 
+        localStorage.setItem('u_wr', directUser.toUpperCase()); 
+        localStorage.setItem('a_wr', 'false'); 
+        localStorage.setItem('rol_wr', 'trabajador'); 
+        window.location.hash = '#panel-trabajador';
+    }
+
     const h = window.location.hash, rol = localStorage.getItem('rol_wr');
     if (!rol && h !== '') { window.location.hash = ''; return; }
     if (rol === 'trabajador' && h !== '#panel-trabajador') { window.location.hash = '#panel-trabajador'; return; }
