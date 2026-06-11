@@ -45,7 +45,7 @@ window.verAccesoPro = (usuario) => {
         if (pin === "7777") { localStorage.setItem('empresa_wr', 'Walter'); localStorage.setItem('u_wr', 'Supervisor'); localStorage.setItem('a_wr', 'false'); localStorage.setItem('rol_wr', 'super'); window.location.hash = '#menu'; } else alert("PIN INCORRECTO");
     } else if (usuario === 'trabajador') {
         const nom = prompt("NOMBRE EXACTO:");
-        if (nom) { localStorage.setItem('empresa_wr', 'Walter'); localStorage.setItem('u_wr', nom.toUpperCase()); localStorage.setItem('a_wr', 'false'); localStorage.setItem('rol_wr', 'trabajador'); window.location.hash = '#panel-trabajador'; }
+        if (nom) { localStorage.setItem('empresa_wr', 'Walter'); localStorage.setItem('u_wr', nom.toUpperCase().trim()); localStorage.setItem('a_wr', 'false'); localStorage.setItem('rol_wr', 'trabajador'); window.location.hash = '#panel-trabajador'; }
     }
 };
 
@@ -78,6 +78,7 @@ function dibujarPanelTrabajador() {
     </div>`;
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
 }
+
 window.marcarGPS = (tipo) => {
     if (navigator.geolocation) {
         alert(`📍 Obteniendo ubicación para ${tipo}...`);
@@ -91,12 +92,11 @@ window.marcarGPS = (tipo) => {
             if (tipo === 'ENTRADA') {
                 updates.hora_entrada = timeStr;
                 updates.gps_entrada = gpsStr;
-                updates.obra = "POR ASIGNAR"; // Llega a la bandeja general por la mañana
+                updates.obra = "POR ASIGNAR"; 
                 updates.jornada_normal = 1;
             } else if (tipo === 'SALIDA') {
                 updates.hora_salida = timeStr;
                 updates.gps_salida = gpsStr;
-                // CRÍTICO: En la salida NO tocamos el campo "obra" para conservar la asignación de la gerencia
             }
             
             firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
@@ -105,9 +105,9 @@ window.marcarGPS = (tipo) => {
     } else alert("❌ Navegador no soporta GPS.");
 };
 
-// AQUÍ VAN LAS FUNCIONES LIBRES E INDEPENDIENTES
 window.pedirMaterialTrabajador = () => { const mat = prompt("Material a solicitar:"); if(mat) firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ tipo: 'MATERIAL', trabajador: localStorage.getItem('u_wr'), detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada a Gerencia.")); };
 window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto del Anticipo (Bs):"); if(monto) firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ tipo: 'ANTICIPO', trabajador: localStorage.getItem('u_wr'), detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada.")); };
+
 // ==========================================================
 // 🛎️ SOLICITUDES
 // ==========================================================
@@ -127,8 +127,6 @@ function dibujarSolicitudes() {
 }
 window.marcarSolicitudLeida = (id) => firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ estado: 'Atendido' });
 
-// ==========================================================
-// ==========================================================
 // ==========================================================
 // 📋 ASISTENCIA PRO (CON HORAS DE ATRASO Y MODAL)
 // ==========================================================
@@ -186,7 +184,6 @@ window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
     const esAdmin = (localStorage.getItem('rol_wr') === 'admin');
     
-    // 1. RENDERIZAR PERSONAL POR ASIGNAR (MARCAS ENTRANTES DE LA MAÑANA)
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
         if(r.obra === "POR ASIGNAR") {
@@ -206,7 +203,6 @@ window.renderListaPintores = () => {
         }
     });
 
-    // 2. RENDERIZAR PERSONAL YA ASIGNADO A OBRAS
     Object.keys(window.currentPersonal).forEach(n => {
         const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
         const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
@@ -269,11 +265,9 @@ window.guardarAsistenciaModal = () => {
 };
 window.quitarAsistenciaModal = () => { if (confirm(`¿Eliminar a ${window.pintorActualModal}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${window.pintorActualModal}`)).remove(); document.getElementById('modal-asistencia').classList.add('hidden'); } };
 window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); };
+
 // ==========================================================
 // 🏗️ OBRAS
-// ==========================================================
-// ==========================================================
-// 🏗️ MÓDULO OBRAS (CON FILTRO DE SEGURIDAD PRO)
 // ==========================================================
 function dibujarObras() {
     const rol = localStorage.getItem('rol_wr');
@@ -395,9 +389,7 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
         firebase.database().ref(getDbPath('obras')).once('value').then(s => {
             const obs = s.val() || {}; const idO = Object.keys(obs).find(id => obs[id].nombre === oN);
             if (idO) {
-                // CORRECCIÓN CONTABLE WRPUMA: El costo real para la obra es el SUELDO BRUTO (saldo líquido + anticipos + descuentos)
                 const sueldoBruto = m + ant + desc; 
-                
                 data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`);
                 firebase.database().ref(getDbPath(`pagos_historial/${n}_semana_${pFIni}`)).set({ 
                     fecha_pago: new Date().toISOString(), 
@@ -421,12 +413,6 @@ window.verHistorialSueldos = () => {
 // ==========================================================
 // 🛠️ INVENTARIO (HERRAMIENTAS)
 // ==========================================================
-// ==========================================================
-// 🛠️ INVENTARIO (INGRESO MÚLTIPLE EN LOTE)
-// ==========================================================
-// ==========================================================
-// 🛠️ INVENTARIO AUTOMATIZADO Y TRASPASO DIRECTO (WRPUMA)
-// ==========================================================
 function dibujarHerramientas() {
     const rol = localStorage.getItem('rol_wr');
     const esAdmin = (rol === 'admin');
@@ -439,11 +425,9 @@ function dibujarHerramientas() {
                 <button onclick="window.location.hash='#menu'" class="bg-white text-yellow-700 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
             </div>
             <div class="bg-white p-6 shadow-xl rounded-b-3xl">
-                
                 ${esAdmin ? `
                 <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-200 mb-4">
                     <h3 class="text-[10px] font-black text-yellow-800 mb-3 text-center">INGRESO Y ASIGNACIÓN EN LOTE</h3>
-                    
                     <div class="grid grid-cols-2 gap-2 mb-2">
                         <div>
                             <label class="text-[9px] font-black block text-zinc-500 mb-1">RESPONSABLE:</label>
@@ -458,9 +442,7 @@ function dibujarHerramientas() {
                             </select>
                         </div>
                     </div>
-
-                    <textarea id="h-nom" rows="4" placeholder="Escriba las herramientas (Dando ENTER por línea).&#10;Ejemplo:&#10;Cortadora de azulejo&#10;Andamio tubular&#10;Rodillo de felpa" class="w-full p-3 rounded-xl border-2 uppercase font-bold text-xs mb-2 resize-none outline-none"></textarea>
-                    
+                    <textarea id="h-nom" rows="4" placeholder="Escriba las herramientas (Dando ENTER por línea)." class="w-full p-3 rounded-xl border-2 uppercase font-bold text-xs mb-2 resize-none outline-none"></textarea>
                     <button onclick="window.saveHerr()" class="w-full bg-black text-white font-black py-3 rounded-xl uppercase text-xs shadow-md">REGISTRAR Y ASIGNAR</button>
                 </div>
                 ` : ''}
@@ -482,7 +464,6 @@ function dibujarHerramientas() {
         window.personalDisponibles = p;
         window.obrasDisponibles = o;
 
-        // Llenar selectores principales de carga
         if(esAdmin) {
             const selT = document.getElementById('h-trabajador');
             const selO = document.getElementById('h-obra');
@@ -491,7 +472,6 @@ function dibujarHerramientas() {
                 Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') selO.innerHTML += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
             }
         }
-        
         window.renderListaHerr('TODAS');
     });
 }
@@ -509,24 +489,19 @@ window.renderListaHerr = (filtro) => {
     const o = window.obrasDisponibles || {};
     let hay = false;
 
-    // Generar opciones para las tarjetas individuales
     let opcionesP = `<option value="BODEGA">-- EN BODEGA --</option>`;
     Object.keys(p).forEach(k => opcionesP += `<option value="${k}">${k}</option>`);
-    
     let opcionesO = `<option value="Ninguna">-- SIN OBRA --</option>`;
     Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') opcionesO += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
 
     Object.keys(h).forEach(id => {
         const item = h[id]; 
         const enB = !item.asignado_a || item.asignado_a === 'BODEGA';
-        
         if (filtro === 'EN USO' && enB) return;
         if (filtro === 'BODEGA' && !enB) return;
-
         hay = true;
 
         if (enB) {
-            // TARJETA: EN BODEGA
             c.innerHTML += `
             <div class="p-4 bg-zinc-50 rounded-2xl border-2 border-green-500 shadow-sm">
                 <div class="flex justify-between items-center mb-2">
@@ -548,19 +523,16 @@ window.renderListaHerr = (filtro) => {
                 ` : `<div class="mt-1 text-[10px] text-zinc-500 italic font-bold">Solo Gerencia puede asignar esta herramienta.</div>`}
             </div>`;
         } else {
-            // TARJETA: EN USO (CON TRANSFERENCIA DIRECTA)
             c.innerHTML += `
             <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm">
                 <div class="flex justify-between items-center mb-2">
                     <b class="text-sm uppercase text-orange-900">${item.nombre}</b>
                     <span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg font-black">EN USO</span>
                 </div>
-                
                 <div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center">
                     <span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span>
                     <span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span>
                 </div>
-
                 ${esAdmin ? `
                 <div class="bg-white p-3 rounded-xl border border-orange-200 mt-2">
                     <span class="text-[9px] font-black text-orange-700 block mb-1 uppercase">Transferir o mover directo a:</span>
@@ -574,20 +546,17 @@ window.renderListaHerr = (filtro) => {
                         <button onclick="window.delHerr('${id}')" class="text-red-600 text-[10px] font-bold px-1 underline">Borrar</button>
                     </div>
                 </div>
-                ` : `<div class="mt-2 text-[10px] text-zinc-600 italic font-bold text-center border-t pt-2 border-orange-200">Supervisor: Verifique que el operario posea físicamente este equipo en obra.</div>`}
+                ` : `<div class="mt-2 text-[10px] text-zinc-600 italic font-bold text-center border-t pt-2 border-orange-200">Verifique que el operario posea físicamente este equipo.</div>`}
             </div>`;
         }
     });
-
     if(!hay) c.innerHTML = `<p class="text-center text-[10px] text-zinc-500 font-bold italic py-6">No hay herramientas registradas en esta categoría.</p>`;
 };
 
-// FUNCIÓN: GUARDAR NUEVAS HERRAMIENTAS EN LOTE (O asignarlas directo)
 window.saveHerr = () => { 
     const nom = document.getElementById('h-nom').value; 
     const trabajador = document.getElementById('h-trabajador').value;
     const obra = document.getElementById('h-obra').value;
-
     if (nom.trim() !== '') {
         const lineas = nom.split('\n'); 
         lineas.forEach((linea, index) => {
@@ -603,43 +572,24 @@ window.saveHerr = () => {
         });
         document.getElementById('h-nom').value = '';
         alert("Equipo registrado y asignado correctamente.");
-    } else {
-        alert("Escriba el nombre de la herramienta.");
-    }
+    } else alert("Escriba el nombre de la herramienta.");
 };
-
-// FUNCIÓN: CAMBIAR DESTINO / TRANSFERIR DIRECTAMENTE OBRA A OBRA O PERSONA A PERSONA
 window.cambiarDestinoHerr = (id) => {
     const t = document.getElementById(`cardT_${id}`).value;
     const o = document.getElementById(`cardO_${id}`).value;
-    
     if(confirm(`¿Confirmar el traspaso de este equipo a ${t} en la obra: ${o}?`)) {
         firebase.database().ref(getDbPath(`herramientas/${id}`)).update({
-            asignado_a: t,
-            obra: o,
-            fecha_asignacion: new Date().toISOString()
-        }, () => {
-            alert("Traspaso ejecutado con éxito.");
-        });
+            asignado_a: t, obra: o, fecha_asignacion: new Date().toISOString()
+        }, () => alert("Traspaso ejecutado con éxito."));
     }
 };
-
-// FUNCIÓN: RETORNAR RÁPIDO A BODEGA
 window.devolverAFlotaHerr = (id) => {
     if(confirm("¿Este equipo está retornando al taller/bodega central?")) {
-        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({
-            asignado_a: 'BODEGA',
-            obra: 'Ninguna'
-        });
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({ asignado_a: 'BODEGA', obra: 'Ninguna' });
     }
 };
+window.delHerr = (id) => { if(confirm("¿Desea borrar esta herramienta del sistema WRPUMA definitivamente?")) { firebase.database().ref(getDbPath(`herramientas/${id}`)).remove(); } };
 
-// FUNCIÓN: ELIMINAR ACTIVO
-window.delHerr = (id) => { 
-    if(confirm("¿Desea borrar esta herramienta del sistema WRPUMA definitivamente?")) {
-        firebase.database().ref(getDbPath(`herramientas/${id}`)).remove(); 
-    }
-};
 // ==========================================================
 // 🚀 TRATOS Y DESTAJOS
 // ==========================================================
@@ -674,9 +624,7 @@ function dibujarCaja() {
                     <h3 class="text-[10px] font-black text-green-800 mb-3">NUEVA COMPRA</h3>
                     <select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2"></select>
                     <input id="c-prov" type="text" placeholder="Proveedor / Ferretería" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2">
-                    
-                    <textarea id="c-detalle" rows="3" placeholder="Detalle Completo (Ej. 3 baldes de masilla, 5 lijas Festool, 1 cinta azul)" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2 resize-none outline-none"></textarea>
-                    
+                    <textarea id="c-detalle" rows="3" placeholder="Detalle Completo (Ej. 3 baldes de masilla, 5 lijas Festool)" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2 resize-none outline-none"></textarea>
                     <div class="flex gap-2 mb-3">
                         <select id="c-tipo" class="w-1/2 p-3 rounded-xl border-2 font-black text-xs">
                             <option value="compra_contado">CONTADO</option>
@@ -735,12 +683,9 @@ function dibujarAlmacen() {
             </div>
             <div class="bg-white p-6 shadow-xl rounded-b-3xl space-y-4">
                 <input id="m-nom" type="text" placeholder="Servicio (Ej. Efecto Carrara / Velvet)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase">
-                
                 <textarea id="m-marca" rows="3" placeholder="Detalle Técnico (Ej. Imprimación epóxica + 2 manos de base + sellador poliuretano)" class="w-full p-3 rounded-xl border-2 font-bold text-xs uppercase resize-none outline-none"></textarea>
-                
                 <input id="m-uni" type="text" placeholder="Unidad (Ej. m2, ml, gl)" class="w-full p-3 rounded-xl border-2 font-bold text-sm uppercase">
                 <input id="m-pre" type="number" placeholder="Precio Actual (Bs.)" class="w-full p-3 rounded-xl border-2 font-black text-lg text-center text-red-600">
-                
                 <button onclick="window.saveMat()" class="w-full bg-black text-white font-black py-4 rounded-2xl">REGISTRAR APU</button>
                 <h3 class="mt-6 font-black text-zinc-500 text-xs border-b-2 pb-1">BASE DE DATOS</h3>
                 <div id="list-mat" class="space-y-3 pt-2">Cargando...</div>
@@ -835,12 +780,6 @@ window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Cotizacion.pdf
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR
 // ==========================================================
-// ==========================================================
-// 📱 MENÚ PRINCIPAL (CON PRIVACIDAD ESTRICTA)
-// ==========================================================
-// ==========================================================
-// 🚀 MENU MAESTRO Y ENRUTADOR
-// ==========================================================
 function dibujarMenu() {
     const rol = localStorage.getItem('rol_wr');
     if (!rol) { window.location.hash = ''; return; }
@@ -891,10 +830,9 @@ function enrutador() {
     const urlParams = new URLSearchParams(window.location.search);
     const directUser = urlParams.get('user');
 
-    // CORRECCIÓN: Prioridad absoluta y limpieza automática de espacios (.trim())
     if (directUser) {
         const usuarioActual = localStorage.getItem('u_wr');
-        const nombreLimpio = directUser.toUpperCase().trim(); // <-- Este comando mata a los fantasmas
+        const nombreLimpio = directUser.toUpperCase().trim();
         
         if (usuarioActual !== nombreLimpio) {
             localStorage.setItem('empresa_wr', 'Walter');
@@ -926,3 +864,9 @@ function enrutador() {
     else if (h === '#menu') dibujarMenu();
     else window.dibujarAcceso();
 }
+
+window.dibujarAcceso = () => {
+    appDiv.innerHTML = `<div class="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center"><h1 class="text-6xl font-black text-white italic mb-10">WR<span class="text-red-600">PUMA</span></h1><div class="grid gap-4 w-full max-w-xs"><button onclick="window.verAccesoPro('walter')" class="bg-red-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO GERENCIA</button><button onclick="window.verAccesoPro('napoleon')" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO DIRECCION</button><button onclick="window.verAccesoPro('super')" class="bg-zinc-800 text-zinc-300 py-3 rounded-2xl font-black text-sm border border-zinc-700 mt-4">ACCESO SUPERVISOR</button><div class="border-t border-zinc-800 pt-4 mt-2"><button onclick="window.verAccesoPro('trabajador')" class="w-full bg-zinc-900 text-green-500 py-4 rounded-2xl font-black text-xs border border-zinc-800">ACCESO TRABAJADOR / ASISTENCIA</button></div></div></div>`;
+};
+
+window.addEventListener('hashchange', enrutador); window.addEventListener('load', enrutador); enrutador();
