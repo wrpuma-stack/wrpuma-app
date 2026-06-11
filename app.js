@@ -155,25 +155,53 @@ window.chF = (nuevaFecha) => { fechaSel = nuevaFecha; dibujarAsistencia(); };
 window.chO = (v) => { obraSel = v; window.renderListaPintores(); };
 window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
+    
+    // 1. RENDERIZAR PERSONAL POR ASIGNAR (MARCAS GPS ENTRANTES)
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
-        if(r.obra === "POR ASIGNAR") c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase">${n}</b><br><span class="text-[10px] font-bold text-yellow-800">📍 GPS: ${r.hora_registro}</span></div><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24">ASIGNAR AQUÍ</button></div>`;
+        if(r.obra === "POR ASIGNAR") {
+            // Genera botón de mapa si existen coordenadas registradas
+            const gpsLink = r.gps_registro ? 
+                `<button onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${r.gps_registro}'), '_blank')" class="text-blue-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ VER EN MAPA (${r.hora_registro})</button>` : 
+                `<span class="text-[10px] font-bold text-yellow-800 block mt-1">📍 MANUAL: ${r.hora_registro}</span>`;
+                
+            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase">${n}</b><br>${gpsLink}</div><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24">ASIGNAR AQUÍ</button></div>`;
+        }
     });
+
+    // 2. RENDERIZAR LISTA GENERAL DE PERSONAL REGISTRADO O EN OTRAS OBRAS
     Object.keys(window.currentPersonal).forEach(n => {
         const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
         const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
         let btn = '', bColor = 'border-zinc-200';
-        if (eO) { bColor = 'border-green-500 bg-green-50'; btn = `<button onclick="window.abrirModalAsistencia('${n}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; } 
-        else if (eOt) { bColor = 'border-orange-200'; btn = `<button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; } 
-        else { btn = `<button onclick="window.abrirModalAsistencia('${n}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; }
+        
+        if (eO) { 
+            bColor = 'border-green-500 bg-green-50'; 
+            btn = `<button onclick="window.abrirModalAsistencia('${n}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; 
+        } else if (eOt) { 
+            bColor = 'border-orange-200'; 
+            btn = `<button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
+        } else { 
+            btn = `<button onclick="window.abrirModalAsistencia('${n}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; 
+        }
         
         let info = '';
-        if (eO) {
-            let iA = []; let jN = r.jornada_normal !== undefined ? r.jornada_normal : 1;
-            if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
-            if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
-            if (iA.length > 0) info = `<br><span class="text-[10px] text-green-700 font-bold">${iA.join(' | ')}</span>`;
+        if (r) {
+            let iA = [];
+            if (eO) {
+                let jN = r.jornada_normal !== undefined ? r.jornada_normal : 1;
+                if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
+                if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
+            }
+            
+            const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold">${iA.join(' | ')}</span>` : '';
+            // Si el registro de la persona tiene coordenadas GPS, añade el botón de auditoría
+            const gpsLink = r.gps_registro ? 
+                `<button onclick="window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('${r.gps_registro}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ AUDITAR GPS (${r.hora_registro})</button>` : '';
+            
+            info = (textoAsistencia || gpsLink) ? `<br>${textoAsistencia} ${gpsLink}` : '';
         }
+        
         c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${n}</b>${info}</div>${btn}</div>`;
     });
 };
