@@ -768,16 +768,18 @@ function dibujarMenu() {
 window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 
 function enrutador() {
-    // NUEVO: SISTEMA DE ACCESO DIRECTO WRPUMA (EJ: ?user=franco)
     const urlParams = new URLSearchParams(window.location.search);
     const directUser = urlParams.get('user');
-    
-    // Si viene un nombre por enlace y no hay sesión activa, lo loguea automáticamente
-    if (directUser && !localStorage.getItem('rol_wr')) {
-        localStorage.setItem('empresa_wr', 'Walter'); 
-        localStorage.setItem('u_wr', directUser.toUpperCase()); 
-        localStorage.setItem('a_wr', 'false'); 
-        localStorage.setItem('rol_wr', 'trabajador'); 
+
+    // CORRECCIÓN: Prioridad absoluta al enlace. Si viene un nombre, sobreescribe cualquier sesión anterior automáticamente.
+    if (directUser) {
+        const usuarioActual = localStorage.getItem('u_wr');
+        if (usuarioActual !== directUser.toUpperCase()) {
+            localStorage.setItem('empresa_wr', 'Walter');
+            localStorage.setItem('u_wr', directUser.toUpperCase());
+            localStorage.setItem('a_wr', 'false');
+            localStorage.setItem('rol_wr', 'trabajador');
+        }
         window.location.hash = '#panel-trabajador';
     }
 
