@@ -128,7 +128,7 @@ function dibujarSolicitudes() {
 window.marcarSolicitudLeida = (id) => firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ estado: 'Atendido' });
 
 // ==========================================================
-// 📋 ASISTENCIA PRO (CON HORAS DE ATRASO Y MODAL)
+// 📋 ASISTENCIA PRO (CORREGIDO PARA MAYÚSCULAS)
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -185,7 +185,7 @@ window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
     const esAdmin = (localStorage.getItem('rol_wr') === 'admin');
     
-    // Normalizamos las marcas para que todo se compare en MAYÚSCULAS
+    // TRADUCTOR MAYÚSCULAS
     const marcasMap = {};
     Object.keys(window.currentMarks).forEach(n => {
         marcasMap[n.toUpperCase()] = window.currentMarks[n];
@@ -371,25 +371,37 @@ window.delP = (n) => { if (confirm(`¿Borrar a ${n}?`)) firebase.database().ref(
 window.editarP = (old, sOld) => { let n = prompt("Nombre:", old); if(!n) return; let s = prompt("Sueldo:", sOld); if(!s) return; if(n.toUpperCase() !== old) { firebase.database().ref(getDbPath(`personal/${n.toUpperCase()}`)).set({ sueldo_dia: s }); firebase.database().ref(getDbPath(`personal/${old}`)).remove(); } else { firebase.database().ref(getDbPath(`personal/${old}`)).update({ sueldo_dia: s }); } };
 
 // ==========================================================
-// 💰 SUELDOS Y PAGOS
+// 💰 SUELDOS Y PAGOS (CORREGIDO PARA MAYÚSCULAS)
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
+        
+        // TRADUCTOR A MAYÚSCULAS PARA LA PLANILLA
+        const personalMayus = {};
+        Object.keys(per).forEach(k => { personalMayus[k.toUpperCase()] = per[k]; });
+
+        const pagosMap = {};
+        Object.keys(pagosRealizados).forEach(k => { pagosMap[k.toUpperCase()] = pagosRealizados[k]; });
+
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
-            const idRef = `${reg.nombre}_semana_${pFIni}`; if (pagosRealizados[idRef]) return;
-            if (!res[reg.nombre]) res[reg.nombre] = { dNorm: 0, dExt: 0, ant: 0, hAtraso: 0, obraPrincipal: reg.obra };
-            res[reg.nombre].dNorm += parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
-            res[reg.nombre].dExt += parseFloat(reg.jornada_extra || 0);
-            res[reg.nombre].ant += parseFloat(reg.monto_anticipo || 0);
-            res[reg.nombre].hAtraso += parseFloat(reg.horas_atraso || 0);
+            const nombreMayus = reg.nombre.toUpperCase();
+            const idRef = `${nombreMayus}_semana_${pFIni}`; 
+            if (pagosMap[idRef]) return;
+            
+            if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dExt: 0, ant: 0, hAtraso: 0, obraPrincipal: reg.obra };
+            res[nombreMayus].dNorm += parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
+            res[nombreMayus].dExt += parseFloat(reg.jornada_extra || 0);
+            res[nombreMayus].ant += parseFloat(reg.monto_anticipo || 0);
+            res[nombreMayus].hAtraso += parseFloat(reg.horas_atraso || 0);
         });}});
+        
         c.innerHTML = ''; let tP = 0; const list = Object.keys(res);
         if (list.length === 0) { c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold uppercase mt-10">No hay pagos pendientes.</p>`; return; }
         list.forEach(n => {
-            const d = res[n], sDia = parseFloat(per[n]?.sueldo_dia) || 0, comp = d.dNorm >= 5.5 ? 0.5 : 0;
+            const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0, comp = d.dNorm >= 5.5 ? 0.5 : 0;
             const sTot = (d.dNorm + comp + d.dExt) * sDia, desc = d.hAtraso * (sDia / 8), saldo = sTot - d.ant - desc; tP += saldo;
             c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="bg-red-600 px-3 rounded-lg font-black text-sm py-1">${(d.dNorm + comp + d.dExt).toFixed(1)} D</span></div><div class="grid grid-cols-2 gap-2 mb-4"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos</span>-Bs. ${d.ant}</div></div><button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${comp})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg">PAGAR: Bs. ${saldo.toFixed(2)}</button></div>`;
         });
