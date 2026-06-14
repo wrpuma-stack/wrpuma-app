@@ -420,8 +420,7 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
                 semana_ancla: pFIni, 
                 detalles: { sueldo_dia: sDia, dias_normales: dN, dias_extras: dE, anticipos: ant, horas_atraso: hA, descuento_atraso: desc, compensacion: comp } 
             }).then(() => {
-                alert(`Pago de ${n} archivado correctamente.`);
-                dibujarPlanilla();
+                dibujarPlanilla(); // Recarga la planilla para que desaparezca
             });
         };
 
@@ -432,9 +431,10 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
             if (idO) {
                 // Si estaba en una obra, se le descuenta a la obra y luego se guarda
                 const sueldoBruto = m + ant + desc; 
-                data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`).then(guardarHistorial);
+                data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`);
+                guardarHistorial(); // Lo ejecutamos directo sin el .then() que causaba el error
             } else {
-                // Si estaba "POR ASIGNAR" (sin obra), simplemente se guarda el historial para que desaparezca
+                // Si estaba "POR ASIGNAR" (sin obra), simplemente se guarda el historial
                 guardarHistorial();
             }
         });
