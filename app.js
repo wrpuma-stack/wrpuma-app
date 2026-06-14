@@ -109,10 +109,10 @@ window.pedirMaterialTrabajador = () => { const mat = prompt("Material a solicita
 window.pedirAnticipoTrabajador = () => { const monto = prompt("Monto del Anticipo (Bs):"); if(monto) firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ tipo: 'ANTICIPO', trabajador: localStorage.getItem('u_wr'), detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' }).then(() => alert("✅ Solicitud enviada.")); };
 
 // ==========================================================
-// 🛎️ SOLICITUDES
+// 🛎️ SOLICITUDES Y HISTORIAL
 // ==========================================================
 function dibujarSolicitudes() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black"><div class="max-w-md mx-auto"><div class="bg-orange-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">SOLICITUDES</h2><button onclick="window.location.hash='#menu'" class="bg-white text-orange-700 px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><div id="list-solicitudes" class="space-y-4">Cargando...</div></div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black"><div class="max-w-md mx-auto"><div class="bg-orange-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">SOLICITUDES</h2><button onclick="window.location.hash='#menu'" class="bg-white text-orange-700 px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><button onclick="window.location.hash='#historial-solicitudes'" class="w-full bg-zinc-800 text-white py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Atendidos</button><div id="list-solicitudes" class="space-y-4">Cargando...</div></div></div></div>`;
     firebase.database().ref(getDbPath('solicitudes')).on('value', snap => {
         const c = document.getElementById('list-solicitudes'); if (!c) return; c.innerHTML = '';
         const sol = snap.val() || {}; let hay = false;
@@ -122,18 +122,28 @@ function dibujarSolicitudes() {
                 c.innerHTML += `<div class="p-4 bg-${color}-50 rounded-2xl border-2 border-${color}-200 shadow-sm relative"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><span class="text-[9px] bg-${color}-600 text-white px-2 py-1 rounded-lg">${s.tipo}</span></div><p class="text-sm font-bold bg-white p-2 border rounded-lg">${s.detalle}</p><button onclick="window.marcarSolicitudLeida('${id}')" class="w-full mt-2 bg-zinc-800 text-white text-[10px] font-black py-3 rounded-xl uppercase">Marcar Visto</button></div>`;
             }
         });
-        if(!hay) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold py-10">No hay solicitudes.</p>`;
+        if(!hay) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold py-10">No hay solicitudes pendientes.</p>`;
     });
 }
 window.marcarSolicitudLeida = (id) => {
-    // En lugar de borrar, actualizamos el estado a 'Atendido'
-    // Esto asegura que el dato se quede en su base de datos para siempre
     firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ 
         estado: 'Atendido',
         fecha_atencion: new Date().toLocaleString()
-    }).then(() => {
-        alert("✅ Solicitud archivada como atendida.");
-        dibujarSolicitudes(); // Esto recargará la lista quitando la que acaba de atender
+    });
+};
+
+window.verHistorialSolicitudes = () => {
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black"><div class="max-w-md mx-auto"><div class="bg-zinc-800 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">HISTORIAL PEDIDOS</h2><button onclick="window.location.hash='#solicitudes'" class="bg-white text-black px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><div id="list-historial-sol" class="space-y-4">Cargando...</div></div></div></div>`;
+    firebase.database().ref(getDbPath('solicitudes')).once('value').then(snap => {
+        const c = document.getElementById('list-historial-sol'); if (!c) return; c.innerHTML = '';
+        const sol = snap.val() || {}; let hay = false;
+        Object.keys(sol).forEach(id => {
+            const s = sol[id];
+            if (s.estado === 'Atendido') { hay = true; const color = s.tipo === 'MATERIAL' ? 'blue' : 'green';
+                c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><span class="text-[9px] bg-zinc-200 text-zinc-700 px-2 py-1 rounded-lg font-bold">${s.tipo}</span></div><p class="text-sm font-bold bg-white p-2 border rounded-lg mb-1">${s.detalle}</p><span class="text-[10px] text-green-600 font-black text-right mt-1">✓ PROCESADO: ${s.fecha_atencion || s.fecha}</span></div>`;
+            }
+        });
+        if(!hay) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold py-10">No hay registros antiguos en el historial.</p>`;
     });
 };
 
@@ -383,7 +393,7 @@ window.editarP = (old, sOld) => { let n = prompt("Nombre:", old); if(!n) return;
 // 💰 SUELDOS Y PAGOS
 // ==========================================================
 function dibujarPlanilla() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.location.hash='#historial-sueldos'" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
@@ -396,8 +406,6 @@ function dibujarPlanilla() {
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
             const nombreMayus = reg.nombre.toUpperCase();
-            
-            // LA CORRECCIÓN CLAVE ESTÁ AQUÍ (Mayúsculas absolutas)
             const idRef = `${nombreMayus}_semana_${pFIni}`.toUpperCase(); 
             if (pagosMap[idRef]) return;
             
@@ -440,7 +448,6 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
             
             if (idO) {
                 const sueldoBruto = m + ant + desc; 
-                // AQUÍ ELIMINAMOS EL .then() QUE CAUSABA EL PROBLEMA
                 data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`);
                 guardarHistorial(); 
             } else {
@@ -769,7 +776,7 @@ function dibujarCalculadora() {
                 <div id="panel-techo" style="display:none;" class="p-4 bg-blue-50 rounded-2xl border border-blue-200"><label class="text-[9px] font-bold block mb-1">Inclinacion</label><select id="calc-caida" onchange="window.calcularParcial()" class="w-full p-2 mb-3 border rounded-lg font-bold text-xs"><option value="1">Losa Plana</option><option value="1.15">Teja Mod (+15%)</option><option value="1.30">Teja Fuerte (+30%)</option></select></div>
                 <div id="panel-descuentos" class="p-4 bg-orange-50 rounded-2xl border border-orange-200"><h3 class="font-black text-orange-600 text-[10px] mb-3">DESCUENTOS</h3><div class="grid grid-cols-3 gap-2 mb-2"><div><label class="text-[8px] font-bold">PUERTAS (CANT)</label><input id="calc-p-cant" type="number" value="0" class="w-full p-2 border rounded-lg text-center font-bold" oninput="window.calcularParcial()"></div><div><label class="text-[8px] font-bold">ANCHO</label><input id="calc-p-ancho" type="number" value="0.9" class="w-full p-2 border rounded-lg text-center font-bold" oninput="window.calcularParcial()"></div><div><label class="text-[8px] font-bold">ALTO</label><input type="number" value="2" disabled class="w-full p-2 bg-orange-100 border rounded-lg text-center font-bold"></div></div><div class="grid grid-cols-3 gap-2"><div><label class="text-[8px] font-bold">VENTANAS (CANT)</label><input id="calc-v-cant" type="number" value="0" class="w-full p-2 border rounded-lg text-center font-bold" oninput="window.calcularParcial()"></div><div><label class="text-[8px] font-bold">ANCHO</label><input id="calc-v-ancho" type="number" value="0" class="w-full p-2 border rounded-lg text-center font-bold" oninput="window.calcularParcial()"></div><div><label class="text-[8px] font-bold">ALTO</label><input id="calc-v-alto" type="number" value="0" class="w-full p-2 border rounded-lg text-center font-bold" oninput="window.calcularParcial()"></div></div></div>
                 <div class="p-4 bg-blue-50 rounded-2xl border border-blue-200"><h3 class="font-black text-blue-600 text-[10px] mb-2">MOLDURAS</h3><div class="flex items-center gap-2"><input id="calc-ml" type="number" value="0" class="w-1/2 p-3 border-2 rounded-xl font-black text-lg text-center" oninput="window.calcularParcial()"><span class="text-xs font-bold text-zinc-500">ml</span></div></div>
-                <div class="p-4 bg-zinc-900 rounded-2xl text-white shadow-xl border-t-4 border-red-600"><h3 class="font-black text-[10px] mb-2">PRECIOS DIRECTOS (Bs)</h3><select id="calc-almacen-helper" onchange="window.cargarPrecioDeAlmacen(this.value)" class="w-full p-2 bg-zinc-800 rounded-lg text-xs outline-none mb-3"><option value="">-- APU Guardado --</option></select><div class="grid grid-cols-2 gap-3"><div><label class="text-[9px] text-zinc-400 font-bold block">x m2</label><input id="calc-precio-m2" type="number" value="0" class="w-full p-2 bg-black border border-zinc-700 rounded-lg text-center font-black text-lg" oninput="window.calcularParcial()"></div><div><label class="text-[9px] text-zinc-400 font-bold block">x ml</label><input id="calc-precio-ml" type="number" value="0" class="w-full p-2 bg-black border border-zinc-700 rounded-lg text-center font-black text-lg" oninput="window.calcularParcial()"></div></div></div>
+                <div class="p-4 bg-zinc-900 rounded-2xl text-white shadow-xl border-t-4 border-red-600"><h3 class="font-black text-[10px] mb-2">PRECIOS DIRECTOS (Bs)</h3><select id="calc-almacen-helper" onchange="window.cargarPrecio DeAlmacen(this.value)" class="w-full p-2 bg-zinc-800 rounded-lg text-xs outline-none mb-3"><option value="">-- APU Guardado --</option></select><div class="grid grid-cols-2 gap-3"><div><label class="text-[9px] text-zinc-400 font-bold block">x m2</label><input id="calc-precio-m2" type="number" value="0" class="w-full p-2 bg-black border border-zinc-700 rounded-lg text-center font-black text-lg" oninput="window.calcularParcial()"></div><div><label class="text-[9px] text-zinc-400 font-bold block">x ml</label><input id="calc-precio-ml" type="number" value="0" class="w-full p-2 bg-black border border-zinc-700 rounded-lg text-center font-black text-lg" oninput="window.calcularParcial()"></div></div></div>
                 <div class="bg-zinc-100 p-4 rounded-2xl border-2 text-center mt-4"><div class="flex justify-between text-[11px] font-black uppercase text-zinc-600 mb-2"><span>Area: <span id="res-parcial-m2" class="text-blue-600">0</span> m2</span><span>Costo: Bs. <span id="res-parcial-total" class="text-red-600">0</span></span></div><button onclick="window.agregarAlCarrito()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl uppercase">AÑADIR A LISTA</button></div>
                 <div id="contenedor-carrito" class="mt-8 pt-8 border-t-4 border-dashed" style="display:none;"><h3 class="font-black text-center mb-4">COSTO ACUMULADO</h3><div id="lista-carrito" class="space-y-3 mb-6"></div><div class="bg-green-600 text-white p-5 rounded-3xl text-center"><p class="text-[10px] font-bold mb-1">TOTAL DIRECTO</p><span class="text-4xl font-black">Bs. <span id="carrito-gran-total">0</span></span><button onclick="window.enviarCarritoWhatsApp()" class="mt-4 w-full bg-white text-green-700 font-black py-4 rounded-xl text-[12px]">ENVIAR A WHATSAPP</button></div></div>
             </div>
@@ -898,6 +905,7 @@ function enrutador() {
     
     if (h === '#panel-trabajador') dibujarPanelTrabajador();
     else if (h === '#solicitudes') dibujarSolicitudes();
+    else if (h === '#historial-solicitudes') window.verHistorialSolicitudes();
     else if (h === '#asistencia') dibujarAsistencia(); 
     else if (h === '#obras') dibujarObras();
     else if (h === '#personal') dibujarPersonal();
