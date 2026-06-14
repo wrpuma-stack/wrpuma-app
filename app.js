@@ -121,20 +121,43 @@ window.pedirMaterialTrabajador = () => {
 
 window.pedirAnticipoTrabajador = () => { 
     const n = localStorage.getItem('u_wr');
-    const monto = prompt("Monto del Anticipo (Bs):"); 
-    if(monto) {
+    
+    // Verificamos si ya pidió hoy
+    const reqID = `SOL_ANT_${n}_${fechaSel}`;
+    
+    firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).once('value').then(snapAnt => {
+        if(snapAnt.exists()) {
+            alert("❌ LÍMITE ALCANZADO: Ya enviaste una solicitud de anticipo el día de hoy.");
+            return;
+        }
+        
+        const montoStr = prompt("Monto del Anticipo (Máximo Bs. 100):"); 
+        if(!montoStr) return;
+        
+        const montoNum = parseFloat(montoStr);
+        if(isNaN(montoNum) || montoNum <= 0) {
+            alert("❌ ERROR: Ingrese solo números válidos.");
+            return;
+        }
+        if(montoNum > 100) {
+            alert("❌ LÍMITE SUPERADO: El anticipo máximo por día es de Bs. 100.");
+            return;
+        }
+
         firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
             const r = s.val();
             const obraActual = (r && r.obra) ? r.obra : 'SIN ASIGNAR';
-            firebase.database().ref(getDbPath(`solicitudes/SOL_ANT_${Date.now()}`)).set({ 
-                tipo: 'ANTICIPO', trabajador: n, obra: obraActual, detalle: `Monto: Bs. ${monto}`, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
-            }).then(() => alert("✅ Solicitud de anticipo enviada."));
+            
+            // Guardamos con un ID específico para que no pueda pedir dos veces el mismo día
+            firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).set({ 
+                tipo: 'ANTICIPO', trabajador: n, obra: obraActual, detalle: montoNum, fecha_corta: fechaSel, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
+            }).then(() => alert(`✅ Solicitud de Bs. ${montoNum} enviada a Gerencia.`));
         });
-    }
+    });
 };
 
 // ==========================================================
-// 🛎️ SOLICITUDES Y HISTORIAL
+// 🛎️ SOLICITUDES Y HISTORIAL AUTOMATIZADO
 // ==========================================================
 function dibujarSolicitudes() {
     appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black"><div class="max-w-md mx-auto"><div class="bg-orange-600 p-6 text-white flex justify-between rounded-t-3xl shadow-lg"><h2 class="text-xl font-black italic uppercase">SOLICITUDES</h2><button onclick="window.location.hash='#menu'" class="bg-white text-orange-700 px-4 py-1 rounded-full font-bold text-xs">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><button onclick="window.location.hash='#historial-solicitudes'" class="w-full bg-zinc-800 text-white py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Atendidos</button><div id="list-solicitudes" class="space-y-4">Cargando...</div></div></div></div>`;
@@ -143,17 +166,51 @@ function dibujarSolicitudes() {
         const sol = snap.val() || {}; let hay = false;
         Object.keys(sol).forEach(id => {
             const s = sol[id];
-            if (s.estado === 'Pendiente') { hay = true; const color = s.tipo === 'MATERIAL' ? 'blue' : 'green';
-                c.innerHTML += `<div class="p-4 bg-${color}-50 rounded-2xl border-2 border-${color}-200 shadow-sm relative"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><div class="text-right"><span class="text-[9px] bg-${color}-600 text-white px-2 py-1 rounded-lg">${s.tipo}</span><br><span class="text-[8px] font-black text-zinc-500 mt-1 inline-block">📍 ${s.obra || 'SIN OBRA'}</span></div></div><p class="text-sm font-bold bg-white p-2 border rounded-lg">${s.detalle}</p><button onclick="window.marcarSolicitudLeida('${id}')" class="w-full mt-2 bg-zinc-800 text-white text-[10px] font-black py-3 rounded-xl uppercase">Marcar Visto</button></div>`;
+            if (s.estado === 'Pendiente') { 
+                hay = true; 
+                if (s.tipo === 'MATERIAL') {
+                    c.innerHTML += `<div class="p-4 bg-blue-50 rounded-2xl border-2 border-blue-200 shadow-sm relative"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><div class="text-right"><span class="text-[9px] bg-blue-600 text-white px-2 py-1 rounded-lg">MATERIAL</span><br><span class="text-[8px] font-black text-blue-800 mt-1 inline-block">📍 ${s.obra || 'SIN OBRA'}</span></div></div><p class="text-sm font-bold bg-white p-2 border rounded-lg border-blue-200">${s.detalle}</p><button onclick="window.marcarSolicitudLeida('${id}')" class="w-full mt-2 bg-zinc-800 text-white text-[10px] font-black py-3 rounded-xl uppercase">MARCAR VISTO</button></div>`;
+                } else if (s.tipo === 'ANTICIPO') {
+                    c.innerHTML += `<div class="p-4 bg-green-50 rounded-2xl border-2 border-green-300 shadow-sm relative"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><div class="text-right"><span class="text-[9px] bg-green-600 text-white px-2 py-1 rounded-lg">ANTICIPO</span><br><span class="text-[8px] font-black text-green-800 mt-1 inline-block">📍 ${s.obra || 'SIN OBRA'}</span></div></div><p class="text-xl text-center text-green-700 font-black bg-white p-2 border rounded-lg border-green-200">Monto: Bs. ${s.detalle}</p><button onclick="window.aprobarAnticipo('${id}', '${s.trabajador}', ${s.detalle}, '${s.fecha_corta}')" class="w-full mt-2 bg-green-600 shadow-lg text-white text-[10px] font-black py-3 rounded-xl uppercase">💸 APROBAR Y DESCONTAR</button></div>`;
+                }
             }
         });
         if(!hay) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold py-10">No hay solicitudes pendientes.</p>`;
     });
 }
+
+// Botón para Materiales
 window.marcarSolicitudLeida = (id) => {
     firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ 
         estado: 'Atendido',
         fecha_atencion: new Date().toLocaleString()
+    });
+};
+
+// Botón Nivel Dios para Anticipos
+window.aprobarAnticipo = (id, trabajador, montoPedido, fechaCorta) => {
+    const montoFinalStr = prompt(`Aprobar anticipo para ${trabajador}.\nEl trabajador pidió: Bs. ${montoPedido}\n\nPuede ajustar el monto si le entregará menos:`, montoPedido);
+    if(montoFinalStr === null) return; // Canceló
+    
+    const montoFinal = parseFloat(montoFinalStr);
+    if(isNaN(montoFinal) || montoFinal <= 0) {
+        alert("Error: Monto inválido."); return;
+    }
+
+    // 1. Archivamos el pedido
+    firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ 
+        estado: 'Atendido',
+        monto_aprobado: montoFinal,
+        fecha_atencion: new Date().toLocaleString()
+    });
+
+    // 2. Auto-descontamos en la asistencia de ese día
+    const refAsist = firebase.database().ref(getDbPath(`asistencia_semanal/${fechaCorta}/${trabajador}/monto_anticipo`));
+    refAsist.once('value').then(snap => {
+        const antActual = parseFloat(snap.val() || 0);
+        refAsist.set(antActual + montoFinal).then(() => {
+            alert(`✅ ¡ÉXITO! Bs. ${montoFinal} aprobados y sumados a los descuentos de ${trabajador} en la planilla.`);
+        });
     });
 };
 
@@ -180,14 +237,15 @@ window.verHistorialSolicitudes = (filtro = 'TODOS') => {
         const c = document.getElementById('list-historial-sol'); if (!c) return; c.innerHTML = '';
         const sol = snap.val() || {}; let hay = false;
         
-        // Convertir a array para ordenar por fecha más reciente arriba
         const solicitudesArray = Object.keys(sol).map(id => ({ id, ...sol[id] })).reverse();
         
         solicitudesArray.forEach(s => {
             if (s.estado === 'Atendido') { 
                 if (filtro !== 'TODOS' && s.tipo !== filtro) return;
                 hay = true; const color = s.tipo === 'MATERIAL' ? 'blue' : 'green';
-                c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><div class="text-right"><span class="text-[9px] bg-${color}-100 text-${color}-800 px-2 py-1 rounded-lg font-bold">${s.tipo}</span><br><span class="text-[8px] font-black mt-1 inline-block">📍 ${s.obra || 'SIN OBRA'}</span></div></div><p class="text-sm font-bold bg-white p-2 border rounded-lg mb-1">${s.detalle}</p><span class="text-[10px] text-zinc-400 font-black text-right mt-1">✓ PROCESADO: ${s.fecha_atencion || s.fecha}</span></div>`;
+                const detalleVisual = s.tipo === 'ANTICIPO' ? `Solicitó: Bs. ${s.detalle} | Se le entregó: Bs. ${s.monto_aprobado || s.detalle}` : s.detalle;
+
+                c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl border border-zinc-200 shadow-sm flex flex-col justify-between"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${s.trabajador}</b><br><span class="text-[9px] text-zinc-500">${s.fecha}</span></div><div class="text-right"><span class="text-[9px] bg-${color}-100 text-${color}-800 px-2 py-1 rounded-lg font-bold">${s.tipo}</span><br><span class="text-[8px] font-black mt-1 inline-block">📍 ${s.obra || 'SIN OBRA'}</span></div></div><p class="text-xs font-bold bg-white p-2 border rounded-lg mb-1">${detalleVisual}</p><span class="text-[10px] text-zinc-400 font-black text-right mt-1">✓ PROCESADO: ${s.fecha_atencion || s.fecha}</span></div>`;
             }
         });
         if(!hay) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold py-10">No hay registros en esta categoría.</p>`;
