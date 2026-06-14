@@ -128,7 +128,7 @@ function dibujarSolicitudes() {
 window.marcarSolicitudLeida = (id) => firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ estado: 'Atendido' });
 
 // ==========================================================
-// 📋 ASISTENCIA PRO (CORREGIDO PARA MAYÚSCULAS)
+// 📋 ASISTENCIA PRO 
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -370,7 +370,7 @@ window.delP = (n) => { if (confirm(`¿Borrar a ${n}?`)) firebase.database().ref(
 window.editarP = (old, sOld) => { let n = prompt("Nombre:", old); if(!n) return; let s = prompt("Sueldo:", sOld); if(!s) return; if(n.toUpperCase() !== old) { firebase.database().ref(getDbPath(`personal/${n.toUpperCase()}`)).set({ sueldo_dia: s }); firebase.database().ref(getDbPath(`personal/${old}`)).remove(); } else { firebase.database().ref(getDbPath(`personal/${old}`)).update({ sueldo_dia: s }); } };
 
 // ==========================================================
-// 💰 SUELDOS Y PAGOS (CORREGIDO Y BLINDADO)
+// 💰 SUELDOS Y PAGOS
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.location.hash='#historial-sueldos'" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
@@ -378,7 +378,6 @@ function dibujarPlanilla() {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
         
-        // TRADUCTOR A MAYÚSCULAS PARA LA PLANILLA
         const personalMayus = {};
         Object.keys(per).forEach(k => { personalMayus[k.toUpperCase()] = per[k]; });
 
@@ -411,6 +410,8 @@ window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) =>
 
 window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
     if (confirm(`¿Transferir Bs. ${m.toFixed(2)} a ${n}?`)) {
+        
+        // Función que guarda el historial de pago
         const guardarHistorial = () => {
             firebase.database().ref(getDbPath(`pagos_historial/${n}_semana_${pFIni}`)).set({ 
                 fecha_pago: new Date().toISOString(), 
@@ -425,12 +426,15 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
         };
 
         firebase.database().ref(getDbPath('obras')).once('value').then(s => {
-            const obs = s.val() || {}; const idO = Object.keys(obs).find(id => obs[id].nombre === oN);
+            const obs = s.val() || {}; 
+            const idO = Object.keys(obs).find(id => obs[id].nombre === oN);
+            
             if (idO) {
+                // Si estaba en una obra, se le descuenta a la obra y luego se guarda
                 const sueldoBruto = m + ant + desc; 
                 data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`).then(guardarHistorial);
             } else {
-                // Aunque no esté en una obra específica (ej. "POR ASIGNAR"), el pago se archiva igual
+                // Si estaba "POR ASIGNAR" (sin obra), simplemente se guarda el historial para que desaparezca
                 guardarHistorial();
             }
         });
