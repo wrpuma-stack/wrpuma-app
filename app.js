@@ -373,7 +373,7 @@ window.editarP = (old, sOld) => { let n = prompt("Nombre:", old); if(!n) return;
 // 💰 SUELDOS Y PAGOS
 // ==========================================================
 function dibujarPlanilla() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.location.hash='#historial-sueldos'" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
@@ -386,7 +386,9 @@ function dibujarPlanilla() {
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
             const nombreMayus = reg.nombre.toUpperCase();
-            const idRef = `${nombreMayus}_semana_${pFIni}`; 
+            
+            // LA CORRECCIÓN CLAVE ESTÁ AQUÍ (Mayúsculas absolutas)
+            const idRef = `${nombreMayus}_semana_${pFIni}`.toUpperCase(); 
             if (pagosMap[idRef]) return;
             
             if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dExt: 0, ant: 0, hAtraso: 0, obraPrincipal: reg.obra };
@@ -428,8 +430,9 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp) => {
             
             if (idO) {
                 const sueldoBruto = m + ant + desc; 
+                // AQUÍ ELIMINAMOS EL .then() QUE CAUSABA EL PROBLEMA
                 data.registrarMovimiento(idO, 'pago_sueldo', sueldoBruto, `Sueldo Semanal: ${n}`);
-                guardarHistorial(); // CORREGIDO AQUÍ: Sin el .then()
+                guardarHistorial(); 
             } else {
                 guardarHistorial();
             }
@@ -680,7 +683,7 @@ function dibujarCaja() {
         const deudas = snap.val() || {}; let hay = false;
         Object.keys(deudas).forEach(id => {
             const d = deudas[id];
-            if(d.estado === 'Pendiente') { hay = true; listC.innerHTML += `<div class="p-4 bg-red-50 rounded-2xl border-2 border-red-200"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${d.proveedor}</b><br><span class="text-[9px] text-zinc-600 block mt-1">${d.detalle}</span></div><span class="text-[9px] bg-red-600 text-white px-2 py-1 rounded-lg h-fit">${d.obra_nombre}</span></div><div class="flex justify-between items-center mt-3 pt-2 border-t border-red-200"><span class="text-lg font-black text-red-600">Bs. ${d.monto}</span><button onclick="window.pagarDeuda('${id}')" class="bg-green-50 text-white text-[10px] font-black px-3 py-2 rounded-lg">Liquidar</button></div></div>`; }
+            if(d.estado === 'Pendiente') { hay = true; listC.innerHTML += `<div class="p-4 bg-red-50 rounded-2xl border-2 border-red-200"><div class="flex justify-between mb-2"><div><b class="text-sm uppercase">${d.proveedor}</b><br><span class="text-[9px] text-zinc-600 block mt-1">${d.detalle}</span></div><span class="text-[9px] bg-red-600 text-white px-2 py-1 rounded-lg h-fit">${d.obra_nombre}</span></div><div class="flex justify-between items-center mt-3 pt-2 border-t border-red-200"><span class="text-lg font-black text-red-600">Bs. ${d.monto}</span><button onclick="window.pagarDeuda('${id}')" class="bg-green-500 text-white text-[10px] font-black px-3 py-2 rounded-lg">Liquidar</button></div></div>`; }
         });
         if(!hay) listC.innerHTML = `<p class="text-center text-[10px] text-zinc-400 font-bold py-4">No hay deudas.</p>`;
     });
