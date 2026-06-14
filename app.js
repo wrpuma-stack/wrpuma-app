@@ -125,7 +125,17 @@ function dibujarSolicitudes() {
         if(!hay) c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold py-10">No hay solicitudes.</p>`;
     });
 }
-window.marcarSolicitudLeida = (id) => firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ estado: 'Atendido' });
+window.marcarSolicitudLeida = (id) => {
+    // En lugar de borrar, actualizamos el estado a 'Atendido'
+    // Esto asegura que el dato se quede en su base de datos para siempre
+    firebase.database().ref(getDbPath(`solicitudes/${id}`)).update({ 
+        estado: 'Atendido',
+        fecha_atencion: new Date().toLocaleString()
+    }).then(() => {
+        alert("✅ Solicitud archivada como atendida.");
+        dibujarSolicitudes(); // Esto recargará la lista quitando la que acaba de atender
+    });
+};
 
 // ==========================================================
 // 📋 ASISTENCIA PRO 
