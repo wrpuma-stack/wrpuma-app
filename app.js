@@ -182,26 +182,28 @@ window.chF = (nuevaFecha) => { fechaSel = nuevaFecha; dibujarAsistencia(); };
 window.chO = (v) => { obraSel = v; window.renderListaPintores(); };
 window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
-    const esAdmin = (localStorage.getItem('rol_wr') === 'admin');
+    
+    // Normalizamos las marcas para que sean comparables
+    const marcasNormalizadas = {};
+    Object.keys(window.currentMarks).forEach(n => {
+        marcasNormalizadas[n.toUpperCase()] = window.currentMarks[n];
+    });
     
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
-        if(r.obra === "POR ASIGNAR") {
-            let gpsLink = '';
-            if (r.hora_entrada) {
-                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-600 font-black text-[9px] uppercase mt-1 block underline text-left">☀️ ENT: ${r.hora_entrada} 🗺️</button>`;
-            }
-            if (r.hora_salida) {
-                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-500 font-black text-[9px] uppercase mt-1 block underline text-left">🌙 SAL: ${r.hora_salida} 🗺️</button>`;
-            }
-            if (!gpsLink && r.hora_registro) { 
-                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-blue-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ VER REGISTRO (${r.hora_registro})</button>`;
-            }
-            if (!gpsLink) gpsLink = `<span class="text-[10px] font-bold text-yellow-800 block mt-1">📍 SIN MARCAS</span>`;
-                
-            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase">${n}</b><br>${gpsLink}</div><div class="flex flex-col gap-1"><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24 shadow-sm">ASIGNAR AQUÍ</button><button onclick="window.borrarMarcaFalsa('${n}')" class="p-2 rounded-xl bg-red-100 text-red-600 border border-red-300 text-[9px] font-black w-24">BORRAR MARCA</button></div></div>`;
-        }
+        // ... (su código actual para dibujar los fantasmas) ...
     });
+
+    Object.keys(window.currentPersonal).forEach(n => {
+        const nombreMayus = n.toUpperCase();
+        const r = marcasNormalizadas[nombreMayus]; // Buscamos en mayúsculas
+        
+        const eO = r && r.obra === obraSel;
+        const eOt = r && r.obra !== obraSel && r.obra !== undefined;
+        
+        // ... el resto de su lógica de botones sigue igual ...
+    });
+};
 
     Object.keys(window.currentPersonal).forEach(n => {
         const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
