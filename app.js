@@ -180,41 +180,54 @@ function dibujarAsistencia() {
 }
 window.chF = (nuevaFecha) => { fechaSel = nuevaFecha; dibujarAsistencia(); };
 window.chO = (v) => { obraSel = v; window.renderListaPintores(); };
+
 window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
+    const esAdmin = (localStorage.getItem('rol_wr') === 'admin');
     
-    // Normalizamos: creamos un mapa donde las llaves siempre son MAYÚSCULAS
+    // Normalizamos las marcas para que todo se compare en MAYÚSCULAS
     const marcasMap = {};
     Object.keys(window.currentMarks).forEach(n => {
         marcasMap[n.toUpperCase()] = window.currentMarks[n];
     });
     
-    // 1. Dibujar los "Fantasmas" (Marcas que no tienen personal registrado)
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
-        // Si el nombre marcado no está en la lista oficial (comparando en MAYÚSCULAS)
-        const esFantasma = !window.currentPersonal[n.toUpperCase()]; 
-        
-        if(esFantasma) {
+        if(r.obra === "POR ASIGNAR") {
             let gpsLink = '';
-            if (r.hora_entrada) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-600 font-black text-[9px] uppercase mt-1 block underline text-left">☀️ ENT: ${r.hora_entrada} 🗺️</button>`;
-            if (r.hora_salida) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-500 font-black text-[9px] uppercase mt-1 block underline text-left">🌙 SAL: ${r.hora_salida} 🗺️</button>`;
-            
-            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase text-red-600">${n} (FANTASMA)</b><br>${gpsLink}</div><button onclick="window.borrarMarcaFalsa('${n}')" class="p-2 rounded-xl bg-red-100 text-red-600 border border-red-300 text-[9px] font-black w-24">BORRAR</button></div>`;
+            if (r.hora_entrada) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-600 font-black text-[9px] uppercase mt-1 block underline text-left">☀️ ENT: ${r.hora_entrada} 🗺️</button>`;
+            }
+            if (r.hora_salida) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-500 font-black text-[9px] uppercase mt-1 block underline text-left">🌙 SAL: ${r.hora_salida} 🗺️</button>`;
+            }
+            if (!gpsLink && r.hora_registro) { 
+                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-blue-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ VER REGISTRO (${r.hora_registro})</button>`;
+            }
+            if (!gpsLink) gpsLink = `<span class="text-[10px] font-bold text-yellow-800 block mt-1">📍 SIN MARCAS</span>`;
+                
+            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase">${n}</b><br>${gpsLink}</div><div class="flex flex-col gap-1"><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24 shadow-sm">ASIGNAR AQUÍ</button><button onclick="window.borrarMarcaFalsa('${n}')" class="p-2 rounded-xl bg-red-100 text-red-600 border border-red-300 text-[9px] font-black w-24">BORRAR MARCA</button></div></div>`;
         }
     });
 
-    // 2. Dibujar el Personal oficial
     Object.keys(window.currentPersonal).forEach(n => {
         const nombreMayus = n.toUpperCase();
-        const r = marcasMap[nombreMayus]; // BUSCAMOS USANDO EL MAPA NORMALIZADO
-        const eO = r && r.obra === obraSel;
-        const eOt = r && r.obra !== obraSel && r.obra !== undefined;
+        const r = marcasMap[nombreMayus]; 
         
+        if(r && r.obra === "POR ASIGNAR") return;
+        
+        const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
         let btn = '', bColor = 'border-zinc-200';
-        if (eO) { bColor = 'border-green-500 bg-green-50'; btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; }
-        else if (eOt) { bColor = 'border-orange-200'; btn = `<button onclick="window.markP('${nombreMayus}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; }
-        else { btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; }
+        
+        if (eO) { 
+            bColor = 'border-green-500 bg-green-50'; 
+            btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; 
+        } else if (eOt) { 
+            bColor = 'border-orange-200'; 
+            btn = `<button onclick="window.markP('${nombreMayus}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
+        } else { 
+            btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; 
+        }
         
         let info = '';
         if (r) {
@@ -224,9 +237,23 @@ window.renderListaPintores = () => {
                 if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
                 if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
             }
+            
             const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold block">${iA.join(' | ')}</span>` : '';
-            info = `<br>${textoAsistencia}`;
+            
+            let gpsLink = '';
+            if (r.hora_entrada) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-700 font-black text-[9px] uppercase mt-1 inline-block underline mr-2">☀️ ENTRADA: ${r.hora_entrada}</button>`;
+            }
+            if (r.hora_salida) {
+                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 inline-block underline">🌙 SALIDA: ${r.hora_salida}</button>`;
+            }
+            if (!gpsLink && r.hora_registro) {
+                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 block underline">🗺️ AUDITAR GPS (${r.hora_registro})</button>`;
+            }
+            
+            info = `<br>${textoAsistencia}${gpsLink}`;
         }
+        
         c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${nombreMayus}</b>${info}</div>${btn}</div>`;
     });
 };
