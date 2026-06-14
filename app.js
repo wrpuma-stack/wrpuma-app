@@ -192,7 +192,8 @@ window.renderListaPintores = () => {
     // 1. Dibujar los "Fantasmas" (Marcas que no tienen personal registrado)
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
-        const esFantasma = !window.currentPersonal[n.toUpperCase()]; // Si no existe en personal
+        // Si el nombre marcado no está en la lista oficial (comparando en MAYÚSCULAS)
+        const esFantasma = !window.currentPersonal[n.toUpperCase()]; 
         
         if(esFantasma) {
             let gpsLink = '';
@@ -206,7 +207,7 @@ window.renderListaPintores = () => {
     // 2. Dibujar el Personal oficial
     Object.keys(window.currentPersonal).forEach(n => {
         const nombreMayus = n.toUpperCase();
-        const r = marcasMap[nombreMayus]; // Buscamos usando el mapa normalizado
+        const r = marcasMap[nombreMayus]; // BUSCAMOS USANDO EL MAPA NORMALIZADO
         const eO = r && r.obra === obraSel;
         const eOt = r && r.obra !== obraSel && r.obra !== undefined;
         
@@ -229,6 +230,7 @@ window.renderListaPintores = () => {
         c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${nombreMayus}</b>${info}</div>${btn}</div>`;
     });
 };
+
 window.abrirModalAsistencia = (n, existe) => {
     const adm = localStorage.getItem('a_wr') === 'true'; if (existe && !adm) { alert("Solo Gerencia edita."); return; }
     window.pintorActualModal = n; const r = window.currentMarks[n] || {};
