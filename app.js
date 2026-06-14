@@ -183,42 +183,37 @@ window.chO = (v) => { obraSel = v; window.renderListaPintores(); };
 window.renderListaPintores = () => {
     const c = document.getElementById('list-asist'); if (!c) return; c.innerHTML = '';
     
-    // Normalizamos las marcas para que sean comparables
-    const marcasNormalizadas = {};
+    // Normalizamos: creamos un mapa donde las llaves siempre son MAYÚSCULAS
+    const marcasMap = {};
     Object.keys(window.currentMarks).forEach(n => {
-        marcasNormalizadas[n.toUpperCase()] = window.currentMarks[n];
+        marcasMap[n.toUpperCase()] = window.currentMarks[n];
     });
     
+    // 1. Dibujar los "Fantasmas" (Marcas que no tienen personal registrado)
     Object.keys(window.currentMarks).forEach(n => {
         const r = window.currentMarks[n];
-        // ... (su código actual para dibujar los fantasmas) ...
+        const esFantasma = !window.currentPersonal[n.toUpperCase()]; // Si no existe en personal
+        
+        if(esFantasma) {
+            let gpsLink = '';
+            if (r.hora_entrada) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-600 font-black text-[9px] uppercase mt-1 block underline text-left">☀️ ENT: ${r.hora_entrada} 🗺️</button>`;
+            if (r.hora_salida) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-500 font-black text-[9px] uppercase mt-1 block underline text-left">🌙 SAL: ${r.hora_salida} 🗺️</button>`;
+            
+            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase text-red-600">${n} (FANTASMA)</b><br>${gpsLink}</div><button onclick="window.borrarMarcaFalsa('${n}')" class="p-2 rounded-xl bg-red-100 text-red-600 border border-red-300 text-[9px] font-black w-24">BORRAR</button></div>`;
+        }
     });
 
+    // 2. Dibujar el Personal oficial
     Object.keys(window.currentPersonal).forEach(n => {
         const nombreMayus = n.toUpperCase();
-        const r = marcasNormalizadas[nombreMayus]; // Buscamos en mayúsculas
-        
+        const r = marcasMap[nombreMayus]; // Buscamos usando el mapa normalizado
         const eO = r && r.obra === obraSel;
         const eOt = r && r.obra !== obraSel && r.obra !== undefined;
         
-        // ... el resto de su lógica de botones sigue igual ...
-    });
-};
-
-    Object.keys(window.currentPersonal).forEach(n => {
-        const r = window.currentMarks[n]; if(r && r.obra === "POR ASIGNAR") return;
-        const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
         let btn = '', bColor = 'border-zinc-200';
-        
-        if (eO) { 
-            bColor = 'border-green-500 bg-green-50'; 
-            btn = `<button onclick="window.abrirModalAsistencia('${n}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; 
-        } else if (eOt) { 
-            bColor = 'border-orange-200'; 
-            btn = `<button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
-        } else { 
-            btn = `<button onclick="window.abrirModalAsistencia('${n}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; 
-        }
+        if (eO) { bColor = 'border-green-500 bg-green-50'; btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; }
+        else if (eOt) { bColor = 'border-orange-200'; btn = `<button onclick="window.markP('${nombreMayus}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; }
+        else { btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; }
         
         let info = '';
         if (r) {
@@ -228,24 +223,10 @@ window.renderListaPintores = () => {
                 if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
                 if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
             }
-            
             const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold block">${iA.join(' | ')}</span>` : '';
-            
-            let gpsLink = '';
-            if (r.hora_entrada) {
-                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-700 font-black text-[9px] uppercase mt-1 inline-block underline mr-2">☀️ ENTRADA: ${r.hora_entrada}</button>`;
-            }
-            if (r.hora_salida) {
-                gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 inline-block underline">🌙 SALIDA: ${r.hora_salida}</button>`;
-            }
-            if (!gpsLink && r.hora_registro) {
-                gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 block underline">🗺️ AUDITAR GPS (${r.hora_registro})</button>`;
-            }
-            
-            info = `<br>${textoAsistencia}${gpsLink}`;
+            info = `<br>${textoAsistencia}`;
         }
-        
-        c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${n}</b>${info}</div>${btn}</div>`;
+        c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${nombreMayus}</b>${info}</div>${btn}</div>`;
     });
 };
 window.abrirModalAsistencia = (n, existe) => {
