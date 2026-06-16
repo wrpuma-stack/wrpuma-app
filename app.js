@@ -336,7 +336,7 @@ window.renderListaPintores = () => {
                 if (jN > 0) iA.push(`N: ${jN}D`); if (r.jornada_extra > 0) iA.push(`E: ${r.jornada_extra}D`);
                 if (r.horas_atraso > 0) iA.push(`Atraso: ${r.horas_atraso}h`); 
                 if (r.monto_anticipo > 0) iA.push(`Ant: Bs.${r.monto_anticipo}`);
-                if (r.monto_dano > 0) iA.push(`Multa: Bs.${r.monto_dano}`); // Muestra la multa
+                if (r.monto_dano > 0) iA.push(`Multa: Bs.${r.monto_dano}`);
             }
             
             const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold block">${iA.join(' | ')}</span>` : '';
@@ -360,7 +360,7 @@ window.abrirModalAsistencia = (n, existe) => {
     document.getElementById('modal-j-extra').value = r.jornada_extra || 0;
     document.getElementById('modal-anticipo').value = r.monto_anticipo || 0;
     document.getElementById('modal-atraso-horas').value = r.horas_atraso || 0;
-    document.getElementById('modal-dano').value = r.monto_dano || 0; // Carga la multa
+    document.getElementById('modal-dano').value = r.monto_dano || 0;
     existe ? document.getElementById('btn-quitar-asist').classList.remove('hidden') : document.getElementById('btn-quitar-asist').classList.add('hidden');
     document.getElementById('modal-asistencia').classList.remove('hidden');
 };
@@ -395,7 +395,7 @@ function dibujarPlanilla() {
             res[nombreMayus].dExt += parseFloat(reg.jornada_extra || 0);
             res[nombreMayus].ant += parseFloat(reg.monto_anticipo || 0);
             res[nombreMayus].hAtraso += parseFloat(reg.horas_atraso || 0);
-            res[nombreMayus].dano += parseFloat(reg.monto_dano || 0); // Acumula las multas de la semana
+            res[nombreMayus].dano += parseFloat(reg.monto_dano || 0);
         });}});
         
         c.innerHTML = ''; let tP = 0; const list = Object.keys(res);
@@ -404,7 +404,6 @@ function dibujarPlanilla() {
             const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0, comp = d.dNorm >= 5.5 ? 0.5 : 0;
             const sTot = (d.dNorm + comp + d.dExt) * sDia, desc = d.hAtraso * (sDia / 8), saldo = sTot - d.ant - desc - d.dano; tP += saldo;
             
-            // Visualización de la tarjeta de pago
             c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="bg-red-600 px-3 rounded-lg font-black text-sm py-1">${(d.dNorm + comp + d.dExt).toFixed(1)} D</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos</span>-Bs. ${d.ant}</div></div>${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA POR DAÑO / HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}<button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${comp}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg">PAGAR: Bs. ${saldo.toFixed(2)}</button></div>`;
         });
         if (tP > 0) c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center"><p class="text-[10px] font-black mb-1">TOTAL PLANILLA</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
@@ -436,7 +435,7 @@ window.verHistorialSueldos = () => {
 };
 
 // ==========================================================
-// 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS (NUEVO)
+// 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS
 // ==========================================================
 function dibujarLogistica() {
     appDiv.innerHTML = `
@@ -458,7 +457,6 @@ function dibujarLogistica() {
                 <div id="panel-inventario" style="display:none;">
                     <div class="flex justify-between items-end border-b-2 pb-2 mb-4">
                         <h3 class="font-black text-sm uppercase">📋 Herramientas Asignadas</h3>
-                        <button onclick="window.location.hash='#herramientas'" class="text-[9px] bg-zinc-800 text-white px-2 py-1 rounded">Gestor Completo</button>
                     </div>
                     <div id="list-log-herramientas" class="space-y-3 mb-8"></div>
                     
@@ -466,8 +464,8 @@ function dibujarLogistica() {
                         <h3 class="font-black text-sm uppercase text-orange-700">📦 Materiales Sobrantes</h3>
                     </div>
                     <div class="bg-orange-50 p-3 rounded-2xl border border-orange-200 mb-4">
-                        <input id="log-mat-nombre" type="text" placeholder="Ej: 2 Baldes Masilla, 1 Lija..." class="w-full p-2 border rounded-lg text-xs font-bold uppercase mb-2">
-                        <button onclick="window.registrarMaterialObra()" class="w-full bg-orange-600 text-white font-black py-2 rounded-lg text-xs shadow-md">+ REGISTRAR MATERIAL AQUÍ</button>
+                        <textarea id="log-mat-nombre" rows="3" placeholder="Ej: 2 Baldes Masilla, 4 Rodillos, 1 Lija..." class="w-full p-3 border border-orange-300 rounded-xl text-xs font-bold uppercase mb-3 resize-none outline-none shadow-inner"></textarea>
+                        <button onclick="window.registrarMaterialObra()" class="w-full bg-orange-600 text-white font-black py-3 rounded-lg text-xs shadow-md">+ REGISTRAR MATERIAL AQUÍ</button>
                     </div>
                     <div id="list-log-materiales" class="space-y-3"></div>
                 </div>
@@ -487,7 +485,6 @@ window.cargarInventarioObra = () => {
     if(!obra) { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
 
-    // 1. Cargar Herramientas de esa obra
     firebase.database().ref(getDbPath('herramientas')).on('value', snap => {
         const cH = document.getElementById('list-log-herramientas'); if(!cH) return; cH.innerHTML = '';
         const herr = snap.val() || {}; let hayH = false;
@@ -505,7 +502,6 @@ window.cargarInventarioObra = () => {
         if(!hayH) cH.innerHTML = `<p class="text-[10px] text-zinc-400 font-bold text-center italic">No hay herramientas registradas aquí.</p>`;
     });
 
-    // 2. Cargar Materiales Sobrantes de esa obra
     firebase.database().ref(getDbPath('inventario_obras')).on('value', snap => {
         const cM = document.getElementById('list-log-materiales'); if(!cM) return; cM.innerHTML = '';
         const mats = snap.val() || {}; let hayM = false;
@@ -964,9 +960,8 @@ function dibujarMenu() {
         </div>` : ``}
         
         ${rol === 'super' ? `
-        <div class="grid grid-cols-2 gap-4 max-w-sm mx-auto text-left mb-4">
-            <button onclick="window.location.hash='#asistencia'" class="bg-red-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">ASISTENCIA (ATRASOS Y MULTAS)</button>
-            <button onclick="window.location.hash='#logistica'" class="bg-indigo-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">🚚 AUDITORÍA Y TRASPASOS</button>
+        <div class="grid grid-cols-1 gap-4 max-w-sm mx-auto text-left mb-4">
+            <button onclick="window.location.hash='#logistica'" class="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[12px] shadow-lg text-center uppercase tracking-widest">🚚 AUDITORÍA Y TRASPASOS</button>
         </div>` : ``}
         
         <button onclick="window.cerrarSesionTotal()" class="text-zinc-700 text-[10px] font-bold mt-10">CERRAR SESIÓN</button>
