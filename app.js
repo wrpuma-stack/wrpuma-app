@@ -6,6 +6,10 @@ import * as data from './data.js';
 const appDiv = document.getElementById('app');
 let obraSel = "GENERAL";
 
+// 🔗 AQUÍ PEGA LA URL DE SU WEBHOOK DE N8N O ZAPIER
+// Ejemplo: "https://hook.us1.make.com/xxxxxxxxx" o "https://n8n.midominio.com/webhook/xxxx"
+const WEBHOOK_URL_N8N = ""; 
+
 const getLocalISODate = (dateObj = new Date()) => {
     const z = dateObj.getTimezoneOffset() * 60000;
     return new Date(dateObj - z).toISOString().split('T')[0];
@@ -29,6 +33,23 @@ function obtenerLunes() {
 
 let pFIni = obtenerLunes();
 let pFFin = getLocalISODate();
+
+// ==========================================================
+// 📡 MOTOR DE ALERTAS WHATSAPP (NUEVO)
+// ==========================================================
+window.dispararAlertaWhatsApp = (mensajeAlerta) => {
+    if (WEBHOOK_URL_N8N && WEBHOOK_URL_N8N.includes("http")) {
+        fetch(WEBHOOK_URL_N8N, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                empresa: "WRPUMA", 
+                alerta: mensajeAlerta, 
+                fecha_hora: new Date().toLocaleString() 
+            })
+        }).catch(err => console.log("Webhook no enviado (revisar URL):", err));
+    }
+};
 
 // ==========================================================
 // 🔐 ACCESO
@@ -435,7 +456,7 @@ window.verHistorialSueldos = () => {
 };
 
 // ==========================================================
-// 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS
+// 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS (CON ALERTA N8N)
 // ==========================================================
 function dibujarLogistica() {
     appDiv.innerHTML = `
@@ -527,7 +548,9 @@ window.trasladoRapidoHerr = (id, nombre) => {
     const nuevaObra = prompt(`Mover equipo: ${nombre}\nEscriba el nombre exacto de la Obra de destino (o escriba BODEGA):`);
     if(nuevaObra) {
         let dest = nuevaObra.toUpperCase().trim() === 'BODEGA' ? 'Ninguna' : nuevaObra.toUpperCase().trim();
-        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({ obra: dest, fecha_asignacion: new Date().toISOString() });
+        firebase.database().ref(getDbPath(`herramientas/${id}`)).update({ obra: dest, fecha_asignacion: new Date().toISOString() }, () => {
+            window.dispararAlertaWhatsApp(`🚨 TRASLADO EQUIPO WRPUMA: El equipo [${nombre}] fue movido a la obra [${dest}] por el Supervisor.`);
+        });
     }
 };
 
@@ -535,7 +558,9 @@ window.registrarMaterialObra = () => {
     const obra = document.getElementById('log-obra').value;
     const det = document.getElementById('log-mat-nombre').value.trim();
     if(det && obra) {
-        firebase.database().ref(getDbPath(`inventario_obras/MAT_${Date.now()}`)).set({ obra: obra, detalle: det.toUpperCase(), fecha: new Date().toISOString() });
+        firebase.database().ref(getDbPath(`inventario_obras/MAT_${Date.now()}`)).set({ obra: obra, detalle: det.toUpperCase(), fecha: new Date().toISOString() }).then(() => {
+            window.dispararAlertaWhatsApp(`📦 REPORTE MATERIAL WRPUMA: Se registraron sobrantes en [${obra}] -> ${det.toUpperCase()}`);
+        });
         document.getElementById('log-mat-nombre').value = '';
     }
 };
