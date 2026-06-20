@@ -7,7 +7,6 @@ const appDiv = document.getElementById('app');
 let obraSel = "GENERAL";
 
 // 🔗 AQUÍ PEGA LA URL DE SU WEBHOOK DE N8N O ZAPIER
-// Ejemplo: "https://hook.us1.make.com/xxxxxxxxx" o "https://n8n.midominio.com/webhook/xxxx"
 const WEBHOOK_URL_N8N = ""; 
 
 const getLocalISODate = (dateObj = new Date()) => {
@@ -82,18 +81,22 @@ function dibujarPanelTrabajador() {
             <div class="bg-zinc-900 p-5 rounded-3xl shadow-xl text-center mb-6"><p class="text-[10px] text-zinc-500 font-bold uppercase mb-1">BIENVENIDO</p><h3 class="text-2xl font-black uppercase text-white">${n}</h3></div>
             <div class="bg-blue-900/30 p-5 rounded-3xl shadow-xl mb-6 text-center"><p class="text-[10px] text-blue-400 font-bold uppercase mb-2">📌 DIRECTIVA DE HOY</p><p id="msg-dia-display" class="text-sm font-bold text-white italic">Cargando...</p></div>
             
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="window.marcarGPS('ENTRADA')" class="col-span-1 bg-green-600 text-white py-5 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(34,197,94,0.2)] border-b-4 border-green-800 flex flex-col items-center">
-                    <span>☀️ ENTRADA</span>
-                    <span class="text-[9px] font-bold mt-1 opacity-80 uppercase">Ingreso Mañana</span>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="window.marcarGPS('ENTRADA_URUBO')" class="col-span-1 bg-green-600 text-white py-4 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center">
+                    <span>☀️ ENT URUBÓ</span>
+                    <span class="text-[8px] font-bold mt-1 opacity-90 uppercase text-green-200">GPS Estricto</span>
                 </button>
-                <button onclick="window.marcarGPS('SALIDA')" class="col-span-1 bg-red-600 text-white py-5 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(239,68,68,0.2)] border-b-4 border-red-800 flex flex-col items-center">
-                    <span>🌙 SALIDA</span>
-                    <span class="text-[9px] font-bold mt-1 opacity-80 uppercase">Egreso Tarde</span>
+                <button onclick="window.marcarGPS('ENTRADA_OTRAS')" class="col-span-1 bg-emerald-600 text-white py-4 rounded-3xl font-black text-sm shadow-md border-b-4 border-emerald-800 flex flex-col items-center">
+                    <span>☀️ ENT OTRAS</span>
+                    <span class="text-[8px] font-bold mt-1 opacity-90 uppercase text-emerald-200">Cabexe/Otros</span>
+                </button>
+                <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-4 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center">
+                    <span>🌙 MARCAR SALIDA</span>
+                    <span class="text-[9px] font-bold mt-1 opacity-90 uppercase text-red-200">Fin de Jornada</span>
                 </button>
                 
-                <button onclick="window.pedirMaterialTrabajador()" class="bg-blue-900 text-white py-4 rounded-2xl font-black text-xs uppercase shadow-lg">Pedir Material</button>
-                <button onclick="window.pedirAnticipoTrabajador()" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-xs uppercase">Pedir Anticipo</button>
+                <button onclick="window.pedirMaterialTrabajador()" class="bg-blue-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg">Pedir Material</button>
+                <button onclick="window.pedirAnticipoTrabajador()" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Pedir Anticipo</button>
             </div>
         </div>
     </div>`;
@@ -102,7 +105,7 @@ function dibujarPanelTrabajador() {
 
 window.marcarGPS = (tipo) => {
     if (!navigator.geolocation) return alert("❌ Su teléfono no soporta GPS.");
-    alert(`📍 Auditando ubicación y hora para ${tipo}...`);
+    alert(`📍 Auditando ubicación y hora...`);
 
     navigator.geolocation.getCurrentPosition((pos) => {
         const lat = pos.coords.latitude, lng = pos.coords.longitude, n = localStorage.getItem('u_wr');
@@ -113,29 +116,26 @@ window.marcarGPS = (tipo) => {
         
         const updates = { nombre: n };
 
-        if (tipo === 'ENTRADA') {
-            // Coordenadas del Puente Urubó / Cuarto Anillo
-            const URUBO_LAT = -17.7554; 
-            const URUBO_LNG = -63.2031; 
-            const RADIO_TOLERANCIA = 250; 
-            
-            // Calculo de distancia Haversine
-            const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
-            const d1 = (URUBO_LAT-lat) * Math.PI/180; const d2 = (URUBO_LNG-lng) * Math.PI/180;
-            const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
-            const distanciaUrubo = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
+        if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
             let esLogistica = false;
 
-            // Validación de Cerco Virtual
-            if(distanciaUrubo > RADIO_TOLERANCIA) {
-                const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA (${distanciaUrubo.toFixed(0)} mts del Urubó).\n¿Estás ingresando por compra logística autorizada (Ej. Casa Color / Ribepar)?`);
-                if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate a la obra o ruta para marcar.");
-                esLogistica = true;
-                updates.excepcion_logistica = true;
+            // SOLO aplica el candado geográfico si es Urubó
+            if (tipo === 'ENTRADA_URUBO') {
+                const URUBO_LAT = -17.7554; const URUBO_LNG = -63.2031; const RADIO_TOLERANCIA = 250; 
+                const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
+                const d1 = (URUBO_LAT-lat) * Math.PI/180; const d2 = (URUBO_LNG-lng) * Math.PI/180;
+                const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
+                const distanciaUrubo = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+                if(distanciaUrubo > RADIO_TOLERANCIA) {
+                    const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA (${distanciaUrubo.toFixed(0)} mts del puente Urubó).\n¿Estás ingresando por compra logística autorizada (Ej. Ribepar)?`);
+                    if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate a la obra para marcar.");
+                    esLogistica = true;
+                    updates.excepcion_logistica = true;
+                }
             }
 
-            // Guillotina de las 8:00 AM
+            // Guillotina de las 8:00 AM (Aplica para TODOS los ingresos)
             if(horaNum >= 8.01 && !esLogistica) {
                 updates.estado = 'ROJA';
                 updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
@@ -147,7 +147,7 @@ window.marcarGPS = (tipo) => {
             updates.hora_entrada = timeStr;
             updates.gps_entrada = gpsStr;
             updates.obra = "POR ASIGNAR";
-            updates.jornada_normal = (ahora.getDay() === 6) ? 0.5 : 1.0; // Sábado es medio día
+            updates.jornada_normal = (ahora.getDay() === 6) ? 0.5 : 1.0; 
             updates.dia_semana = ahora.getDay();
 
         } else if (tipo === 'SALIDA') {
@@ -156,7 +156,7 @@ window.marcarGPS = (tipo) => {
         }
 
         firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
-            .then(() => alert(`✅ ${tipo} REGISTRADA CON ÉXITO.`));
+            .then(() => alert(`✅ MARCA REGISTRADA CON ÉXITO.`));
     }, () => alert("❌ Active el GPS en su celular para marcar. Es obligatorio en WRPUMA."));
 };
 
@@ -644,7 +644,7 @@ window.trasladoRapidoMat = (id, detalle) => {
 };
 
 // ==========================================================
-// 🏗️ OBRAS Y MICRO-OBRAS (CON BLINDAJE FINANCIERO)
+// 🏗️ OBRAS Y MICRO-OBRAS (CON BLINDAJE Y CORRECCIÓN)
 // ==========================================================
 function dibujarObras() {
     const rol = localStorage.getItem('rol_wr');
@@ -704,6 +704,7 @@ function dibujarObras() {
                     ${esAdmin ? `
                     <div class="pt-2 flex flex-wrap gap-1 justify-between">
                         <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black p-2 rounded-lg border border-blue-300">Cobrar Ant.</button>
+                        <button onclick="window.corregirAnticipos('${id}')" class="flex-1 bg-red-100 text-red-700 text-[9px] font-black p-2 rounded-lg border border-red-300">Corregir</button>
                         <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
                         <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar</button>
                         <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline p-2">Borrar</button>
@@ -748,6 +749,30 @@ window.cobrarAnticipo = (id) => {
         data.registrarMovimiento(id, 'anticipo_cliente', aCaja, "Anticipo - Flujo Limpio (80%)"); 
     } 
 };
+
+window.corregirAnticipos = (id) => {
+    const m = prompt("🛠️ MODO CORRECCIÓN:\nIngrese el MONTO TOTAL REAL Y EXACTO que el cliente le ha entregado hasta ahora (Bs):");
+    const monto = parseFloat(m);
+    if (!isNaN(monto) && monto >= 0) {
+        if (confirm(`⚠️ ALERTA DE GERENCIA:\n¿Está seguro de BORRAR el historial de cobros con errores de esta obra y fijar el cobrado real en Bs. ${monto}?`)) {
+            firebase.database().ref(getDbPath(`finanzas_obras/${id}`)).once('value').then(snap => {
+                const fin = snap.val() || {};
+                const updates = {};
+                Object.keys(fin).forEach(k => {
+                    if(fin[k].tipo === 'anticipo_cliente') updates[k] = null;
+                });
+                
+                firebase.database().ref(getDbPath(`finanzas_obras/${id}`)).update(updates).then(() => {
+                    if (monto > 0) {
+                        data.registrarMovimiento(id, 'anticipo_cliente', monto * 0.80, "Corrección Gerencia - Flujo Limpio (80%)");
+                    }
+                    alert("✅ Finanzas reseteadas y corregidas con éxito.");
+                });
+            });
+        }
+    }
+};
+
 window.editarNombreObra = (id, old) => { const n = prompt("Nuevo nombre:", old); if (n && n.toUpperCase() !== old.toUpperCase()) firebase.database().ref(getDbPath(`obras/${id}`)).update({ nombre: n.toUpperCase() }); };
 
 // ==========================================================
