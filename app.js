@@ -35,7 +35,7 @@ let pFIni = obtenerLunes();
 let pFFin = getLocalISODate();
 
 // ==========================================================
-// 📡 MOTOR DE ALERTAS WHATSAPP (NUEVO)
+// 📡 MOTOR DE ALERTAS WHATSAPP (CAPATAZ VIRTUAL)
 // ==========================================================
 window.dispararAlertaWhatsApp = (mensajeAlerta) => {
     if (WEBHOOK_URL_N8N && WEBHOOK_URL_N8N.includes("http")) {
@@ -71,7 +71,7 @@ window.verAccesoPro = (usuario) => {
 };
 
 // ==========================================================
-// 📍 PANEL TRABAJADOR Y GPS
+// 📍 PANEL TRABAJADOR Y MOTOR DE ASISTENCIA GEOESPACIAL PRO
 // ==========================================================
 function dibujarPanelTrabajador() {
     const n = localStorage.getItem('u_wr');
@@ -101,29 +101,63 @@ function dibujarPanelTrabajador() {
 }
 
 window.marcarGPS = (tipo) => {
-    if (navigator.geolocation) {
-        alert(`📍 Obteniendo ubicación para ${tipo}...`);
-        navigator.geolocation.getCurrentPosition((pos) => {
-            const lat = pos.coords.latitude, lng = pos.coords.longitude, n = localStorage.getItem('u_wr');
-            const timeStr = new Date().toLocaleTimeString();
-            const gpsStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (!navigator.geolocation) return alert("❌ Su teléfono no soporta GPS.");
+    alert(`📍 Auditando ubicación y hora para ${tipo}...`);
+
+    navigator.geolocation.getCurrentPosition((pos) => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude, n = localStorage.getItem('u_wr');
+        const ahora = new Date();
+        const timeStr = ahora.toLocaleTimeString();
+        const gpsStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        const horaNum = ahora.getHours() + (ahora.getMinutes() / 60);
+        
+        const updates = { nombre: n };
+
+        if (tipo === 'ENTRADA') {
+            // Coordenadas del Puente Urubó / Cuarto Anillo
+            const URUBO_LAT = -17.7554; 
+            const URUBO_LNG = -63.2031; 
+            const RADIO_TOLERANCIA = 250; 
             
-            const updates = { nombre: n };
-            
-            if (tipo === 'ENTRADA') {
-                updates.hora_entrada = timeStr;
-                updates.gps_entrada = gpsStr;
-                updates.obra = "POR ASIGNAR"; 
-                updates.jornada_normal = 1;
-            } else if (tipo === 'SALIDA') {
-                updates.hora_salida = timeStr;
-                updates.gps_salida = gpsStr;
+            // Calculo de distancia Haversine
+            const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
+            const d1 = (URUBO_LAT-lat) * Math.PI/180; const d2 = (URUBO_LNG-lng) * Math.PI/180;
+            const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
+            const distanciaUrubo = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            let esLogistica = false;
+
+            // Validación de Cerco Virtual
+            if(distanciaUrubo > RADIO_TOLERANCIA) {
+                const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA (${distanciaUrubo.toFixed(0)} mts del Urubó).\n¿Estás ingresando por compra logística autorizada (Ej. Casa Color / Ribepar)?`);
+                if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate a la obra o ruta para marcar.");
+                esLogistica = true;
+                updates.excepcion_logistica = true;
             }
-            
-            firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
-                .then(() => alert(`✅ ${tipo} REGISTRADA CON ÉXITO.`));
-        }, () => alert("❌ Active el GPS en su celular para marcar."));
-    } else alert("❌ Su teléfono no soporta GPS.");
+
+            // Guillotina de las 8:00 AM
+            if(horaNum >= 8.01 && !esLogistica) {
+                updates.estado = 'ROJA';
+                updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
+                window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr}. Descuento automático activado en planilla.`);
+            } else {
+                updates.estado = 'VERDE';
+            }
+
+            updates.hora_entrada = timeStr;
+            updates.gps_entrada = gpsStr;
+            updates.obra = "POR ASIGNAR";
+            updates.jornada_normal = (ahora.getDay() === 6) ? 0.5 : 1.0; // Sábado es medio día
+            updates.dia_semana = ahora.getDay();
+
+        } else if (tipo === 'SALIDA') {
+            updates.hora_salida = timeStr;
+            updates.gps_salida = gpsStr;
+        }
+
+        firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
+            .then(() => alert(`✅ ${tipo} REGISTRADA CON ÉXITO.`));
+    }, () => alert("❌ Active el GPS en su celular para marcar. Es obligatorio en WRPUMA."));
 };
 
 window.pedirMaterialTrabajador = () => { 
@@ -144,25 +178,21 @@ window.pedirAnticipoTrabajador = () => {
     const n = localStorage.getItem('u_wr');
     const reqID = `SOL_ANT_${n}_${fechaSel}`;
     
-    firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).once('value').then(snapAnt => {
-        if(snapAnt.exists()) {
-            alert("❌ LÍMITE ALCANZADO: Ya enviaste una solicitud de anticipo el día de hoy.");
-            return;
-        }
-        
-        const montoStr = prompt("Monto del Anticipo:"); 
-        if(!montoStr) return;
-        
-        const montoNum = parseFloat(montoStr.replace(/[^0-9.]/g, ''));
-        if(isNaN(montoNum) || montoNum <= 0) {
-            alert("❌ ERROR: Ingrese solo números.");
-            return;
-        }
+    // Verificación de Semáforo antes de pedir anticipo
+    firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
+        const r = s.val() || {};
+        if(r.estado === 'ROJA') return alert("❌ ACCESO DENEGADO: Tienes un atraso registrado hoy. Los anticipos están bloqueados por indisciplina.");
 
-        firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
-            const r = s.val();
-            const obraActual = (r && r.obra) ? r.obra : 'SIN ASIGNAR';
+        firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).once('value').then(snapAnt => {
+            if(snapAnt.exists()) return alert("❌ LÍMITE ALCANZADO: Ya enviaste una solicitud de anticipo el día de hoy.");
             
+            const montoStr = prompt("Monto del Anticipo (Bs):"); 
+            if(!montoStr) return;
+            
+            const montoNum = parseFloat(montoStr.replace(/[^0-9.]/g, ''));
+            if(isNaN(montoNum) || montoNum <= 0) return alert("❌ ERROR: Ingrese solo números válidos.");
+
+            const obraActual = r.obra ? r.obra : 'SIN ASIGNAR';
             firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).set({ 
                 tipo: 'ANTICIPO', trabajador: n, obra: obraActual, detalle: montoNum, fecha_corta: fechaSel, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
             }).then(() => alert(`✅ Solicitud enviada a Administración.`));
@@ -254,7 +284,7 @@ window.verHistorialSolicitudes = (filtro = 'TODOS') => {
 };
 
 // ==========================================================
-// 📋 ASISTENCIA PRO (CON MULTAS POR DAÑO)
+// 📋 ASISTENCIA PRO (SEMÁFORO VISUAL Y MULTAS)
 // ==========================================================
 function dibujarAsistencia() {
     const adm = localStorage.getItem('a_wr') === 'true';
@@ -327,7 +357,7 @@ window.renderListaPintores = () => {
             if (!gpsLink && r.hora_registro) gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-blue-600 font-black text-[9px] uppercase mt-1 block underline text-left">🗺️ VER REGISTRO (${r.hora_registro})</button>`;
             if (!gpsLink) gpsLink = `<span class="text-[10px] font-bold text-yellow-800 block mt-1">📍 SIN MARCAS</span>`;
                 
-            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2"><div><b class="text-sm uppercase">${n}</b><br>${gpsLink}</div><div class="flex flex-col gap-1"><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24 shadow-sm">ASIGNAR AQUÍ</button><button onclick="window.borrarMarcaFalsa('${n}')" class="p-2 rounded-xl bg-red-100 text-red-600 border border-red-300 text-[9px] font-black w-24">BORRAR MARCA</button></div></div>`;
+            c.innerHTML += `<div class="flex items-center justify-between p-3 bg-yellow-50 rounded-2xl border-2 border-yellow-400 mb-2 shadow-sm"><div><b class="text-sm uppercase">${n}</b><br>${gpsLink}</div><div class="flex flex-col gap-1"><button onclick="window.markP('${n}', 'mover')" class="p-2 rounded-xl bg-yellow-400 text-[9px] font-black w-24 shadow-sm">ASIGNAR AQUÍ</button><button onclick="window.borrarMarcaFalsa('${n}')" class="p-2 rounded-xl bg-red-100 text-red-600 border border-red-300 text-[9px] font-black w-24">BORRAR MARCA</button></div></div>`;
         }
     });
 
@@ -337,16 +367,20 @@ window.renderListaPintores = () => {
         if(r && r.obra === "POR ASIGNAR") return;
         
         const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
-        let btn = '', bColor = 'border-zinc-200';
+        let btn = '', bColor = 'border-yellow-500 bg-yellow-50'; // Default fantasma/sin marcar
         
         if (eO) { 
-            bColor = 'border-green-500 bg-green-50'; 
-            btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', true)" class="p-2 rounded-xl bg-green-500 text-white w-24 font-black text-xs">REGISTRADO</button>`; 
+            // Semáforo Visual aplicado
+            if (r.estado === 'VERDE') bColor = 'border-green-500 bg-green-50';
+            else if (r.estado === 'ROJA') bColor = 'border-red-500 bg-red-50';
+            else bColor = 'border-blue-300 bg-blue-50'; // Edición manual
+
+            btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', true)" class="p-2 rounded-xl bg-zinc-800 text-white w-24 font-black text-[10px] shadow-sm">VER/EDITAR</button>`; 
         } else if (eOt) { 
-            bColor = 'border-orange-200'; 
-            btn = `<button onclick="window.markP('${nombreMayus}', 'mover')" class="p-2 rounded-xl bg-orange-100 text-orange-700 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
+            bColor = 'border-orange-200 bg-orange-50'; 
+            btn = `<button onclick="window.markP('${nombreMayus}', 'mover')" class="p-2 rounded-xl bg-orange-200 text-orange-800 text-[9px] font-black border border-orange-300 w-24">EN: ${r.obra}</button>`; 
         } else { 
-            btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-xs">ASISTENCIA</button>`; 
+            btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', false)" class="p-3 rounded-xl bg-zinc-800 text-white font-black w-24 text-[10px]">ASISTENCIA</button>`; 
         }
         
         let info = '';
@@ -360,16 +394,17 @@ window.renderListaPintores = () => {
                 if (r.monto_dano > 0) iA.push(`Multa: Bs.${r.monto_dano}`);
             }
             
-            const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-green-700 font-bold block">${iA.join(' | ')}</span>` : '';
+            const textoAsistencia = iA.length > 0 ? `<span class="text-[10px] text-zinc-700 font-bold block">${iA.join(' | ')}</span>` : '';
             
             let gpsLink = '';
-            if (r.hora_entrada) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-green-700 font-black text-[9px] uppercase mt-1 inline-block underline mr-2">☀️ ENTRADA: ${r.hora_entrada}</button>`;
-            if (r.hora_salida) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 inline-block underline">🌙 SALIDA: ${r.hora_salida}</button>`;
-            if (!gpsLink && r.hora_registro) gpsLink = `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_registro || ''}'), '_blank')" class="text-red-600 font-black text-[9px] uppercase mt-1 block underline">🗺️ AUDITAR GPS (${r.hora_registro})</button>`;
+            if (r.hora_entrada) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_entrada || ''}'), '_blank')" class="text-zinc-800 font-black text-[9px] uppercase mt-1 inline-block underline mr-2">☀️ ENTRADA: ${r.hora_entrada}</button>`;
+            if (r.hora_salida) gpsLink += `<button onclick="window.open('https://maps.google.com/?q=' + encodeURIComponent('${r.gps_salida || ''}'), '_blank')" class="text-zinc-800 font-black text-[9px] uppercase mt-1 inline-block underline">🌙 SALIDA: ${r.hora_salida}</button>`;
             info = `<br>${textoAsistencia}${gpsLink}`;
+        } else {
+            info = `<br><span class="text-[9px] font-bold text-yellow-700">🚨 SIN MARCAR / FALTA</span>`;
         }
         
-        c.innerHTML += `<div class="flex items-center justify-between p-3 bg-white rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${nombreMayus}</b>${info}</div>${btn}</div>`;
+        c.innerHTML += `<div class="flex items-center justify-between p-3 rounded-2xl border-2 ${bColor} text-black uppercase transition-all shadow-sm"><div><b class="text-sm">${nombreMayus}</b>${info}</div>${btn}</div>`;
     });
 };
 
@@ -396,7 +431,7 @@ window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database()
 window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fantasma de ${n}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).remove(); } };
 
 // ==========================================================
-// 💰 SUELDOS Y PAGOS (RESTA LAS MULTAS POR DAÑO)
+// 💰 SUELDOS Y PAGOS (REGLA DEL SÁBADO AUTOMATIZADA)
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
@@ -406,13 +441,28 @@ function dibujarPlanilla() {
         const personalMayus = {}; Object.keys(per).forEach(k => { personalMayus[k.toUpperCase()] = per[k]; });
         const pagosMap = {}; Object.keys(pagosRealizados).forEach(k => { pagosMap[k.toUpperCase()] = pagosRealizados[k]; });
 
+        const diasDelCorte = pFFin !== pFIni ? pFFin : getLocalISODate();
+
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
             const nombreMayus = reg.nombre.toUpperCase();
             const idRef = `${nombreMayus}_semana_${pFIni}`.toUpperCase(); 
             if (pagosMap[idRef]) return;
             
-            if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dExt: 0, ant: 0, hAtraso: 0, dano: 0, obraPrincipal: reg.obra };
-            res[nombreMayus].dNorm += parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
+            if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dSabado: 0, dExt: 0, ant: 0, hAtraso: 0, dano: 0, faltasSalida: 0, obraPrincipal: reg.obra };
+            
+            // Castigo por irse sin marcar salida (Jornada Incompleta)
+            if (reg.hora_entrada && !reg.hora_salida && f !== diasDelCorte) {
+                res[nombreMayus].faltasSalida += 0.5; // Multa medio jornal
+            }
+
+            // Separación del Sábado para evaluar el Premio
+            const valorDia = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
+            if (reg.dia_semana === 6) {
+                res[nombreMayus].dSabado += valorDia;
+            } else {
+                res[nombreMayus].dNorm += valorDia;
+            }
+
             res[nombreMayus].dExt += parseFloat(reg.jornada_extra || 0);
             res[nombreMayus].ant += parseFloat(reg.monto_anticipo || 0);
             res[nombreMayus].hAtraso += parseFloat(reg.horas_atraso || 0);
@@ -421,11 +471,28 @@ function dibujarPlanilla() {
         
         c.innerHTML = ''; let tP = 0; const list = Object.keys(res);
         if (list.length === 0) { c.innerHTML = `<p class="text-center text-zinc-500 text-xs font-bold uppercase mt-10">No hay pagos pendientes.</p>`; return; }
+        
         list.forEach(n => {
-            const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0, comp = d.dNorm >= 5.5 ? 0.5 : 0;
-            const sTot = (d.dNorm + comp + d.dExt) * sDia, desc = d.hAtraso * (sDia / 8), saldo = sTot - d.ant - desc - d.dano; tP += saldo;
+            const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0;
             
-            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 border-red-600 relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="bg-red-600 px-3 rounded-lg font-black text-sm py-1">${(d.dNorm + comp + d.dExt).toFixed(1)} D</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos</span>-Bs. ${d.ant}</div></div>${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA POR DAÑO / HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}<button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${d.dNorm}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${comp}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg">PAGAR: Bs. ${saldo.toFixed(2)}</button></div>`;
+            // LA REGLA DEL SÁBADO AUTOMATIZADA
+            let diasTrabajados = d.dNorm + d.dSabado;
+            let compensacion = 0;
+            
+            // Si vino los 5 días completos de L a V, y vino el sábado medio turno -> Premio 6 días.
+            if (d.dNorm >= 5.0 && d.dSabado > 0) {
+                diasTrabajados = 6.0;
+                compensacion = 6.0 - (d.dNorm + d.dSabado); // Para registro interno
+            }
+
+            // Aplicación de Multa por no marcar salida
+            diasTrabajados -= d.faltasSalida;
+
+            const sTot = (diasTrabajados + d.dExt) * sDia; 
+            const desc = d.hAtraso * (sDia / 8); 
+            const saldo = sTot - d.ant - desc - d.dano; tP += saldo;
+            
+            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 ${d.hAtraso > 0 || d.faltasSalida > 0 ? 'border-red-600' : 'border-green-500'} relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="${diasTrabajados >= 6 ? 'bg-green-600' : 'bg-red-600'} px-3 rounded-lg font-black text-sm py-1">${diasTrabajados.toFixed(1)} Días</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos / Descuentos</span>-Bs. ${(d.ant + desc).toFixed(1)}</div></div>${d.faltasSalida > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-2 text-center text-xs font-black">MULTA SALIDA INCOMPLETA: -${d.faltasSalida} Días</div>` : ''}${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}<button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${diasTrabajados}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${compensacion}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg">LIQUIDAR: Bs. ${saldo.toFixed(2)}</button></div>`;
         });
         if (tP > 0) c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center"><p class="text-[10px] font-black mb-1">TOTAL PLANILLA</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
     });
@@ -456,7 +523,7 @@ window.verHistorialSueldos = () => {
 };
 
 // ==========================================================
-// 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS (CON ALERTA N8N)
+// 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS
 // ==========================================================
 function dibujarLogistica() {
     appDiv.innerHTML = `
@@ -577,7 +644,7 @@ window.trasladoRapidoMat = (id, detalle) => {
 };
 
 // ==========================================================
-// 🏗️ OBRAS
+// 🏗️ OBRAS Y MICRO-OBRAS (CON BLINDAJE FINANCIERO)
 // ==========================================================
 function dibujarObras() {
     const rol = localStorage.getItem('rol_wr');
@@ -595,6 +662,7 @@ function dibujarObras() {
                 <input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 font-bold mb-2 uppercase">
                 <input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3">
                 <button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md">REGISTRAR PROYECTO</button>
+                <button onclick="window.crearMicroObra()" class="w-full mt-2 bg-blue-600 text-white font-black py-3 rounded-2xl shadow-md">+ REGISTRAR MICRO-OBRA EXPRESS</button>
                 ` : ''}
                 
                 <h3 class="mt-8 mb-4 font-black uppercase text-sm border-b-2 pb-2">PROYECTOS ACTIVOS</h3>
@@ -626,7 +694,7 @@ function dibujarObras() {
                     ${esAdmin ? `
                     <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase mb-2 mt-2">
                         <div class="bg-white p-2 rounded-xl border">Contrato:<br>Bs. ${o.presupuesto}</div>
-                        <div class="bg-white p-2 rounded-xl border">Cobrado:<br><span class="text-blue-600">Bs. ${cob}</span></div>
+                        <div class="bg-white p-2 rounded-xl border">Cobrado Limpio:<br><span class="text-blue-600">Bs. ${cob}</span></div>
                         <div class="bg-zinc-900 text-white p-2 rounded-xl">Utilidad Neta:<br><span class="${gNeta >= 0 ? 'text-green-400' : 'text-red-500'}">Bs. ${gNeta.toFixed(1)}</span></div>
                     </div>
                     ` : `<div class="py-2 text-zinc-500 italic text-[10px] font-bold uppercase">Información financiera restringida</div>`}
@@ -635,7 +703,7 @@ function dibujarObras() {
                     
                     ${esAdmin ? `
                     <div class="pt-2 flex flex-wrap gap-1 justify-between">
-                        <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black p-2 rounded-lg">Cobrar Ant.</button>
+                        <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black p-2 rounded-lg border border-blue-300">Cobrar Ant.</button>
                         <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
                         <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar</button>
                         <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline p-2">Borrar</button>
@@ -648,9 +716,38 @@ function dibujarObras() {
 }
 window.agregarLinkObra = (id) => { const l = prompt("Enlace fotos:"); if (l) firebase.database().ref(getDbPath(`obras/${id}`)).update({ link_fotos: l }); };
 window.saveO = () => { const n = document.getElementById('o-nom').value.trim(), p = document.getElementById('o-pre').value; if (n && p) { firebase.database().ref(getDbPath('obras')).push({ nombre: n.toUpperCase(), presupuesto: p, estado: 'Activa' }); document.getElementById('o-nom').value = ''; document.getElementById('o-pre').value = ''; } else alert("Campos vacios"); };
+window.crearMicroObra = () => {
+    const n = prompt("Nombre del Tratamiento / Impermeabilización:");
+    const pre = prompt("Precio Acordado (Bs):");
+    if(n && pre) {
+        firebase.database().ref(getDbPath('obras')).push({
+            nombre: "EXPRESS: " + n.toUpperCase(),
+            presupuesto: parseFloat(pre),
+            estado: 'Activa',
+            tipo: 'Micro-Obra', 
+            fecha_creacion: new Date().toISOString()
+        });
+        alert("Micro-Obra registrada. Lista para asignar garantías.");
+    }
+};
 window.delO = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`obras/${id}`)).remove(); };
 window.cambiarEstadoO = (id, e) => { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: e }); };
-window.cobrarAnticipo = (id) => { const m = prompt("Monto Cobrado (Bs.):"); if (m) data.registrarMovimiento(id, 'anticipo_cliente', m, "Anticipo"); };
+
+window.cobrarAnticipo = (id) => { 
+    const m = prompt("Monto Cobrado al Cliente (Bs.):"); 
+    const monto = parseFloat(m);
+    if (monto && monto > 0) { 
+        // Aplicación estricta de la regla financiera WRPUMA
+        const aCaja = monto * 0.80;
+        const resHerr = monto * 0.10;
+        const resComb = monto * 0.05;
+        const resRep = monto * 0.05;
+
+        alert(`💰 BLINDAJE FINANCIERO APLICADO:\n\nIngreso Total: Bs. ${monto}\n\n🟢 A Caja de Obra (80%): Bs. ${aCaja.toFixed(1)}\n🔴 Fondo Herramientas (10%): Bs. ${resHerr.toFixed(1)}\n🔴 Fondo Combustible (5%): Bs. ${resComb.toFixed(1)}\n🔴 Fondo Repuestos (5%): Bs. ${resRep.toFixed(1)}`);
+        
+        data.registrarMovimiento(id, 'anticipo_cliente', aCaja, "Anticipo - Flujo Limpio (80%)"); 
+    } 
+};
 window.editarNombreObra = (id, old) => { const n = prompt("Nuevo nombre:", old); if (n && n.toUpperCase() !== old.toUpperCase()) firebase.database().ref(getDbPath(`obras/${id}`)).update({ nombre: n.toUpperCase() }); };
 
 // ==========================================================
