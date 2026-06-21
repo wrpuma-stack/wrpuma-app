@@ -1082,12 +1082,39 @@ function dibujarCotizador() {
 }
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
-    const z = document.getElementById('zona-editable'); let t = z.innerText;
-    if(t.includes('|')) {
-        let h = '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px;">';
-        t.split('\n').forEach(l => { if(l.includes('|')) { h += '<tr style="border:1px solid #000;">'; l.split('|').forEach(c => h += `<td style="border:1px solid #000; padding:6px;">${c.trim()}</td>`); h += '</tr>'; } });
-        z.innerHTML = h + '</table>';
-    }
+    const z = document.getElementById('zona-editable');
+    let lineas = z.innerText.split('\n');
+    let h = '';
+    let enTabla = false;
+
+    lineas.forEach(l => {
+        // Transformar los asteriscos **texto** a Negrita real de HTML
+        let lineaProcesada = l.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+        if (l.includes('|')) {
+            if (!enTabla) {
+                h += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px;">';
+                enTabla = true;
+            }
+            h += '<tr style="border:1px solid #000;">';
+            lineaProcesada.split('|').forEach(c => {
+                h += `<td style="border:1px solid #000; padding:6px;">${c.trim()}</td>`;
+            });
+            h += '</tr>';
+        } else {
+            if (enTabla) {
+                h += '</table>';
+                enTabla = false;
+            }
+            if (l.trim() !== '') {
+                h += `<p style="margin: 5px 0;">${lineaProcesada}</p>`;
+            } else {
+                h += '<br>';
+            }
+        }
+    });
+    if (enTabla) h += '</table>';
+    z.innerHTML = h;
 };
 window.modoGarantia = () => { document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b></p><p><b>CLIENTE:</b></p><p>Se garantiza la estanqueidad por 1 AÑO.</p>`; };
 window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Cotizacion.pdf', html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'letter' } }; html2pdf().set(opt).from(document.getElementById('hoja-pdf')).save(); };
