@@ -7,8 +7,7 @@ const appDiv = document.getElementById('app');
 let obraSel = "GENERAL";
 
 // 🔗 AQUÍ PEGA LA URL DE SU WEBHOOK DE N8N O ZAPIER
-const WEBHOOK_URL_N8N = "https://hook.us2.make.com/wa7jjt78bh7vtxv0lzxlin37kta9bld3"; 
-
+const WEBHOOK_URL_N8N = "https://hook.us2.make.com/tq1t3qfwyn5uk2ghhq4sxah";
 const getLocalISODate = (dateObj = new Date()) => {
     const z = dateObj.getTimezoneOffset() * 60000;
     return new Date(dateObj - z).toISOString().split('T')[0];
