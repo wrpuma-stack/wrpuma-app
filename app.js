@@ -1083,7 +1083,9 @@ function dibujarCotizador() {
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let textoBruto = z.innerText.replace(/--- Pegue su cotización aquí ---/g, '').trim();
+    // Limpieza agresiva de basura residual de la IA y de los símbolos ####
+    let textoBruto = z.innerText.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su cotización aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
+    
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
@@ -1091,11 +1093,9 @@ window.arreglarFormato = () => {
 
     lineas.forEach(l => {
         let lineaLimpia = l.trim();
-        if (lineaLimpia === '') return; // Elimina espacios muertos
+        if (lineaLimpia === '') return;
 
-        // Detectar si es un título (Mayúsculas, termina en :)
-        let esTitulo = (lineaLimpia === lineaLimpia.toUpperCase() && lineaLimpia.length < 50);
-
+        // Si es tabla
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
                 h += '<table style="width:100%; border-collapse:collapse; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
@@ -1113,8 +1113,12 @@ window.arreglarFormato = () => {
             esPrimeraFila = false;
         } else {
             if (enTabla) { h += '</table>'; enTabla = false; }
-            if (esTitulo) {
-                h += `<p style="margin: 10px 0 2px 0; font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #f97316; padding-bottom:2px;">${lineaLimpia}</p>`;
+            
+            // Detectar si es un numeral (Ej: 1. o 01.)
+            let esNumeral = lineaLimpia.match(/^\d+\.?\s/);
+            
+            if (esNumeral) {
+                h += `<p style="margin: 15px 0 5px 0; font-size:15px; font-weight:900; color:#1e293b; border-bottom:2px solid #f97316; padding-bottom:3px;">${lineaLimpia}</p>`;
             } else {
                 h += `<p style="margin: 2px 0; font-size:12px;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
             }
