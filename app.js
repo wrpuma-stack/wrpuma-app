@@ -33,7 +33,7 @@ let pFIni = obtenerLunes();
 let pFFin = getLocalISODate();
 
 // ==========================================================
-// 📡 MOTOR DE ALERTAS WHATSAPP (CAPATAZ VIRTUAL)
+// 📡 MOTOR DE ALERTAS WHATSAPP (CAPATAZ VIRTUAL) - CORREGIDO
 // ==========================================================
 window.dispararAlertaWhatsApp = (mensajeAlerta) => {
     if (WEBHOOK_URL_N8N && WEBHOOK_URL_N8N.includes("http")) {
@@ -45,7 +45,14 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
                 alerta: mensajeAlerta, 
                 fecha_hora: new Date().toLocaleString() 
             })
-        }).catch(err => console.log("Webhook no enviado (revisar URL):", err));
+        }).then(response => {
+            if(response.ok) {
+                console.log("Alerta disparada al Webhook correctamente.");
+            }
+        }).catch(err => {
+            alert("❌ Alerta de Control: Hubo un fallo enviando la notificación al servidor central.");
+            console.log("Webhook no enviado (revisar URL o conexión):", err);
+        });
     }
 };
 
@@ -118,7 +125,6 @@ window.marcarGPS = (tipo) => {
         if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
             let esLogistica = false;
 
-            // SOLO aplica el candado geográfico si es Urubó
             if (tipo === 'ENTRADA_URUBO') {
                 const URUBO_LAT = -17.7554; const URUBO_LNG = -63.2031; const RADIO_TOLERANCIA = 250; 
                 const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
@@ -134,7 +140,6 @@ window.marcarGPS = (tipo) => {
                 }
             }
 
-            // Guillotina de las 8:00 AM (Aplica para TODOS los ingresos)
             if(horaNum >= 8.01 && !esLogistica) {
                 updates.estado = 'ROJA';
                 updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
@@ -177,7 +182,6 @@ window.pedirAnticipoTrabajador = () => {
     const n = localStorage.getItem('u_wr');
     const reqID = `SOL_ANT_${n}_${fechaSel}`;
     
-    // Verificación de Semáforo antes de pedir anticipo
     firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
         const r = s.val() || {};
         if(r.estado === 'ROJA') return alert("❌ ACCESO DENEGADO: Tienes un atraso registrado hoy. Los anticipos están bloqueados por indisciplina.");
@@ -422,7 +426,8 @@ window.abrirModalAsistencia = (n, existe) => {
 window.sumarAlAnticipo = (m) => { const i = document.getElementById('modal-anticipo'); i.value = (parseFloat(i.value) || 0) + m; };
 window.guardarAsistenciaModal = () => {
     const n = window.pintorActualModal;
-    firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).set({ nombre: n, obra: obraSel, jornada_normal: parseFloat(document.getElementById('modal-j-normal').value), jornada_extra: parseFloat(document.getElementById('modal-j-extra').value), monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value), horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value), monto_dano: parseFloat(document.getElementById('modal-dano').value) });
+    // CORRECCIÓN CLAVE: Usamos .update en vez de .set para no borrar el GPS al editar salarios
+    firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ nombre: n, obra: obraSel, jornada_normal: parseFloat(document.getElementById('modal-j-normal').value), jornada_extra: parseFloat(document.getElementById('modal-j-extra').value), monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value), horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value), monto_dano: parseFloat(document.getElementById('modal-dano').value) });
     document.getElementById('modal-asistencia').classList.add('hidden');
 };
 window.quitarAsistenciaModal = () => { if (confirm(`¿Eliminar a ${window.pintorActualModal}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${window.pintorActualModal}`)).remove(); document.getElementById('modal-asistencia').classList.add('hidden'); } };
@@ -440,7 +445,7 @@ function dibujarPlanilla() {
         const personalMayus = {}; Object.keys(per).forEach(k => { personalMayus[k.toUpperCase()] = per[k]; });
         const pagosMap = {}; Object.keys(pagosRealizados).forEach(k => { pagosMap[k.toUpperCase()] = pagosRealizados[k]; });
 
-        const diasDelCorte = pFFin !== pFIni ? pFFin : getLocalISODate();
+        const hoyStr = getLocalISODate(); // Variable para evitar multar el día actual en curso
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
             const nombreMayus = reg.nombre.toUpperCase();
@@ -449,12 +454,11 @@ function dibujarPlanilla() {
             
             if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dSabado: 0, dExt: 0, ant: 0, hAtraso: 0, dano: 0, faltasSalida: 0, obraPrincipal: reg.obra };
             
-            // Castigo por irse sin marcar salida (Jornada Incompleta)
-            if (reg.hora_entrada && !reg.hora_salida && f !== diasDelCorte) {
-                res[nombreMayus].faltasSalida += 0.5; // Multa medio jornal
+            // CORRECCIÓN AUDITORÍA: Solo se multa si el día ya pasó (f < hoyStr)
+            if (reg.hora_entrada && !reg.hora_salida && f < hoyStr) {
+                res[nombreMayus].faltasSalida += 0.5; // Multa medio jornal por irse sin avisar
             }
 
-            // Separación del Sábado para evaluar el Premio
             const valorDia = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
             if (reg.dia_semana === 6) {
                 res[nombreMayus].dSabado += valorDia;
@@ -478,10 +482,9 @@ function dibujarPlanilla() {
             let diasTrabajados = d.dNorm + d.dSabado;
             let compensacion = 0;
             
-            // Si vino los 5 días completos de L a V, y vino el sábado medio turno -> Premio 6 días.
             if (d.dNorm >= 5.0 && d.dSabado > 0) {
                 diasTrabajados = 6.0;
-                compensacion = 6.0 - (d.dNorm + d.dSabado); // Para registro interno
+                compensacion = 6.0 - (d.dNorm + d.dSabado);
             }
 
             // Aplicación de Multa por no marcar salida
@@ -620,14 +623,20 @@ window.trasladoRapidoHerr = (id, nombre) => {
     }
 };
 
+// CORRECCIÓN WEBHOOK - LIMPIEZA POST GUARDADO
 window.registrarMaterialObra = () => {
     const obra = document.getElementById('log-obra').value;
     const det = document.getElementById('log-mat-nombre').value.trim();
     if(det && obra) {
-        firebase.database().ref(getDbPath(`inventario_obras/MAT_${Date.now()}`)).set({ obra: obra, detalle: det.toUpperCase(), fecha: new Date().toISOString() }).then(() => {
+        firebase.database().ref(getDbPath(`inventario_obras/MAT_${Date.now()}`)).set({ 
+            obra: obra, detalle: det.toUpperCase(), fecha: new Date().toISOString() 
+        }).then(() => {
+            document.getElementById('log-mat-nombre').value = ''; // Limpia SOLO si guarda
+            alert("✅ Material registrado exitosamente.");
             window.dispararAlertaWhatsApp(`📦 REPORTE MATERIAL WRPUMA: Se registraron sobrantes en [${obra}] -> ${det.toUpperCase()}`);
-        });
-        document.getElementById('log-mat-nombre').value = '';
+        }).catch(err => alert("❌ Error de conexión al guardar en base de datos."));
+    } else {
+        alert("⚠️ Seleccione una obra y escriba el detalle del material.");
     }
 };
 
@@ -681,6 +690,7 @@ function dibujarObras() {
             const fin = fSnap.val() || {};
             Object.keys(obs).forEach(id => {
                 const o = obs[id]; let cob = 0, gas = 0;
+                // La retención 20% entra a la variable 'gas' automáticamente para deducir de la utilidad.
                 if (fin[id]) Object.values(fin[id]).forEach(m => { if (m.tipo === 'anticipo_cliente') cob += parseFloat(m.monto); else gas += parseFloat(m.monto); });
                 const fRes = o.presupuesto * 0.05, gNeta = o.presupuesto - gas - fRes;
                 
@@ -693,8 +703,8 @@ function dibujarObras() {
                     ${esAdmin ? `
                     <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase mb-2 mt-2">
                         <div class="bg-white p-2 rounded-xl border">Contrato:<br>Bs. ${o.presupuesto}</div>
-                        <div class="bg-white p-2 rounded-xl border">Cobrado Limpio:<br><span class="text-blue-600">Bs. ${cob}</span></div>
-                        <div class="bg-zinc-900 text-white p-2 rounded-xl">Utilidad Neta:<br><span class="${gNeta >= 0 ? 'text-green-400' : 'text-red-500'}">Bs. ${gNeta.toFixed(1)}</span></div>
+                        <div class="bg-white p-2 rounded-xl border">Cobrado Total:<br><span class="text-blue-600">Bs. ${cob}</span></div>
+                        <div class="bg-zinc-900 text-white p-2 rounded-xl col-span-2">Utilidad Neta del Proyecto (Tras retenciones y gastos):<br><span class="text-lg ${gNeta >= 0 ? 'text-green-400' : 'text-red-500'}">Bs. ${gNeta.toFixed(1)}</span></div>
                     </div>
                     ` : `<div class="py-2 text-zinc-500 italic text-[10px] font-bold uppercase">Información financiera restringida</div>`}
                     
@@ -702,7 +712,7 @@ function dibujarObras() {
                     
                     ${esAdmin ? `
                     <div class="pt-2 flex flex-wrap gap-1 justify-between">
-                        <button onclick="window.cobrarAnticipo('${id}')" class="flex-1 bg-blue-100 text-blue-700 text-[9px] font-black p-2 rounded-lg border border-blue-300">Cobrar Ant.</button>
+                        <button onclick="window.cobrarAnticipo('${id}')" class="flex-[2] bg-blue-600 text-white text-[10px] font-black p-2 rounded-lg shadow-sm">💰 Cobrar Ant.</button>
                         <button onclick="window.corregirAnticipos('${id}')" class="flex-1 bg-red-100 text-red-700 text-[9px] font-black p-2 rounded-lg border border-red-300">Corregir</button>
                         <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
                         <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar</button>
@@ -733,8 +743,9 @@ window.crearMicroObra = () => {
 window.delO = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`obras/${id}`)).remove(); };
 window.cambiarEstadoO = (id, e) => { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: e }); };
 
+// CORRECCIÓN FINANCIERA 80/20 Y REGISTRO 100% PARA EL CLIENTE
 window.cobrarAnticipo = (id) => { 
-    const m = prompt("Monto Cobrado al Cliente (Bs.):"); 
+    const m = prompt("💰 MODO BLINDAJE FINANCIERO:\nIngrese el Monto TOTAL Cobrado al Cliente (Bs.):"); 
     const monto = parseFloat(m);
     if (monto && monto > 0) { 
         // Aplicación estricta de la regla financiera WRPUMA
@@ -742,10 +753,15 @@ window.cobrarAnticipo = (id) => {
         const resHerr = monto * 0.10;
         const resComb = monto * 0.05;
         const resRep = monto * 0.05;
+        const retencionTotal = resHerr + resComb + resRep; // El 20% completo
 
-        alert(`💰 BLINDAJE FINANCIERO APLICADO:\n\nIngreso Total: Bs. ${monto}\n\n🟢 A Caja de Obra (80%): Bs. ${aCaja.toFixed(1)}\n🔴 Fondo Herramientas (10%): Bs. ${resHerr.toFixed(1)}\n🔴 Fondo Combustible (5%): Bs. ${resComb.toFixed(1)}\n🔴 Fondo Repuestos (5%): Bs. ${resRep.toFixed(1)}`);
+        alert(`💰 BLINDAJE APLICADO EXITOSAMENTE:\n\nIngreso Total Cliente: Bs. ${monto}\n\n🟢 A Caja de Obra (80%): Bs. ${aCaja.toFixed(1)}\n🔴 Retención WRPUMA (20%): Bs. ${retencionTotal.toFixed(1)}`);
         
-        data.registrarMovimiento(id, 'anticipo_cliente', aCaja, "Anticipo - Flujo Limpio (80%)"); 
+        // 1. REGISTRAMOS EL 100% PARA NO MUTILAR EL HISTORIAL DEL CLIENTE
+        data.registrarMovimiento(id, 'anticipo_cliente', monto, `Cobro Real al Cliente (100%)`).then(() => {
+            // 2. REGISTRAMOS EL 20% COMO GASTO/EGRESO AUTOMÁTICO
+            data.registrarMovimiento(id, 'retencion_fondos_wr', retencionTotal, `Descuento Automático 20% (Herramientas, Combustible, Repuestos)`);
+        });
     } 
 };
 
@@ -758,12 +774,14 @@ window.corregirAnticipos = (id) => {
                 const fin = snap.val() || {};
                 const updates = {};
                 Object.keys(fin).forEach(k => {
-                    if(fin[k].tipo === 'anticipo_cliente') updates[k] = null;
+                    if(fin[k].tipo === 'anticipo_cliente' || fin[k].tipo === 'retencion_fondos_wr') updates[k] = null;
                 });
                 
                 firebase.database().ref(getDbPath(`finanzas_obras/${id}`)).update(updates).then(() => {
                     if (monto > 0) {
-                        data.registrarMovimiento(id, 'anticipo_cliente', monto * 0.80, "Corrección Gerencia - Flujo Limpio (80%)");
+                        data.registrarMovimiento(id, 'anticipo_cliente', monto, "Corrección Gerencia - Cobro Real (100%)").then(() => {
+                             data.registrarMovimiento(id, 'retencion_fondos_wr', monto * 0.20, "Corrección Gerencia - Retención (20%)");
+                        });
                     }
                     alert("✅ Finanzas reseteadas y corregidas con éxito.");
                 });
