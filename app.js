@@ -1083,7 +1083,9 @@ function dibujarCotizador() {
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let lineas = z.innerText.split('\n');
+    // 1. Limpieza automática del texto base y basura residual
+    let textoBruto = z.innerText.replace(/--- Pegue su cotización aquí ---/g, '').trim(); 
+    let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
     let esPrimeraFila = false;
@@ -1091,49 +1093,61 @@ window.arreglarFormato = () => {
 
     lineas.forEach(l => {
         let lineaLimpia = l.trim();
+        
+        // Ignorar líneas vacías para no romper la tabla accidentalmente
         if (lineaLimpia === '') {
-            if (enLista) { h += '</ul>'; enLista = false; }
-            h += '<br>';
+            if (!enTabla) {
+                if (enLista) { h += '</ul>'; enLista = false; }
+                h += '<br>';
+            }
             return;
         }
 
-        // Convertir **negritas**
+        // Convertir asteriscos a negrita y limpiar guiones extra al inicio
         let texto = lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        texto = texto.replace(/^--+/, ''); // Quita guiones iniciales si se pegaron mal
 
         // Detectar Listas (Viñetas)
-        if (texto.startsWith('* ') || texto.startsWith('- ')) {
-            if (!enLista) { h += '<ul style="margin: 5px 0 15px 20px; padding-left: 20px;">'; enLista = true; }
-            h += `<li style="margin-bottom: 5px; font-size:13px;">${texto.substring(2)}</li>`;
-            return;
+        if (texto.match(/^[\*\-]\s/)) {
+            if (!enTabla) { 
+                if (!enLista) { h += '<ul style="margin: 5px 0 15px 20px; padding-left: 20px;">'; enLista = true; }
+                h += `<li style="margin-bottom: 5px; font-size:13px;">${texto.substring(2)}</li>`;
+                return;
+            }
         } else {
             if (enLista) { h += '</ul>'; enLista = false; }
         }
 
-        // Detectar Tablas
+        // Detectar Tablas (Uso de barra |)
         if (texto.includes('|')) {
             if (!enTabla) {
-                h += '<table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:12px;">';
+                // BLINDAJE ANTI-CORTE: page-break-inside: avoid en la tabla entera
+                h += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:12px; page-break-inside: avoid;">';
                 enTabla = true;
                 esPrimeraFila = true;
             }
             
-            // Fondo gris para la cabecera
+            let esTotal = texto.toUpperCase().includes('TOTAL');
             let estiloFila = esPrimeraFila ? 'background-color:#f4f4f5; font-weight:bold; text-align:center;' : '';
-            h += `<tr style="border:1px solid #000; page-break-inside: avoid;">`;
+            if (esTotal) estiloFila = 'background-color:#fff0f0; font-weight:900; text-align:right; color:#cc0000;'; // Fila TOTAL resaltada en rojo
+
+            h += `<tr style="border:1px solid #000;">`;
             
             texto.split('|').forEach(celda => {
-                h += `<td style="border:1px solid #000; padding:8px; ${estiloFila}">${celda.trim()}</td>`;
+                let textCelda = celda.replace(/\*/g, '').trim(); // Limpia asteriscos residuales
+                h += `<td style="border:1px solid #000; padding:8px; ${estiloFila}">${textCelda}</td>`;
             });
             h += '</tr>';
             esPrimeraFila = false;
         } else {
             if (enTabla) { h += '</table>'; enTabla = false; }
             
-            // Estilos automáticos para subtítulos (Si termina en ":" y es corto)
+            let txtUpper = texto.toUpperCase();
+            // Estilos automáticos inteligentes sin necesidad de **
             if (texto.endsWith(':') && texto.length < 60) {
                 h += `<p style="margin: 15px 0 5px 0; font-size:14px; color:#cc0000; font-weight:900; text-transform:uppercase;">${texto}</p>`;
-            } else if (texto.startsWith('<b>PROYECTO:</b>') || texto.startsWith('<b>CLIENTE:</b>') || texto.startsWith('<b>FECHA:</b>')) {
-                h += `<p style="margin: 3px 0; font-size:13px;">${texto}</p>`;
+            } else if (txtUpper.startsWith('PROYECTO:') || txtUpper.startsWith('CLIENTE:') || txtUpper.startsWith('FECHA:')) {
+                h += `<p style="margin: 3px 0; font-size:13px;"><b>${texto}</b></p>`;
             } else {
                 h += `<p style="margin: 5px 0; font-size:13px; text-align:justify;">${texto}</p>`;
             }
