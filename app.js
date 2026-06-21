@@ -1086,33 +1086,61 @@ window.arreglarFormato = () => {
     let lineas = z.innerText.split('\n');
     let h = '';
     let enTabla = false;
+    let esPrimeraFila = false;
+    let enLista = false;
 
     lineas.forEach(l => {
-        // Transformar los asteriscos **texto** a Negrita real de HTML
-        let lineaProcesada = l.trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        let lineaLimpia = l.trim();
+        if (lineaLimpia === '') {
+            if (enLista) { h += '</ul>'; enLista = false; }
+            h += '<br>';
+            return;
+        }
 
-        if (l.includes('|')) {
+        // Convertir **negritas**
+        let texto = lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+        // Detectar Listas (Viñetas)
+        if (texto.startsWith('* ') || texto.startsWith('- ')) {
+            if (!enLista) { h += '<ul style="margin: 5px 0 15px 20px; padding-left: 20px;">'; enLista = true; }
+            h += `<li style="margin-bottom: 5px; font-size:13px;">${texto.substring(2)}</li>`;
+            return;
+        } else {
+            if (enLista) { h += '</ul>'; enLista = false; }
+        }
+
+        // Detectar Tablas
+        if (texto.includes('|')) {
             if (!enTabla) {
-                h += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:13px;">';
+                h += '<table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:12px;">';
                 enTabla = true;
+                esPrimeraFila = true;
             }
-            h += '<tr style="border:1px solid #000;">';
-            lineaProcesada.split('|').forEach(c => {
-                h += `<td style="border:1px solid #000; padding:6px;">${c.trim()}</td>`;
+            
+            // Fondo gris para la cabecera
+            let estiloFila = esPrimeraFila ? 'background-color:#f4f4f5; font-weight:bold; text-align:center;' : '';
+            h += `<tr style="border:1px solid #000; page-break-inside: avoid;">`;
+            
+            texto.split('|').forEach(celda => {
+                h += `<td style="border:1px solid #000; padding:8px; ${estiloFila}">${celda.trim()}</td>`;
             });
             h += '</tr>';
+            esPrimeraFila = false;
         } else {
-            if (enTabla) {
-                h += '</table>';
-                enTabla = false;
-            }
-            if (l.trim() !== '') {
-                h += `<p style="margin: 5px 0;">${lineaProcesada}</p>`;
+            if (enTabla) { h += '</table>'; enTabla = false; }
+            
+            // Estilos automáticos para subtítulos (Si termina en ":" y es corto)
+            if (texto.endsWith(':') && texto.length < 60) {
+                h += `<p style="margin: 15px 0 5px 0; font-size:14px; color:#cc0000; font-weight:900; text-transform:uppercase;">${texto}</p>`;
+            } else if (texto.startsWith('<b>PROYECTO:</b>') || texto.startsWith('<b>CLIENTE:</b>') || texto.startsWith('<b>FECHA:</b>')) {
+                h += `<p style="margin: 3px 0; font-size:13px;">${texto}</p>`;
             } else {
-                h += '<br>';
+                h += `<p style="margin: 5px 0; font-size:13px; text-align:justify;">${texto}</p>`;
             }
         }
     });
+    
+    if (enLista) h += '</ul>';
     if (enTabla) h += '</table>';
     z.innerHTML = h;
 };
