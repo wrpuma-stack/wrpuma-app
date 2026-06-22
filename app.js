@@ -88,21 +88,22 @@ function dibujarPanelTrabajador() {
             <div class="bg-blue-900/30 p-5 rounded-3xl shadow-xl mb-6 text-center"><p class="text-[10px] text-blue-400 font-bold uppercase mb-2">📌 DIRECTIVA DE HOY</p><p id="msg-dia-display" class="text-sm font-bold text-white italic">Cargando...</p></div>
             
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="window.marcarGPS('ENTRADA_URUBO')" class="col-span-1 bg-green-600 text-white py-4 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center">
-                    <span>☀️ ENT URUBÓ</span>
-                    <span class="text-[8px] font-bold mt-1 opacity-90 uppercase text-green-200">GPS Estricto</span>
+                <button onclick="window.marcarGPS('ENTRADA_URUBO')" class="col-span-1 bg-green-600 text-white py-6 rounded-3xl font-black text-lg shadow-[0_0_15px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center justify-center">
+                    <span>☀️ URUBÓ</span>
                 </button>
-                <button onclick="window.marcarGPS('ENTRADA_OTRAS')" class="col-span-1 bg-emerald-600 text-white py-4 rounded-3xl font-black text-sm shadow-md border-b-4 border-emerald-800 flex flex-col items-center">
-                    <span>☀️ ENT OTRAS</span>
-                    <span class="text-[8px] font-bold mt-1 opacity-90 uppercase text-emerald-200">Cabexe/Otros</span>
+                <button onclick="window.marcarGPS('ENTRADA_OTRAS')" class="col-span-1 bg-emerald-600 text-white py-6 rounded-3xl font-black text-lg shadow-md border-b-4 border-emerald-800 flex flex-col items-center justify-center">
+                    <span>☀️ OTRAS OBRAS</span>
                 </button>
-                <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-4 rounded-3xl font-black text-sm shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center">
+                <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-5 rounded-3xl font-black text-lg shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center">
                     <span>🌙 MARCAR SALIDA</span>
-                    <span class="text-[9px] font-bold mt-1 opacity-90 uppercase text-red-200">Fin de Jornada</span>
                 </button>
                 
-                <button onclick="window.pedirMaterialTrabajador()" class="bg-blue-900 text-white py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg">Pedir Material</button>
-                <button onclick="window.pedirAnticipoTrabajador()" class="bg-zinc-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase">Pedir Anticipo</button>
+                <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
+                    <span class="text-xl">🏗️</span><span>Pedir Material</span>
+                </button>
+                <button onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
+                    <span class="text-xl">💰</span><span>Pedir Anticipo</span>
+                </button>
             </div>
         </div>
     </div>`;
@@ -168,13 +169,18 @@ window.pedirMaterialTrabajador = () => {
     const n = localStorage.getItem('u_wr');
     const mat = prompt("Escriba el Material a solicitar (Ej: 2 brochas, 1 masilla):"); 
     if(mat) {
-        firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
-            const r = s.val();
-            const obraActual = (r && r.obra) ? r.obra : 'SIN ASIGNAR';
-            firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ 
-                tipo: 'MATERIAL', trabajador: n, obra: obraActual, detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
-            }).then(() => alert("✅ Solicitud de material enviada a Administración."));
-        });
+        if(confirm(`¿Confirmar solicitud de material?\n\nDetalle: ${mat}`)) {
+            firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
+                const r = s.val();
+                const obraActual = (r && r.obra) ? r.obra : 'SIN ASIGNAR';
+                firebase.database().ref(getDbPath(`solicitudes/SOL_MAT_${Date.now()}`)).set({ 
+                    tipo: 'MATERIAL', trabajador: n, obra: obraActual, detalle: mat, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
+                }).then(() => {
+                    alert("✅ Solicitud de material enviada a Administración.");
+                    window.dispararAlertaWhatsApp(`PEDIR MATERIAL: ${n} en ${obraActual} solicita: ${mat}`);
+                });
+            });
+        }
     }
 };
 
@@ -195,10 +201,15 @@ window.pedirAnticipoTrabajador = () => {
             const montoNum = parseFloat(montoStr.replace(/[^0-9.]/g, ''));
             if(isNaN(montoNum) || montoNum <= 0) return alert("❌ ERROR: Ingrese solo números válidos.");
 
-            const obraActual = r.obra ? r.obra : 'SIN ASIGNAR';
-            firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).set({ 
-                tipo: 'ANTICIPO', trabajador: n, obra: obraActual, detalle: montoNum, fecha_corta: fechaSel, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
-            }).then(() => alert(`✅ Solicitud enviada a Administración.`));
+            if(confirm(`¿Confirmar solicitud de anticipo por Bs. ${montoNum}?`)) {
+                const obraActual = r.obra ? r.obra : 'SIN ASIGNAR';
+                firebase.database().ref(getDbPath(`solicitudes/${reqID}`)).set({ 
+                    tipo: 'ANTICIPO', trabajador: n, obra: obraActual, detalle: montoNum, fecha_corta: fechaSel, fecha: new Date().toLocaleString(), estado: 'Pendiente' 
+                }).then(() => {
+                    alert(`✅ Solicitud enviada a Administración.`);
+                    window.dispararAlertaWhatsApp(`PEDIR ANTICIPO: ${n} en ${obraActual} solicita: Bs. ${montoNum}`);
+                });
+            }
         });
     });
 };
