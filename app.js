@@ -124,44 +124,83 @@ window.marcarGPS = (tipo) => {
         const updates = { nombre: n };
 
         if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
-            let esLogistica = false;
+            
+            // BUSQUEDA EN TIEMPO REAL DE LA OBRA (Radio 100 Metros)
+            firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
+                const obras = snap.val() || {};
+                let obraAsignada = "POR ASIGNAR";
+                let menorDistancia = Infinity;
+                let esLogistica = false;
 
-            if (tipo === 'ENTRADA_URUBO') {
-                const URUBO_LAT = -17.7554; const URUBO_LNG = -63.2031; const RADIO_TOLERANCIA = 250; 
-                const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
-                const d1 = (URUBO_LAT-lat) * Math.PI/180; const d2 = (URUBO_LNG-lng) * Math.PI/180;
-                const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
-                const distanciaUrubo = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                // 1. Escáner Automático
+                Object.values(obras).forEach(o => {
+                    if(o.estado !== 'Entregada' && o.latitud && o.longitud) {
+                        const R = 6371e3; 
+                        const r1 = lat * Math.PI/180; 
+                        const r2 = parseFloat(o.latitud) * Math.PI/180;
+                        const d1 = (parseFloat(o.latitud)-lat) * Math.PI/180; 
+                        const d2 = (parseFloat(o.longitud)-lng) * Math.PI/180;
+                        const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
+                        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-                if(distanciaUrubo > RADIO_TOLERANCIA) {
-                    const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA (${distanciaUrubo.toFixed(0)} mts del puente Urubó).\n¿Estás ingresando por compra logística autorizada (Ej. Ribepar)?`);
-                    if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate a la obra para marcar.");
+                        if(dist <= 100 && dist < menorDistancia) {
+                            menorDistancia = dist;
+                            obraAsignada = o.nombre;
+                        }
+                    }
+                });
+
+                // 2. Fallback temporal Urubó (Si presiona Urubó y no se detectó obra en los 100m, aplica el radio de 250m al puente)
+                if (obraAsignada === "POR ASIGNAR" && tipo === 'ENTRADA_URUBO') {
+                    const URUBO_LAT = -17.7554; const URUBO_LNG = -63.2031; const RADIO_TOLERANCIA = 250; 
+                    const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
+                    const d1 = (URUBO_LAT-lat) * Math.PI/180; const d2 = (URUBO_LNG-lng) * Math.PI/180;
+                    const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
+                    const distanciaUrubo = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+                    if(distanciaUrubo > RADIO_TOLERANCIA) {
+                        const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA (${distanciaUrubo.toFixed(0)} mts del puente Urubó).\n¿Estás ingresando por compra logística autorizada?`);
+                        if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate a la obra para marcar.");
+                        esLogistica = true;
+                        updates.excepcion_logistica = true;
+                    } else {
+                        obraAsignada = "URUBÓ (ZONA PUENTE)";
+                    }
+                }
+
+                // 3. Validación de Bloqueo para Otras Obras (Protección contra marcación remota)
+                if (obraAsignada === "POR ASIGNAR" && tipo === 'ENTRADA_OTRAS') {
+                    const excepcion = confirm(`⚠️ NO SE DETECTA OBRA CERCANA (A más de 100 mts).\n¿Ingreso por compra logística o error de GPS de la empresa?`);
+                    if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate al perímetro de la obra (100m).");
                     esLogistica = true;
                     updates.excepcion_logistica = true;
                 }
-            }
 
-            if(horaNum >= 8.01 && !esLogistica) {
-                updates.estado = 'ROJA';
-                updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
-                window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr}. Descuento automático activado en planilla.`);
-            } else {
-                updates.estado = 'VERDE';
-            }
+                // 4. Registrar hora y alertas
+                if(horaNum >= 8.01 && !esLogistica) {
+                    updates.estado = 'ROJA';
+                    updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
+                    window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr} en ${obraAsignada}. Descuento automático en planilla.`);
+                } else {
+                    updates.estado = 'VERDE';
+                }
 
-            updates.hora_entrada = timeStr;
-            updates.gps_entrada = gpsStr;
-            updates.obra = "POR ASIGNAR";
-            updates.jornada_normal = (ahora.getDay() === 6) ? 0.5 : 1.0; 
-            updates.dia_semana = ahora.getDay();
+                updates.hora_entrada = timeStr;
+                updates.gps_entrada = gpsStr;
+                updates.obra = obraAsignada;
+                updates.jornada_normal = (ahora.getDay() === 6) ? 0.5 : 1.0; 
+                updates.dia_semana = ahora.getDay();
+
+                firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
+                    .then(() => alert(`✅ MARCA REGISTRADA CON ÉXITO.\n📍 Asignado a: ${obraAsignada}`));
+            });
 
         } else if (tipo === 'SALIDA') {
             updates.hora_salida = timeStr;
             updates.gps_salida = gpsStr;
+            firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
+                .then(() => alert(`✅ SALIDA REGISTRADA CON ÉXITO.`));
         }
-
-        firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
-            .then(() => alert(`✅ MARCA REGISTRADA CON ÉXITO.`));
     }, () => alert("❌ Active el GPS en su celular para marcar. Es obligatorio en WRPUMA."));
 };
 
@@ -680,6 +719,10 @@ function dibujarObras() {
                 ${esAdmin ? `
                 <input id="o-nom" type="text" placeholder="NOMBRE DEL PROYECTO" class="w-full p-3 rounded-xl border-2 font-bold mb-2 uppercase">
                 <input id="o-pre" type="number" placeholder="PRESUPUESTO TOTAL Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <input id="o-lat" type="number" placeholder="LATITUD (Ej: -17.7532)" class="w-full p-2 rounded-xl border-2 font-bold text-xs">
+                    <input id="o-lng" type="number" placeholder="LONGITUD (Ej: -63.2109)" class="w-full p-2 rounded-xl border-2 font-bold text-xs">
+                </div>
                 <button onclick="window.saveO()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-md">REGISTRAR PROYECTO</button>
                 <button onclick="window.crearMicroObra()" class="w-full mt-2 bg-blue-600 text-white font-black py-3 rounded-2xl shadow-md">+ REGISTRAR MICRO-OBRA EXPRESS</button>
                 ` : ''}
@@ -710,6 +753,7 @@ function dibujarObras() {
                 const card = `
                 <div class="p-4 bg-zinc-50 rounded-2xl border-2 ${o.estado !== 'Entregada' ? 'border-zinc-300' : 'border-green-500'} relative">
                     <b class="text-xl uppercase text-red-600">${o.nombre}</b>
+                    ${o.latitud && o.longitud ? `<span class="bg-green-100 text-green-700 text-[9px] font-black px-2 py-1 rounded border border-green-300 inline-block ml-2 align-middle mb-1">📍 GPS ACTIVADO</span>` : `<span class="bg-yellow-100 text-yellow-700 text-[9px] font-black px-2 py-1 rounded border border-yellow-300 inline-block ml-2 align-middle mb-1">⚠️ SIN GPS</span>`}
                     
                     ${esAdmin ? `
                     <div class="grid grid-cols-2 gap-2 text-[10px] font-bold uppercase mb-2 mt-2">
@@ -736,7 +780,27 @@ function dibujarObras() {
     });
 }
 window.agregarLinkObra = (id) => { const l = prompt("Enlace fotos:"); if (l) firebase.database().ref(getDbPath(`obras/${id}`)).update({ link_fotos: l }); };
-window.saveO = () => { const n = document.getElementById('o-nom').value.trim(), p = document.getElementById('o-pre').value; if (n && p) { firebase.database().ref(getDbPath('obras')).push({ nombre: n.toUpperCase(), presupuesto: p, estado: 'Activa' }); document.getElementById('o-nom').value = ''; document.getElementById('o-pre').value = ''; } else alert("Campos vacios"); };
+
+window.saveO = () => { 
+    const n = document.getElementById('o-nom').value.trim(), 
+          p = document.getElementById('o-pre').value,
+          lat = document.getElementById('o-lat').value,
+          lng = document.getElementById('o-lng').value;
+    if (n && p) { 
+        firebase.database().ref(getDbPath('obras')).push({ 
+            nombre: n.toUpperCase(), 
+            presupuesto: p, 
+            latitud: lat ? parseFloat(lat) : "",
+            longitud: lng ? parseFloat(lng) : "",
+            estado: 'Activa' 
+        }); 
+        document.getElementById('o-nom').value = ''; 
+        document.getElementById('o-pre').value = ''; 
+        if(document.getElementById('o-lat')) document.getElementById('o-lat').value = '';
+        if(document.getElementById('o-lng')) document.getElementById('o-lng').value = '';
+    } else alert("Campos vacios"); 
+};
+
 window.crearMicroObra = () => {
     const n = prompt("Nombre del Tratamiento / Impermeabilización:");
     const pre = prompt("Precio Acordado (Bs):");
@@ -1061,7 +1125,6 @@ window.cambiarTipoCalc = () => { const t = document.getElementById('calc-tipo').
 window.calcularParcial = () => { const t = document.getElementById('calc-tipo').value, L = parseFloat(document.getElementById('calc-largo').value)||0, A = parseFloat(document.getElementById('calc-ancho').value)||0, H = parseFloat(document.getElementById('calc-alto').value)||0; let perim=0, aN=0; if (t === 'techo') { aN = L * A * (parseFloat(document.getElementById('calc-caida').value)||1); } else { perim = t==='cuarto'?(L+A)*2:L; let aP = perim*H, aC = (t==='cuarto'&&document.getElementById('calc-cielo').checked)?(L*A):0, dP = (parseFloat(document.getElementById('calc-p-cant').value)||0)*(parseFloat(document.getElementById('calc-p-ancho').value)||0)*2, dV = (parseFloat(document.getElementById('calc-v-cant').value)||0)*(parseFloat(document.getElementById('calc-v-ancho').value)||0)*(parseFloat(document.getElementById('calc-v-alto').value)||0); aN = Math.max(0, aP+aC - dP - dV); } const mlI = document.getElementById('calc-ml'); if (document.activeElement !== mlI && (!mlI.value || mlI.value=="0") && t!=='techo' && perim>0) mlI.value = perim.toFixed(2); const mlR = parseFloat(mlI.value)||0, pM2 = parseFloat(document.getElementById('calc-precio-m2').value)||0, pMl = parseFloat(document.getElementById('calc-precio-ml').value)||0; window.tempM2 = aN.toFixed(2); window.tempMl = mlR.toFixed(2); window.tempTotal = ((aN*pM2)+(mlR*pMl)).toFixed(2); document.getElementById('res-parcial-m2').innerText = window.tempM2; document.getElementById('res-parcial-total').innerText = window.tempTotal; };
 window.agregarAlCarrito = () => { let n = document.getElementById('calc-nombre').value.trim(); if (!n || parseFloat(window.tempTotal)===0) return; window.carritoPresupuesto.push({ nombre: n.toUpperCase(), m2: window.tempM2, total: window.tempTotal }); ['calc-nombre','calc-largo','calc-ancho','calc-alto','calc-ml'].forEach(i => {if(document.getElementById(i)) document.getElementById(i).value='';}); ['calc-p-cant','calc-v-cant'].forEach(i => document.getElementById(i).value='0'); window.calcularParcial(); window.renderCarrito(); };
 window.renderCarrito = () => { const c = document.getElementById('contenedor-carrito'), l = document.getElementById('lista-carrito'); if(window.carritoPresupuesto.length===0) return c.style.display='none'; c.style.display='block'; l.innerHTML=''; let t=0; window.carritoPresupuesto.forEach((i, idx) => { t += parseFloat(i.total); l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`; }); document.getElementById('carrito-gran-total').innerText = t.toFixed(2); };
-window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
 window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${(parseFloat(i.total)*1.10*1.35).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${(tt*1.10*1.35).toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
 
 // ==========================================================
