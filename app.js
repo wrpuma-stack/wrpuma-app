@@ -744,7 +744,6 @@ function dibujarObras() {
             const fin = fSnap.val() || {};
             Object.keys(obs).forEach(id => {
                 const o = obs[id]; let cob = 0, gas = 0;
-                // La retención 20% entra a la variable 'gas' automáticamente para deducir de la utilidad.
                 if (fin[id]) Object.values(fin[id]).forEach(m => { if (m.tipo === 'anticipo_cliente') cob += parseFloat(m.monto); else gas += parseFloat(m.monto); });
                 const fRes = o.presupuesto * 0.05, gNeta = o.presupuesto - gas - fRes;
                 
@@ -768,11 +767,15 @@ function dibujarObras() {
                     ${esAdmin ? `
                     <div class="pt-2 flex flex-wrap gap-1 justify-between">
                         <button onclick="window.cobrarAnticipo('${id}')" class="flex-[2] bg-blue-600 text-white text-[10px] font-black p-2 rounded-lg shadow-sm">💰 Cobrar Ant.</button>
-                        <button onclick="window.corregirAnticipos('${id}')" class="flex-1 bg-red-100 text-red-700 text-[9px] font-black p-2 rounded-lg border border-red-300">Corregir</button>
-                        <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-1 text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
-                        <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar</button>
+                        <button onclick="window.corregirAnticipos('${id}')" class="flex-[1.5] bg-red-100 text-red-700 text-[9px] font-black p-2 rounded-lg border border-red-300">Corregir</button>
+                        <button onclick="window.cambiarEstadoO('${id}', '${o.estado === 'Entregada' ? 'Activa' : 'Entregada'}')" class="flex-[1.5] text-[9px] font-black p-2 rounded-lg ${o.estado === 'Entregada' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">Entregar</button>
+                    </div>
+                    <div class="pt-2 flex flex-wrap gap-1 justify-between mt-1 border-t border-zinc-200">
+                        <button onclick="window.editarGPSObra('${id}')" class="flex-[2] bg-zinc-800 text-white text-[9px] font-black p-2 rounded-lg">📍 Fijar GPS</button>
+                        <button onclick="window.editarNombreObra('${id}', '${o.nombre}')" class="flex-1 text-blue-600 text-[9px] font-black underline p-2">Editar Nombre</button>
                         <button onclick="window.delO('${id}')" class="flex-1 text-red-500 text-[9px] font-black underline p-2">Borrar</button>
-                    </div>` : ''}
+                    </div>
+                    ` : ''}
                 </div>`;
                 o.estado !== 'Entregada' ? cA.innerHTML += card : cE.innerHTML += card;
             });
@@ -818,6 +821,26 @@ window.crearMicroObra = () => {
 window.delO = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`obras/${id}`)).remove(); };
 window.cambiarEstadoO = (id, e) => { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: e }); };
 
+// NUEVA FUNCIÓN PARA AGREGAR GPS A OBRAS EXISTENTES
+window.editarGPSObra = (id) => {
+    const lat = prompt("Ingrese la LATITUD (Ejemplo: -17.753245):");
+    if(lat === null || lat.trim() === '') return; 
+    
+    const lng = prompt("Ingrese la LONGITUD (Ejemplo: -63.210981):");
+    if(lng === null || lng.trim() === '') return;
+
+    if(!isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+        firebase.database().ref(getDbPath(`obras/${id}`)).update({
+            latitud: parseFloat(lat),
+            longitud: parseFloat(lng)
+        }).then(() => alert("📍 Coordenadas GPS vinculadas exitosamente a la obra."));
+    } else {
+        alert("❌ Error: Solo debe ingresar números. Use el punto (.) para los decimales.");
+    }
+};
+
+// CORRECCIÓN FINANCIERA 80/20 Y REGISTRO 100% PARA EL CLIENTE
+// ... (El resto del código hacia abajo queda igual)
 // CORRECCIÓN FINANCIERA 80/20 Y REGISTRO 100% PARA EL CLIENTE
 window.cobrarAnticipo = (id) => { 
     const m = prompt("💰 MODO BLINDAJE FINANCIERO:\nIngrese el Monto TOTAL Cobrado al Cliente (Bs.):"); 
