@@ -150,12 +150,9 @@ window.marcarGPS = (tipo) => {
                     }
                 });
 
-                // 2. Validación Estricta de Bloqueo (Aplica para todos los botones)
+               // 2. Bloqueo Absoluto (Cero Excepciones)
                 if (obraAsignada === "POR ASIGNAR") {
-                    const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA.\nNo se detecta ninguna obra activa a menos de 100 metros de tu ubicación.\n¿Estás ingresando por compra logística autorizada?`);
-                    if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate al perímetro de la obra (100m) para marcar.");
-                    esLogistica = true;
-                    updates.excepcion_logistica = true;
+                    return alert("❌ INGRESO BLOQUEADO.\nEstás fuera de ruta. No se detecta ninguna obra a menos de 100 metros de tu ubicación. Acércate a la obra para marcar.");
                 }
 
                 // 3. Registrar hora y alertas
