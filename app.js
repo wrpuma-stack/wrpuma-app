@@ -150,7 +150,7 @@ window.marcarGPS = (tipo) => {
                     }
                 });
 
-               // 2. Bloqueo Absoluto (Cero Excepciones)
+                // 2. Bloqueo Absoluto (Cero Excepciones)
                 if (obraAsignada === "POR ASIGNAR") {
                     return alert("❌ INGRESO BLOQUEADO.\nEstás fuera de ruta. No se detecta ninguna obra a menos de 100 metros de tu ubicación. Acércate a la obra para marcar.");
                 }
