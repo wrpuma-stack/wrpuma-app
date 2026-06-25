@@ -150,33 +150,15 @@ window.marcarGPS = (tipo) => {
                     }
                 });
 
-                // 2. Fallback temporal Urubó (Si presiona Urubó y no se detectó obra en los 100m, aplica el radio de 250m al puente)
-                if (obraAsignada === "POR ASIGNAR" && tipo === 'ENTRADA_URUBO') {
-                    const URUBO_LAT = -17.7554; const URUBO_LNG = -63.2031; const RADIO_TOLERANCIA = 250; 
-                    const R = 6371e3; const r1 = lat * Math.PI/180; const r2 = URUBO_LAT * Math.PI/180;
-                    const d1 = (URUBO_LAT-lat) * Math.PI/180; const d2 = (URUBO_LNG-lng) * Math.PI/180;
-                    const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
-                    const distanciaUrubo = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-                    if(distanciaUrubo > RADIO_TOLERANCIA) {
-                        const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA (${distanciaUrubo.toFixed(0)} mts del puente Urubó).\n¿Estás ingresando por compra logística autorizada?`);
-                        if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate a la obra para marcar.");
-                        esLogistica = true;
-                        updates.excepcion_logistica = true;
-                    } else {
-                        obraAsignada = "URUBÓ (ZONA PUENTE)";
-                    }
-                }
-
-                // 3. Validación de Bloqueo para Otras Obras (Protección contra marcación remota)
-                if (obraAsignada === "POR ASIGNAR" && tipo === 'ENTRADA_OTRAS') {
-                    const excepcion = confirm(`⚠️ NO SE DETECTA OBRA CERCANA (A más de 100 mts).\n¿Ingreso por compra logística o error de GPS de la empresa?`);
-                    if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate al perímetro de la obra (100m).");
+                // 2. Validación Estricta de Bloqueo (Aplica para todos los botones)
+                if (obraAsignada === "POR ASIGNAR") {
+                    const excepcion = confirm(`⚠️ ESTÁS FUERA DE RUTA.\nNo se detecta ninguna obra activa a menos de 100 metros de tu ubicación.\n¿Estás ingresando por compra logística autorizada?`);
+                    if(!excepcion) return alert("❌ INGRESO BLOQUEADO. Acércate al perímetro de la obra (100m) para marcar.");
                     esLogistica = true;
                     updates.excepcion_logistica = true;
                 }
 
-                // 4. Registrar hora y alertas
+                // 3. Registrar hora y alertas
                 if(horaNum >= 8.01 && !esLogistica) {
                     updates.estado = 'ROJA';
                     updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
@@ -839,8 +821,6 @@ window.editarGPSObra = (id) => {
     }
 };
 
-// CORRECCIÓN FINANCIERA 80/20 Y REGISTRO 100% PARA EL CLIENTE
-// ... (El resto del código hacia abajo queda igual)
 // CORRECCIÓN FINANCIERA 80/20 Y REGISTRO 100% PARA EL CLIENTE
 window.cobrarAnticipo = (id) => { 
     const m = prompt("💰 MODO BLINDAJE FINANCIERO:\nIngrese el Monto TOTAL Cobrado al Cliente (Bs.):"); 
