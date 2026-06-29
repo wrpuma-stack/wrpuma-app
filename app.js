@@ -15,6 +15,7 @@ const getLocalISODate = (dateObj = new Date()) => {
 
 let fechaSel = getLocalISODate();
 window.carritoPresupuesto = [];
+window.aplicarMultaSalida = true; // BOTON MAESTRO PARA MULTAS DE SALIDA
 
 const getDbPath = (path) => {
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -123,40 +124,36 @@ window.marcarGPS = (tipo) => {
         
         const updates = { nombre: n };
 
-        if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
-            
-            // BUSQUEDA EN TIEMPO REAL DE LA OBRA (Radio 100 Metros)
-            firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
-                const obras = snap.val() || {};
-                let obraAsignada = "POR ASIGNAR";
-                let menorDistancia = Infinity;
-                let esLogistica = false;
+        // BUSQUEDA EN TIEMPO REAL DE LA OBRA (Radio 100 Metros)
+        firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
+            const obras = snap.val() || {};
+            let obraAsignada = "POR ASIGNAR";
+            let menorDistancia = Infinity;
 
-                // 1. Escáner Automático
-                Object.values(obras).forEach(o => {
-                    if(o.estado !== 'Entregada' && o.latitud && o.longitud) {
-                        const R = 6371e3; 
-                        const r1 = lat * Math.PI/180; 
-                        const r2 = parseFloat(o.latitud) * Math.PI/180;
-                        const d1 = (parseFloat(o.latitud)-lat) * Math.PI/180; 
-                        const d2 = (parseFloat(o.longitud)-lng) * Math.PI/180;
-                        const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
-                        const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            Object.values(obras).forEach(o => {
+                if(o.estado !== 'Entregada' && o.latitud && o.longitud) {
+                    const R = 6371e3; 
+                    const r1 = lat * Math.PI/180; 
+                    const r2 = parseFloat(o.latitud) * Math.PI/180;
+                    const d1 = (parseFloat(o.latitud)-lat) * Math.PI/180; 
+                    const d2 = (parseFloat(o.longitud)-lng) * Math.PI/180;
+                    const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
+                    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-                        if(dist <= 100 && dist < menorDistancia) {
-                            menorDistancia = dist;
-                            obraAsignada = o.nombre;
-                        }
+                    if(dist <= 100 && dist < menorDistancia) {
+                        menorDistancia = dist;
+                        obraAsignada = o.nombre;
                     }
-                });
-
-                // 2. Bloqueo Absoluto (Cero Excepciones)
-                if (obraAsignada === "POR ASIGNAR") {
-                    return alert("❌ INGRESO BLOQUEADO.\nEstás fuera de ruta. No se detecta ninguna obra a menos de 100 metros de tu ubicación. Acércate a la obra para marcar.");
                 }
+            });
 
-                // 3. Registrar hora y alertas
-                if(horaNum >= 8.01 && !esLogistica) {
+            // BLOQUEO ABSOLUTO PARA ENTRADA Y SALIDA
+            if (obraAsignada === "POR ASIGNAR") {
+                return alert("❌ OPERACIÓN BLOQUEADA.\nEstás fuera de ruta. No se detecta ninguna obra a menos de 100 metros de tu ubicación. Acércate a la obra para marcar.");
+            }
+
+            if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
+                if(horaNum >= 8.01) {
                     updates.estado = 'ROJA';
                     updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
                     window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr} en ${obraAsignada}. Descuento automático en planilla.`);
@@ -171,15 +168,26 @@ window.marcarGPS = (tipo) => {
                 updates.dia_semana = ahora.getDay();
 
                 firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
-                    .then(() => alert(`✅ MARCA REGISTRADA CON ÉXITO.\n📍 Asignado a: ${obraAsignada}`));
-            });
+                    .then(() => alert(`✅ ENTRADA REGISTRADA CON ÉXITO.\n📍 Asignado a: ${obraAsignada}`));
 
-        } else if (tipo === 'SALIDA') {
-            updates.hora_salida = timeStr;
-            updates.gps_salida = gpsStr;
-            firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
-                .then(() => alert(`✅ SALIDA REGISTRADA CON ÉXITO.`));
-        }
+            } else if (tipo === 'SALIDA') {
+                updates.hora_salida = timeStr;
+                updates.gps_salida = gpsStr;
+                
+                // AUDITORÍA FANTASMAS: Si marcan salida sin marcar entrada, se les asigna la obra a la fuerza pero con 0 días ganados
+                firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).once('value').then(s => {
+                    let record = s.val() || {};
+                    if(!record.obra || record.obra === "POR ASIGNAR" || !record.hora_entrada) {
+                         updates.obra = obraAsignada;
+                         updates.jornada_normal = 0; // Se fue sin marcar entrada, no se paga a menos que admin edite
+                         updates.estado = 'ROJA';
+                         updates.dia_semana = ahora.getDay();
+                    }
+                    firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update(updates)
+                        .then(() => alert(`✅ SALIDA REGISTRADA CON ÉXITO EN: ${obraAsignada}`));
+                });
+            }
+        });
     }, () => alert("❌ Active el GPS en su celular para marcar. Es obligatorio en WRPUMA."));
 };
 
@@ -467,7 +475,7 @@ window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fant
 // 💰 SUELDOS Y PAGOS (REGLA DEL SÁBADO AUTOMATIZADA)
 // ==========================================================
 function dibujarPlanilla() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.toggleMultaSalida()" class="w-full ${window.aplicarMultaSalida ? 'bg-red-600 border-red-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-2 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaSalida ? '🔴 MULTAS DE SALIDA: ACTIVAS (-0.5D)' : '⚪ MULTAS DE SALIDA: APAGADAS (0.0D)'}</button><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
@@ -483,8 +491,8 @@ function dibujarPlanilla() {
             
             if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dSabado: 0, dExt: 0, ant: 0, hAtraso: 0, dano: 0, faltasSalida: 0, obraPrincipal: reg.obra };
             
-            // CORRECCIÓN AUDITORÍA: Solo se multa si el día ya pasó (f < hoyStr)
-            if (reg.hora_entrada && !reg.hora_salida && f < hoyStr) {
+            // CORRECCIÓN AUDITORÍA: Solo se multa si el botón maestro está encendido y si el día ya pasó
+            if (window.aplicarMultaSalida && reg.hora_entrada && !reg.hora_salida && f < hoyStr) {
                 res[nombreMayus].faltasSalida += 0.5; // Multa medio jornal por irse sin avisar
             }
 
@@ -528,6 +536,7 @@ function dibujarPlanilla() {
         if (tP > 0) c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center"><p class="text-[10px] font-black mb-1">TOTAL PLANILLA</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
     });
 }
+window.toggleMultaSalida = () => { window.aplicarMultaSalida = !window.aplicarMultaSalida; dibujarPlanilla(); };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
 window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp, dano) => {
@@ -652,7 +661,6 @@ window.trasladoRapidoHerr = (id, nombre) => {
     }
 };
 
-// CORRECCIÓN WEBHOOK - LIMPIEZA POST GUARDADO
 window.registrarMaterialObra = () => {
     const obra = document.getElementById('log-obra').value;
     const det = document.getElementById('log-mat-nombre').value.trim();
@@ -660,7 +668,7 @@ window.registrarMaterialObra = () => {
         firebase.database().ref(getDbPath(`inventario_obras/MAT_${Date.now()}`)).set({ 
             obra: obra, detalle: det.toUpperCase(), fecha: new Date().toISOString() 
         }).then(() => {
-            document.getElementById('log-mat-nombre').value = ''; // Limpia SOLO si guarda
+            document.getElementById('log-mat-nombre').value = ''; 
             alert("✅ Material registrado exitosamente.");
             window.dispararAlertaWhatsApp(`📦 REPORTE MATERIAL WRPUMA: Se registraron sobrantes en [${obra}] -> ${det.toUpperCase()}`);
         }).catch(err => alert("❌ Error de conexión al guardar en base de datos."));
@@ -800,7 +808,6 @@ window.crearMicroObra = () => {
 window.delO = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`obras/${id}`)).remove(); };
 window.cambiarEstadoO = (id, e) => { firebase.database().ref(getDbPath(`obras/${id}`)).update({ estado: e }); };
 
-// NUEVA FUNCIÓN PARA AGREGAR GPS A OBRAS EXISTENTES
 window.editarGPSObra = (id) => {
     const lat = prompt("Ingrese la LATITUD (Ejemplo: -17.753245):");
     if(lat === null || lat.trim() === '') return; 
@@ -818,23 +825,19 @@ window.editarGPSObra = (id) => {
     }
 };
 
-// CORRECCIÓN FINANCIERA 80/20 Y REGISTRO 100% PARA EL CLIENTE
 window.cobrarAnticipo = (id) => { 
     const m = prompt("💰 MODO BLINDAJE FINANCIERO:\nIngrese el Monto TOTAL Cobrado al Cliente (Bs.):"); 
     const monto = parseFloat(m);
     if (monto && monto > 0) { 
-        // Aplicación estricta de la regla financiera WRPUMA
         const aCaja = monto * 0.80;
         const resHerr = monto * 0.10;
         const resComb = monto * 0.05;
         const resRep = monto * 0.05;
-        const retencionTotal = resHerr + resComb + resRep; // El 20% completo
+        const retencionTotal = resHerr + resComb + resRep; 
 
         alert(`💰 BLINDAJE APLICADO EXITOSAMENTE:\n\nIngreso Total Cliente: Bs. ${monto}\n\n🟢 A Caja de Obra (80%): Bs. ${aCaja.toFixed(1)}\n🔴 Retención WRPUMA (20%): Bs. ${retencionTotal.toFixed(1)}`);
         
-        // 1. REGISTRAMOS EL 100% PARA NO MUTILAR EL HISTORIAL DEL CLIENTE
         data.registrarMovimiento(id, 'anticipo_cliente', monto, `Cobro Real al Cliente (100%)`).then(() => {
-            // 2. REGISTRAMOS EL 20% COMO GASTO/EGRESO AUTOMÁTICO
             data.registrarMovimiento(id, 'retencion_fondos_wr', retencionTotal, `Descuento Automático 20% (Herramientas, Combustible, Repuestos)`);
         });
     } 
@@ -1157,9 +1160,7 @@ function dibujarCotizador() {
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    // Limpieza agresiva de basura residual de la IA y de los símbolos ####
     let textoBruto = z.innerText.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su cotización aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
-    
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
@@ -1169,7 +1170,6 @@ window.arreglarFormato = () => {
         let lineaLimpia = l.trim();
         if (lineaLimpia === '') return;
 
-        // Si es tabla
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
                 h += '<table style="width:100%; border-collapse:collapse; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
@@ -1187,8 +1187,6 @@ window.arreglarFormato = () => {
             esPrimeraFila = false;
         } else {
             if (enTabla) { h += '</table>'; enTabla = false; }
-            
-            // Detectar si es un numeral (Ej: 1. o 01.)
             let esNumeral = lineaLimpia.match(/^\d+\.?\s/);
             
             if (esNumeral) {
