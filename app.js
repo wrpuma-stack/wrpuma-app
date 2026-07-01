@@ -128,16 +128,16 @@ window.marcarGPS = (tipo) => {
         const horaNum = ahora.getHours() + (ahora.getMinutes() / 60);
         const diaSemana = ahora.getDay();
         
-        // MODO OFFLINE (SIN INTERNET)
+        // INTERCEPCIÓN MODO OFFLINE (SIN INTERNET)
         if (!navigator.onLine) {
             let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
             pendientes.push({ tipo, lat, lng, n, timeStr, gpsStr, horaNum, fecha: fechaSel, dia_semana: diaSemana });
             localStorage.setItem('asistencias_offline', JSON.stringify(pendientes));
-            dibujarPanelTrabajador(); // Refresca para mostrar el boton amarillo
-            return alert("⚠️ MODO SIN SEÑAL (OFFLINE)\nTu registro se guardó en la memoria del teléfono.\nCuando tengas internet o WiFi, presiona el botón amarillo 'SINCRONIZAR' en tu pantalla para enviarlo al sistema de control.");
+            dibujarPanelTrabajador(); 
+            return alert("⚠️ MODO SIN SEÑAL (OFFLINE)\nTu registro se guardó en la memoria local de tu teléfono.\nCuando tengas señal de red móvil o WiFi, presiona el botón amarillo 'SINCRONIZAR' en tu pantalla para enviarlo al sistema de control.");
         }
 
-        // MODO ONLINE
+        // MODO TRADICIONAL ONLINE
         window.procesarMarcaGPS(tipo, lat, lng, n, timeStr, gpsStr, horaNum, fechaSel, diaSemana, false);
 
     }, () => alert("❌ Active el GPS en su celular para marcar. Es obligatorio en WRPUMA."));
@@ -146,83 +146,91 @@ window.marcarGPS = (tipo) => {
 window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, diaSemana, esSincronizacion) => {
     const updates = { nombre: n };
 
-    // BUSQUEDA EN TIEMPO REAL DE LA OBRA (Radio 100 Metros)
-    firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
-        const obras = snap.val() || {};
-        let obraAsignada = "POR ASIGNAR";
-        let menorDistancia = Infinity;
+    // BUSCAMOS EL REGISTRO ACTUAL PARA SABER SI ESTABAN EN "OTRAS OBRAS"
+    firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
+        let record = s.val() || {};
 
-        Object.values(obras).forEach(o => {
-            if(o.estado !== 'Entregada' && o.latitud && o.longitud) {
-                const R = 6371e3; 
-                const r1 = lat * Math.PI/180; 
-                const r2 = parseFloat(o.latitud) * Math.PI/180;
-                const d1 = (parseFloat(o.latitud)-lat) * Math.PI/180; 
-                const d2 = (parseFloat(o.longitud)-lng) * Math.PI/180;
-                const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
-                const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
+            const obras = snap.val() || {};
+            let obraAsignada = "POR ASIGNAR";
+            let menorDistancia = Infinity;
 
-                if(dist <= 100 && dist < menorDistancia) {
-                    menorDistancia = dist;
-                    obraAsignada = o.nombre;
+            Object.values(obras).forEach(o => {
+                if(o.estado !== 'Entregada' && o.latitud && o.longitud) {
+                    const R = 6371e3; 
+                    const r1 = lat * Math.PI/180; 
+                    const r2 = parseFloat(o.latitud) * Math.PI/180;
+                    const d1 = (parseFloat(o.latitud)-lat) * Math.PI/180; 
+                    const d2 = (parseFloat(o.longitud)-lng) * Math.PI/180;
+                    const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
+                    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+                    if(dist <= 100 && dist < menorDistancia) {
+                        menorDistancia = dist;
+                        obraAsignada = o.nombre;
+                    }
                 }
-            }
-        });
+            });
 
-        // BLOQUEO ABSOLUTO PARA ENTRADA Y SALIDA
-        if (obraAsignada === "POR ASIGNAR") {
-            return alert(`❌ OPERACIÓN BLOQUEADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. No se detecta ninguna obra a menos de 100 metros de tu ubicación guardada.`);
-        }
-
-        if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
-            if(horaNum >= 8.01) {
-                updates.estado = 'ROJA';
-                updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
-                if(!esSincronizacion) window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr} en ${obraAsignada}. Descuento automático en planilla.`);
-            } else {
-                updates.estado = 'VERDE';
+            // AJUSTE SOLICITADO: BYPASS DE 100 METROS PARA OTRAS OBRAS
+            if (tipo === 'ENTRADA_OTRAS') {
+                obraAsignada = "OTRAS OBRAS";
+            } else if (tipo === 'SALIDA' && record.obra === "OTRAS OBRAS") {
+                obraAsignada = "OTRAS OBRAS";
             }
 
-            updates.hora_entrada = timeStr;
-            updates.gps_entrada = gpsStr;
-            updates.obra = obraAsignada;
-            updates.jornada_normal = (diaSemana === 6) ? 0.5 : 1.0; 
-            updates.dia_semana = diaSemana;
+            // EL BLOQUEO APLICA PARA URUBÓ O SI ESTÁN EN EL AIRE
+            if (obraAsignada === "POR ASIGNAR") {
+                return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. No se detecta ninguna obra activa a menos de 100 metros de tu ubicación.`);
+            }
 
-            firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).update(updates)
-                .then(() => alert(`✅ ENTRADA REGISTRADA CON ÉXITO${esSincronizacion ? ' (Sincronizada)' : ''}.\n📍 Asignado a: ${obraAsignada}`));
+            if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
+                if(horaNum >= 8.01) {
+                    updates.estado = 'ROJA';
+                    updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
+                    if(!esSincronizacion) window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr} en ${obraAsignada}. Descuento automático en planilla.`);
+                } else {
+                    updates.estado = 'VERDE';
+                }
 
-        } else if (tipo === 'SALIDA') {
-            updates.hora_salida = timeStr;
-            updates.gps_salida = gpsStr;
-            
-            // AUDITORÍA FANTASMAS
-            firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
-                let record = s.val() || {};
+                updates.hora_entrada = timeStr;
+                updates.gps_entrada = gpsStr;
+                updates.obra = obraAsignada;
+                updates.jornada_normal = (diaSemana === 6) ? 0.5 : 1.0; 
+                updates.dia_semana = diaSemana;
+
+                firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).update(updates)
+                    .then(() => alert(`✅ ENTRADA REGISTRADA CON ÉXITO${esSincronizacion ? ' (Sincronizada)' : ''}.\n📍 Asignado a: ${obraAsignada}`));
+
+            } else if (tipo === 'SALIDA') {
+                updates.hora_salida = timeStr;
+                updates.gps_salida = gpsStr;
+                
+                // AUDITORÍA FANTASMAS
                 if(!record.obra || record.obra === "POR ASIGNAR" || !record.hora_entrada) {
                      updates.obra = obraAsignada;
-                     updates.jornada_normal = 0; // Se fue sin marcar entrada, no se paga a menos que admin edite
+                     updates.jornada_normal = 0; 
                      updates.estado = 'ROJA';
                      updates.dia_semana = diaSemana;
                 }
                 firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).update(updates)
                     .then(() => alert(`✅ SALIDA REGISTRADA CON ÉXITO EN: ${obraAsignada}${esSincronizacion ? ' (Sincronizada)' : ''}`));
-            });
-        }
+            }
+        });
     });
 };
 
-// FUNCION DE SINCRONIZACION MANUAL
+// MANEJADOR MOTOR OFFLINE - COLA DE EXEC
 window.sincronizarOffline = () => {
     let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
     if (pendientes.length === 0) return alert("✅ No hay registros pendientes.");
-    if (!navigator.onLine) return alert("❌ Sigues sin internet. Intenta cuando tengas señal de red móvil o WiFi.");
+    if (!navigator.onLine) return alert("❌ Sigues sin internet. Sincroniza al tener datos móviles estables o WiFi.");
 
     pendientes.forEach(p => {
         window.procesarMarcaGPS(p.tipo, p.lat, p.lng, p.n, p.timeStr, p.gpsStr, p.horaNum, p.fecha, p.dia_semana, true);
     });
-    localStorage.setItem('asistencias_offline', '[]'); // Limpia la cola
-    dibujarPanelTrabajador(); // Quita el boton amarillo
+    localStorage.setItem('asistencias_offline', '[]'); 
+    dibujarPanelTrabajador(); 
 };
 
 window.pedirMaterialTrabajador = () => { 
@@ -497,7 +505,6 @@ window.abrirModalAsistencia = (n, existe) => {
 window.sumarAlAnticipo = (m) => { const i = document.getElementById('modal-anticipo'); i.value = (parseFloat(i.value) || 0) + m; };
 window.guardarAsistenciaModal = () => {
     const n = window.pintorActualModal;
-    // CORRECCIÓN CLAVE: Usamos .update en vez de .set para no borrar el GPS al editar salarios
     firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ nombre: n, obra: obraSel, jornada_normal: parseFloat(document.getElementById('modal-j-normal').value), jornada_extra: parseFloat(document.getElementById('modal-j-extra').value), monto_anticipo: parseFloat(document.getElementById('modal-anticipo').value), horas_atraso: parseFloat(document.getElementById('modal-atraso-horas').value), monto_dano: parseFloat(document.getElementById('modal-dano').value) });
     document.getElementById('modal-asistencia').classList.add('hidden');
 };
@@ -516,7 +523,7 @@ function dibujarPlanilla() {
         const personalMayus = {}; Object.keys(per).forEach(k => { personalMayus[k.toUpperCase()] = per[k]; });
         const pagosMap = {}; Object.keys(pagosRealizados).forEach(k => { pagosMap[k.toUpperCase()] = pagosRealizados[k]; });
 
-        const hoyStr = getLocalISODate(); // Variable para evitar multar el día actual en curso
+        const hoyStr = getLocalISODate(); 
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
             const nombreMayus = reg.nombre.toUpperCase();
@@ -525,9 +532,8 @@ function dibujarPlanilla() {
             
             if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dSabado: 0, dExt: 0, ant: 0, hAtraso: 0, dano: 0, faltasSalida: 0, obraPrincipal: reg.obra };
             
-            // CORRECCIÓN AUDITORÍA: Solo se multa si el botón maestro está encendido y si el día ya pasó
             if (window.aplicarMultaSalida && reg.hora_entrada && !reg.hora_salida && f < hoyStr) {
-                res[nombreMayus].faltasSalida += 0.5; // Multa medio jornal por irse sin avisar
+                res[nombreMayus].faltasSalida += 0.5; 
             }
 
             const valorDia = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
@@ -549,7 +555,6 @@ function dibujarPlanilla() {
         list.forEach(n => {
             const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0;
             
-            // LA REGLA DEL SÁBADO AUTOMATIZADA
             let diasTrabajados = d.dNorm + d.dSabado;
             let compensacion = 0;
             
@@ -558,7 +563,6 @@ function dibujarPlanilla() {
                 compensacion = 6.0 - (d.dNorm + d.dSabado);
             }
 
-            // Aplicación de Multa por no marcar salida
             diasTrabajados -= d.faltasSalida;
 
             const sTot = (diasTrabajados + d.dExt) * sDia; 
@@ -685,12 +689,12 @@ window.cargarInventarioObra = () => {
     });
 };
 
-window.trasladoRapidoHerr = (id, nombre) => {
-    const nuevaObra = prompt(`Mover equipo: ${nombre}\nEscriba el nombre exacto de la Obra de destino (o escriba BODEGA):`);
+window.trasladoRapidoHerr = (id, font) => {
+    const nuevaObra = prompt(`Mover equipo: ${font}\nEscriba el nombre exacto de la Obra de destino (o escriba BODEGA):`);
     if(nuevaObra) {
         let dest = nuevaObra.toUpperCase().trim() === 'BODEGA' ? 'Ninguna' : nuevaObra.toUpperCase().trim();
         firebase.database().ref(getDbPath(`herramientas/${id}`)).update({ obra: dest, fecha_asignacion: new Date().toISOString() }, () => {
-            window.dispararAlertaWhatsApp(`🚨 TRASLADO EQUIPO WRPUMA: El equipo [${nombre}] fue movido a la obra [${dest}] por el Supervisor.`);
+            window.dispararAlertaWhatsApp(`🚨 TRASLADO EQUIPO WRPUMA: El equipo [${font}] fue movido a la obra [${dest}] por el Supervisor.`);
         });
     }
 };
@@ -1004,7 +1008,7 @@ window.renderListaHerr = (filtro) => {
             </div>`;
         } else {
             c.innerHTML += `
-            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between items-center mb-2"><b class="text-sm uppercase text-orange-900">${item.nombre}</b><span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg font-black">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center"><span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span><span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span></div>
+            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between items-center mb-2"><b class="text-sm uppercase text-orange-900">${item.nombre}</b><span class="text-[9px] bg-orange-50 text-white px-2 py-1 rounded-lg font-black">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center"><span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span><span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span></div>
                 ${esAdmin ? `<div class="bg-white p-3 rounded-xl border border-orange-200 mt-2"><span class="text-[9px] font-black text-orange-700 block mb-1 uppercase">Transferir o mover:</span><div class="grid grid-cols-2 gap-2 mb-2"><select id="cardT_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesP}</select><select id="cardO_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesO}</select></div><div class="flex gap-2 mt-2 pt-2 border-t"><button onclick="window.cambiarDestinoHerr('${id}')" class="flex-[2] bg-orange-600 text-white text-[10px] font-black py-2 rounded-lg uppercase">Confirmar Traspaso</button><button onclick="window.devolverAFlotaHerr('${id}')" class="flex-1 bg-zinc-900 text-white text-[10px] font-black py-2 rounded-lg uppercase">Bodega</button><button onclick="window.delHerr('${id}')" class="text-red-600 text-[10px] font-bold px-1 underline">Borrar</button></div></div>` : `<div class="mt-2 text-[10px] text-zinc-600 italic font-bold text-center border-t pt-2 border-orange-200">Verifique posesión física.</div>`}
             </div>`;
         }
@@ -1244,13 +1248,13 @@ window.modoActa = () => {
     document.getElementById('zona-editable').innerHTML = `
     <p><b>PROYECTO:</b> [Nombre de la Obra]</p>
     <p><b>CLIENTE:</b> [Nombre del Cliente]</p>
-    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos de acabados y pintura detallados en el contrato correspondiente.</p>
-    <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones. Cualquier retoque, reparación o daño posterior provocado por terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo adicional.</p>
-    <p><i>Nota: De acuerdo a las políticas de WRPUMA, no se emiten garantías sobre pintura decorativa en interiores.</i></p>
+    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos de acabados y pintura decorativa detallados en el contrato correspondiente.</p>
+    <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones de terminación. Cualquier retoque, reparación o daño posterior provocado por traslados, mudanzas, instalaciones o terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo de cotización adicional.</p>
+    <p><i>Nota: De acuerdo a las políticas explícitas de WRPUMA, no se emiten garantías sobre pintura decorativa o efectos de alta decoración en interiores.</i></p>
     <br><br><br>
     <div style="display:flex; justify-content:space-between; text-align:center; margin-top:50px;">
         <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Cliente</b></div>
-        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma WRPUMA</b></div>
+        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Gerencia WRPUMA</b></div>
     </div>`;
 };
 window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Cotizacion.pdf', html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'letter' } }; html2pdf().set(opt).from(document.getElementById('hoja-pdf')).save(); };
