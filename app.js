@@ -15,7 +15,7 @@ const getLocalISODate = (dateObj = new Date()) => {
 
 let fechaSel = getLocalISODate();
 window.carritoPresupuesto = [];
-window.aplicarMultaSalida = true; // BOTON MAESTRO PARA MULTAS DE SALIDA
+window.aplicarMultaSalida = true;
 
 const getDbPath = (path) => {
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -34,7 +34,7 @@ let pFIni = obtenerLunes();
 let pFFin = getLocalISODate();
 
 // ==========================================================
-// 📡 MOTOR DE ALERTAS WHATSAPP (CAPATAZ VIRTUAL) - CORREGIDO
+// 📡 MOTOR DE ALERTAS WHATSAPP (CAPATAZ VIRTUAL)
 // ==========================================================
 window.dispararAlertaWhatsApp = (mensajeAlerta) => {
     if (WEBHOOK_URL_N8N && WEBHOOK_URL_N8N.includes("http")) {
@@ -116,6 +116,7 @@ function dibujarPanelTrabajador() {
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
 }
 
+// ✅ CORRECCIÓN 1: GPS con timeout para celulares de baja gama
 window.marcarGPS = (tipo) => {
     if (!navigator.geolocation) return alert("❌ Su teléfono no soporta GPS.");
     alert(`📍 Auditando ubicación y hora...`);
@@ -128,7 +129,6 @@ window.marcarGPS = (tipo) => {
         const horaNum = ahora.getHours() + (ahora.getMinutes() / 60);
         const diaSemana = ahora.getDay();
         
-        // INTERCEPCIÓN MODO OFFLINE (SIN INTERNET)
         if (!navigator.onLine) {
             let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
             pendientes.push({ tipo, lat, lng, n, timeStr, gpsStr, horaNum, fecha: fechaSel, dia_semana: diaSemana });
@@ -137,16 +137,25 @@ window.marcarGPS = (tipo) => {
             return alert("⚠️ MODO SIN SEÑAL (OFFLINE)\nTu registro se guardó en la memoria local de tu teléfono.\nCuando tengas señal de red móvil o WiFi, presiona el botón amarillo 'SINCRONIZAR' en tu pantalla para enviarlo al sistema de control.");
         }
 
-        // MODO TRADICIONAL ONLINE
         window.procesarMarcaGPS(tipo, lat, lng, n, timeStr, gpsStr, horaNum, fechaSel, diaSemana, false);
 
-    }, () => alert("❌ Active el GPS en su celular para marcar. Es obligatorio en WRPUMA."));
+    }, (err) => {
+        // Error detallado según tipo de fallo
+        if (err.code === 1) alert("❌ PERMISO DENEGADO: Active el GPS en su celular para marcar. Es obligatorio en WRPUMA.");
+        else if (err.code === 2) alert("❌ GPS NO DISPONIBLE: Salga al exterior e intente nuevamente.");
+        else if (err.code === 3) alert("❌ TIEMPO AGOTADO: El GPS tardó demasiado. Intente nuevamente en campo abierto.");
+        else alert("❌ Error de GPS. Intente nuevamente.");
+    }, {
+        // ✅ Opciones optimizadas para celulares gama media/baja
+        enableHighAccuracy: false,  // Menos batería, más velocidad
+        timeout: 10000,             // 10 segundos máximo
+        maximumAge: 60000           // Acepta ubicación en caché de hasta 1 minuto
+    });
 };
 
 window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, diaSemana, esSincronizacion) => {
     const updates = { nombre: n };
 
-    // BUSCAMOS EL REGISTRO ACTUAL PARA SABER SI ESTABAN EN "OTRAS OBRAS"
     firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
         let record = s.val() || {};
 
@@ -172,14 +181,12 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 }
             });
 
-            // AJUSTE SOLICITADO: BYPASS DE 100 METROS PARA OTRAS OBRAS
             if (tipo === 'ENTRADA_OTRAS') {
                 obraAsignada = "OTRAS OBRAS";
             } else if (tipo === 'SALIDA' && record.obra === "OTRAS OBRAS") {
                 obraAsignada = "OTRAS OBRAS";
             }
 
-            // EL BLOQUEO APLICA PARA URUBÓ O SI ESTÁN EN EL AIRE
             if (obraAsignada === "POR ASIGNAR") {
                 return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. No se detecta ninguna obra activa a menos de 100 metros de tu ubicación.`);
             }
@@ -206,7 +213,6 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 updates.hora_salida = timeStr;
                 updates.gps_salida = gpsStr;
                 
-                // AUDITORÍA FANTASMAS
                 if(!record.obra || record.obra === "POR ASIGNAR" || !record.hora_entrada) {
                      updates.obra = obraAsignada;
                      updates.jornada_normal = 0; 
@@ -220,7 +226,6 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
     });
 };
 
-// MANEJADOR MOTOR OFFLINE - COLA DE EXEC
 window.sincronizarOffline = () => {
     let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
     if (pendientes.length === 0) return alert("✅ No hay registros pendientes.");
@@ -449,13 +454,12 @@ window.renderListaPintores = () => {
         if(r && r.obra === "POR ASIGNAR") return;
         
         const eO = r && r.obra === obraSel, eOt = r && r.obra !== obraSel;
-        let btn = '', bColor = 'border-yellow-500 bg-yellow-50'; // Default fantasma/sin marcar
+        let btn = '', bColor = 'border-yellow-500 bg-yellow-50';
         
         if (eO) { 
-            // Semáforo Visual aplicado
             if (r.estado === 'VERDE') bColor = 'border-green-500 bg-green-50';
             else if (r.estado === 'ROJA') bColor = 'border-red-500 bg-red-50';
-            else bColor = 'border-blue-300 bg-blue-50'; // Edición manual
+            else bColor = 'border-blue-300 bg-blue-50';
 
             btn = `<button onclick="window.abrirModalAsistencia('${nombreMayus}', true)" class="p-2 rounded-xl bg-zinc-800 text-white w-24 font-black text-[10px] shadow-sm">VER/EDITAR</button>`; 
         } else if (eOt) { 
@@ -513,7 +517,8 @@ window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database()
 window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fantasma de ${n}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).remove(); } };
 
 // ==========================================================
-// 💰 SUELDOS Y PAGOS (REGLA DEL SÁBADO AUTOMATIZADA)
+// ✅ CORRECCIÓN 2: SUELDOS Y PAGOS - REGLAS CORRECTAS WRPUMA
+// Falta 1 día = paga 4.5 días | Tarde = descuenta 1 hora completa
 // ==========================================================
 function dibujarPlanilla() {
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.toggleMultaSalida()" class="w-full ${window.aplicarMultaSalida ? 'bg-red-600 border-red-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-2 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaSalida ? '🔴 MULTAS DE SALIDA: ACTIVAS (-0.5D)' : '⚪ MULTAS DE SALIDA: APAGADAS (0.0D)'}</button><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
@@ -523,7 +528,7 @@ function dibujarPlanilla() {
         const personalMayus = {}; Object.keys(per).forEach(k => { personalMayus[k.toUpperCase()] = per[k]; });
         const pagosMap = {}; Object.keys(pagosRealizados).forEach(k => { pagosMap[k.toUpperCase()] = pagosRealizados[k]; });
 
-        const hoyStr = getLocalISODate(); 
+        const hoyStr = getLocalISODate();
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
             const nombreMayus = reg.nombre.toUpperCase();
@@ -533,7 +538,7 @@ function dibujarPlanilla() {
             if (!res[nombreMayus]) res[nombreMayus] = { dNorm: 0, dSabado: 0, dExt: 0, ant: 0, hAtraso: 0, dano: 0, faltasSalida: 0, obraPrincipal: reg.obra };
             
             if (window.aplicarMultaSalida && reg.hora_entrada && !reg.hora_salida && f < hoyStr) {
-                res[nombreMayus].faltasSalida += 0.5; 
+                res[nombreMayus].faltasSalida += 0.5;
             }
 
             const valorDia = parseFloat(reg.jornada_normal !== undefined ? reg.jornada_normal : 1);
@@ -555,21 +560,34 @@ function dibujarPlanilla() {
         list.forEach(n => {
             const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0;
             
+            // ✅ REGLA WRPUMA: Si faltó algún día de lunes a viernes, máximo 4.5 días de pago semanal
             let diasTrabajados = d.dNorm + d.dSabado;
             let compensacion = 0;
             
             if (d.dNorm >= 5.0 && d.dSabado > 0) {
+                // Semana completa: normaliza a 6 días exactos
                 diasTrabajados = 6.0;
                 compensacion = 6.0 - (d.dNorm + d.dSabado);
+            } else if (d.dNorm < 5.0) {
+                // Faltó al menos un día: máximo 4.5 días (no más)
+                diasTrabajados = Math.min(diasTrabajados, 4.5);
             }
 
+            // Aplica multa por salida incompleta
             diasTrabajados -= d.faltasSalida;
 
-            const sTot = (diasTrabajados + d.dExt) * sDia; 
-            const desc = d.hAtraso * (sDia / 8); 
+            const sTot = (diasTrabajados + d.dExt) * sDia;
+            
+            // ✅ REGLA WRPUMA: Tarde = descuenta 1 HORA COMPLETA por cada hora de atraso (no proporcional)
+            // Si llegó 0.3h tarde = descuenta 1 hora completa. Si llegó 1.5h tarde = descuenta 2 horas.
+            const horasDescontar = Math.ceil(d.hAtraso); // Redondea ARRIBA siempre
+            const desc = horasDescontar * (sDia / 8); // Valor de 1 hora = sueldo_dia / 8 horas
+
             const saldo = sTot - d.ant - desc - d.dano; tP += saldo;
             
-            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 ${d.hAtraso > 0 || d.faltasSalida > 0 ? 'border-red-600' : 'border-green-500'} relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="${diasTrabajados >= 6 ? 'bg-green-600' : 'bg-red-600'} px-3 rounded-lg font-black text-sm py-1">${diasTrabajados.toFixed(1)} Días</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos / Descuentos</span>-Bs. ${(d.ant + desc).toFixed(1)}</div></div>${d.faltasSalida > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-2 text-center text-xs font-black">MULTA SALIDA INCOMPLETA: -${d.faltasSalida} Días</div>` : ''}${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}<button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${diasTrabajados}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${compensacion}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg">LIQUIDAR: Bs. ${saldo.toFixed(2)}</button></div>`;
+            const detalleAtraso = d.hAtraso > 0 ? `Llegó ${d.hAtraso}h tarde → descuenta ${horasDescontar}h completa(s)` : '';
+            
+            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 ${d.hAtraso > 0 || d.faltasSalida > 0 ? 'border-red-600' : 'border-green-500'} relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="${diasTrabajados >= 5.5 ? 'bg-green-600' : 'bg-red-600'} px-3 rounded-lg font-black text-sm py-1">${diasTrabajados.toFixed(1)} Días</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}/día</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos / Descuentos</span>-Bs. ${(d.ant + desc).toFixed(1)}</div></div>${detalleAtraso ? `<div class="bg-orange-900/50 border border-orange-700 p-2 rounded-xl text-orange-300 mb-2 text-center text-[10px] font-black">${detalleAtraso}</div>` : ''}${d.faltasSalida > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-2 text-center text-xs font-black">MULTA SALIDA INCOMPLETA: -${d.faltasSalida} Días</div>` : ''}${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}<button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${diasTrabajados}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${compensacion}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg">LIQUIDAR: Bs. ${saldo.toFixed(2)}</button></div>`;
         });
         if (tP > 0) c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center"><p class="text-[10px] font-black mb-1">TOTAL PLANILLA</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
     });
@@ -1008,7 +1026,7 @@ window.renderListaHerr = (filtro) => {
             </div>`;
         } else {
             c.innerHTML += `
-            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between items-center mb-2"><b class="text-sm uppercase text-orange-900">${item.nombre}</b><span class="text-[9px] bg-orange-50 text-white px-2 py-1 rounded-lg font-black">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center"><span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span><span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span></div>
+            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between items-center mb-2"><b class="text-sm uppercase text-orange-900">${item.nombre}</b><span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg font-black">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center"><span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span><span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span></div>
                 ${esAdmin ? `<div class="bg-white p-3 rounded-xl border border-orange-200 mt-2"><span class="text-[9px] font-black text-orange-700 block mb-1 uppercase">Transferir o mover:</span><div class="grid grid-cols-2 gap-2 mb-2"><select id="cardT_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesP}</select><select id="cardO_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesO}</select></div><div class="flex gap-2 mt-2 pt-2 border-t"><button onclick="window.cambiarDestinoHerr('${id}')" class="flex-[2] bg-orange-600 text-white text-[10px] font-black py-2 rounded-lg uppercase">Confirmar Traspaso</button><button onclick="window.devolverAFlotaHerr('${id}')" class="flex-1 bg-zinc-900 text-white text-[10px] font-black py-2 rounded-lg uppercase">Bodega</button><button onclick="window.delHerr('${id}')" class="text-red-600 text-[10px] font-bold px-1 underline">Borrar</button></div></div>` : `<div class="mt-2 text-[10px] text-zinc-600 italic font-bold text-center border-t pt-2 border-orange-200">Verifique posesión física.</div>`}
             </div>`;
         }
@@ -1166,6 +1184,7 @@ window.cambiarTipoCalc = () => { const t = document.getElementById('calc-tipo').
 window.calcularParcial = () => { const t = document.getElementById('calc-tipo').value, L = parseFloat(document.getElementById('calc-largo').value)||0, A = parseFloat(document.getElementById('calc-ancho').value)||0, H = parseFloat(document.getElementById('calc-alto').value)||0; let perim=0, aN=0; if (t === 'techo') { aN = L * A * (parseFloat(document.getElementById('calc-caida').value)||1); } else { perim = t==='cuarto'?(L+A)*2:L; let aP = perim*H, aC = (t==='cuarto'&&document.getElementById('calc-cielo').checked)?(L*A):0, dP = (parseFloat(document.getElementById('calc-p-cant').value)||0)*(parseFloat(document.getElementById('calc-p-ancho').value)||0)*2, dV = (parseFloat(document.getElementById('calc-v-cant').value)||0)*(parseFloat(document.getElementById('calc-v-ancho').value)||0)*(parseFloat(document.getElementById('calc-v-alto').value)||0); aN = Math.max(0, aP+aC - dP - dV); } const mlI = document.getElementById('calc-ml'); if (document.activeElement !== mlI && (!mlI.value || mlI.value=="0") && t!=='techo' && perim>0) mlI.value = perim.toFixed(2); const mlR = parseFloat(mlI.value)||0, pM2 = parseFloat(document.getElementById('calc-precio-m2').value)||0, pMl = parseFloat(document.getElementById('calc-precio-ml').value)||0; window.tempM2 = aN.toFixed(2); window.tempMl = mlR.toFixed(2); window.tempTotal = ((aN*pM2)+(mlR*pMl)).toFixed(2); document.getElementById('res-parcial-m2').innerText = window.tempM2; document.getElementById('res-parcial-total').innerText = window.tempTotal; };
 window.agregarAlCarrito = () => { let n = document.getElementById('calc-nombre').value.trim(); if (!n || parseFloat(window.tempTotal)===0) return; window.carritoPresupuesto.push({ nombre: n.toUpperCase(), m2: window.tempM2, total: window.tempTotal }); ['calc-nombre','calc-largo','calc-ancho','calc-alto','calc-ml'].forEach(i => {if(document.getElementById(i)) document.getElementById(i).value='';}); ['calc-p-cant','calc-v-cant'].forEach(i => document.getElementById(i).value='0'); window.calcularParcial(); window.renderCarrito(); };
 window.renderCarrito = () => { const c = document.getElementById('contenedor-carrito'), l = document.getElementById('lista-carrito'); if(window.carritoPresupuesto.length===0) return c.style.display='none'; c.style.display='block'; l.innerHTML=''; let t=0; window.carritoPresupuesto.forEach((i, idx) => { t += parseFloat(i.total); l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`; }); document.getElementById('carrito-gran-total').innerText = t.toFixed(2); };
+window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
 window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${(parseFloat(i.total)*1.10*1.35).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${(tt*1.10*1.35).toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
 
 // ==========================================================
