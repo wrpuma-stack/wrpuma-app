@@ -16,6 +16,7 @@ const getLocalISODate = (dateObj = new Date()) => {
 let fechaSel = getLocalISODate();
 window.carritoPresupuesto = [];
 window.aplicarMultaSalida = true;
+window.aplicarMultaAtraso = false; // POR DEFECTO APAGADO PARA NO PERJUDICAR LA PLANILLA ACTUAL
 
 const getDbPath = (path) => {
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -116,7 +117,6 @@ function dibujarPanelTrabajador() {
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
 }
 
-// ✅ CORRECCIÓN 1: GPS con timeout para celulares de baja gama
 window.marcarGPS = (tipo) => {
     if (!navigator.geolocation) return alert("❌ Su teléfono no soporta GPS.");
     alert(`📍 Auditando ubicación y hora...`);
@@ -140,16 +140,14 @@ window.marcarGPS = (tipo) => {
         window.procesarMarcaGPS(tipo, lat, lng, n, timeStr, gpsStr, horaNum, fechaSel, diaSemana, false);
 
     }, (err) => {
-        // Error detallado según tipo de fallo
         if (err.code === 1) alert("❌ PERMISO DENEGADO: Active el GPS en su celular para marcar. Es obligatorio en WRPUMA.");
         else if (err.code === 2) alert("❌ GPS NO DISPONIBLE: Salga al exterior e intente nuevamente.");
         else if (err.code === 3) alert("❌ TIEMPO AGOTADO: El GPS tardó demasiado. Intente nuevamente en campo abierto.");
         else alert("❌ Error de GPS. Intente nuevamente.");
     }, {
-        // ✅ Opciones optimizadas para celulares gama media/baja
-        enableHighAccuracy: false,  // Menos batería, más velocidad
-        timeout: 10000,             // 10 segundos máximo
-        maximumAge: 60000           // Acepta ubicación en caché de hasta 1 minuto
+        enableHighAccuracy: false, 
+        timeout: 10000,             
+        maximumAge: 60000           
     });
 };
 
@@ -195,7 +193,7 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 if(horaNum >= 8.01) {
                     updates.estado = 'ROJA';
                     updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
-                    if(!esSincronizacion) window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr} en ${obraAsignada}. Descuento automático en planilla.`);
+                    if(!esSincronizacion) window.dispararAlertaWhatsApp(`⚠️ ATRASO CONFIRMADO: ${n} marcó ingreso tarde a las ${timeStr} en ${obraAsignada}.`);
                 } else {
                     updates.estado = 'VERDE';
                 }
@@ -517,11 +515,38 @@ window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database()
 window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fantasma de ${n}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).remove(); } };
 
 // ==========================================================
-// ✅ CORRECCIÓN 2: SUELDOS Y PAGOS - REGLAS CORRECTAS WRPUMA
-// Falta 1 día = paga 4.5 días | Tarde = descuenta 1 hora completa
+// ✅ CORRECCIÓN 3: VER DETALLE SEMANA (BOTÓN BUSCADOR) Y TOGGLE DE ATRASOS
 // ==========================================================
+window.verDetalleSemana = (n) => {
+    firebase.database().ref(getDbPath('asistencia_semanal')).once('value').then(snap => {
+        const hist = snap.val() || {};
+        let msg = `🔍 REPORTE DE LA SEMANA: ${n}\n\n`;
+        let hay = false;
+        
+        Object.keys(hist).sort().forEach(f => {
+            if (f >= pFIni && f <= pFFin) {
+                if (hist[f][n]) {
+                    let r = hist[f][n];
+                    let info = [];
+                    if (r.horas_atraso > 0) info.push(`Llegó tarde: ${r.horas_atraso}h`);
+                    if (r.monto_anticipo > 0) info.push(`Anticipo: Bs. ${r.monto_anticipo}`);
+                    if (r.monto_dano > 0) info.push(`Multa Herramienta: Bs. ${r.monto_dano}`);
+                    if (r.hora_entrada && !r.hora_salida) info.push(`Falta marcar Salida`);
+                    
+                    if (info.length > 0) {
+                        msg += `📅 ${f}: \n👉 ${info.join(' | ')}\n\n`;
+                        hay = true;
+                    }
+                }
+            }
+        });
+        if(!hay) msg += "✅ Ningún descuento o anticipo esta semana.";
+        alert(msg);
+    });
+};
+
 function dibujarPlanilla() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.toggleMultaSalida()" class="w-full ${window.aplicarMultaSalida ? 'bg-red-600 border-red-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-2 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaSalida ? '🔴 MULTAS DE SALIDA: ACTIVAS (-0.5D)' : '⚪ MULTAS DE SALIDA: APAGADAS (0.0D)'}</button><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.toggleMultaSalida()" class="w-full ${window.aplicarMultaSalida ? 'bg-red-600 border-red-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-2 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaSalida ? '🔴 MULTAS DE SALIDA: ACTIVAS (-0.5D)' : '⚪ MULTAS DE SALIDA: APAGADAS (0.0D)'}</button><button onclick="window.toggleMultaAtraso()" class="w-full ${window.aplicarMultaAtraso ? 'bg-orange-600 border-orange-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-4 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaAtraso ? '🔴 MULTAS DE ATRASO: ACTIVAS' : '⚪ MULTAS DE ATRASO: APAGADAS'}</button><button onclick="window.verHistorialSueldos()" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
     data.obtenerTodo((db) => {
         const c = document.getElementById('c-p'); if (!c) return;
         const per = db.personal || {}, hist = db.asistencia_semanal || {}, pagosRealizados = db.pagos_historial || {}, res = {};
@@ -560,39 +585,44 @@ function dibujarPlanilla() {
         list.forEach(n => {
             const d = res[n], sDia = parseFloat(personalMayus[n]?.sueldo_dia) || 0;
             
-            // ✅ REGLA WRPUMA: Si faltó algún día de lunes a viernes, máximo 4.5 días de pago semanal
             let diasTrabajados = d.dNorm + d.dSabado;
             let compensacion = 0;
             
             if (d.dNorm >= 5.0 && d.dSabado > 0) {
-                // Semana completa: normaliza a 6 días exactos
                 diasTrabajados = 6.0;
                 compensacion = 6.0 - (d.dNorm + d.dSabado);
             } else if (d.dNorm < 5.0) {
-                // Faltó al menos un día: máximo 4.5 días (no más)
                 diasTrabajados = Math.min(diasTrabajados, 4.5);
             }
 
-            // Aplica multa por salida incompleta
             diasTrabajados -= d.faltasSalida;
 
             const sTot = (diasTrabajados + d.dExt) * sDia;
             
-            // ✅ REGLA WRPUMA: Tarde = descuenta 1 HORA COMPLETA por cada hora de atraso (no proporcional)
-            // Si llegó 0.3h tarde = descuenta 1 hora completa. Si llegó 1.5h tarde = descuenta 2 horas.
-            const horasDescontar = Math.ceil(d.hAtraso); // Redondea ARRIBA siempre
-            const desc = horasDescontar * (sDia / 8); // Valor de 1 hora = sueldo_dia / 8 horas
+            // LA CLAVE: Si las multas por atraso están apagadas, horasDescontar es 0.
+            const horasDescontar = window.aplicarMultaAtraso ? Math.ceil(d.hAtraso) : 0; 
+            const desc = horasDescontar * (sDia / 8); 
 
             const saldo = sTot - d.ant - desc - d.dano; tP += saldo;
             
-            const detalleAtraso = d.hAtraso > 0 ? `Llegó ${d.hAtraso}h tarde → descuenta ${horasDescontar}h completa(s)` : '';
+            let detalleAtraso = '';
+            if (d.hAtraso > 0) {
+                if (window.aplicarMultaAtraso) {
+                    detalleAtraso = `Llegó ${d.hAtraso}h tarde → descuenta ${horasDescontar}h completa(s)`;
+                } else {
+                    detalleAtraso = `Llegó ${d.hAtraso}h tarde (Multa Apagada)`;
+                }
+            }
             
-            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 ${d.hAtraso > 0 || d.faltasSalida > 0 ? 'border-red-600' : 'border-green-500'} relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="${diasTrabajados >= 5.5 ? 'bg-green-600' : 'bg-red-600'} px-3 rounded-lg font-black text-sm py-1">${diasTrabajados.toFixed(1)} Días</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}/día</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos / Descuentos</span>-Bs. ${(d.ant + desc).toFixed(1)}</div></div>${detalleAtraso ? `<div class="bg-orange-900/50 border border-orange-700 p-2 rounded-xl text-orange-300 mb-2 text-center text-[10px] font-black">${detalleAtraso}</div>` : ''}${d.faltasSalida > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-2 text-center text-xs font-black">MULTA SALIDA INCOMPLETA: -${d.faltasSalida} Días</div>` : ''}${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}<button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${diasTrabajados}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${compensacion}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg">LIQUIDAR: Bs. ${saldo.toFixed(2)}</button></div>`;
+            c.innerHTML += `<div class="bg-zinc-900 p-5 rounded-3xl border-l-8 ${d.hAtraso > 0 || d.faltasSalida > 0 ? 'border-red-600' : 'border-green-500'} relative"><div class="flex justify-between mb-4 border-b border-zinc-800 pb-2"><h3 class="font-black text-xl">${n}</h3><span class="${diasTrabajados >= 5.5 ? 'bg-green-600' : 'bg-red-600'} px-3 rounded-lg font-black text-sm py-1">${diasTrabajados.toFixed(1)} Días</span></div><div class="grid grid-cols-2 gap-2 mb-2"><div class="bg-black p-2 rounded-xl"><span class="text-[9px] text-zinc-500 block">Salario Base</span>Bs. ${sDia}/día</div><div class="bg-black p-2 rounded-xl text-red-400"><span class="text-[9px] block">Anticipos / Descuentos</span>-Bs. ${(d.ant + desc).toFixed(1)}</div></div>${detalleAtraso ? `<div class="bg-orange-900/50 border border-orange-700 p-2 rounded-xl text-orange-300 mb-2 text-center text-[10px] font-black">${detalleAtraso}</div>` : ''}${d.faltasSalida > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-2 text-center text-xs font-black">MULTA SALIDA INCOMPLETA: -${d.faltasSalida} Días</div>` : ''}${d.dano > 0 ? `<div class="bg-red-900/50 border border-red-800 p-2 rounded-xl text-red-300 mb-3 text-center text-xs font-black">MULTA HERRAMIENTA: -Bs. ${d.dano}</div>` : ''}
+            <button onclick="window.verDetalleSemana('${n}')" class="w-full mb-3 bg-blue-900/40 text-blue-300 border border-blue-800 py-2 rounded-xl font-bold text-[10px] uppercase shadow-sm">🔍 Buscar Anticipos / Atrasos</button>
+            <button onclick="window.ejecutarPagoEfectivo('${n}', ${saldo}, '${d.obraPrincipal}', ${sDia}, ${diasTrabajados}, ${d.dExt}, ${d.ant}, ${d.hAtraso}, ${desc}, ${compensacion}, ${d.dano})" class="w-full bg-green-500 text-white py-4 rounded-xl font-black text-lg shadow-lg">LIQUIDAR: Bs. ${saldo.toFixed(2)}</button></div>`;
         });
         if (tP > 0) c.innerHTML = `<div class="bg-green-600 p-5 rounded-3xl mb-6 text-center"><p class="text-[10px] font-black mb-1">TOTAL PLANILLA</p><span class="text-4xl font-black">Bs. ${tP.toFixed(2)}</span></div>` + c.innerHTML;
     });
 }
 window.toggleMultaSalida = () => { window.aplicarMultaSalida = !window.aplicarMultaSalida; dibujarPlanilla(); };
+window.toggleMultaAtraso = () => { window.aplicarMultaAtraso = !window.aplicarMultaAtraso; dibujarPlanilla(); };
 window.chPIni = (v) => { pFIni = v; dibujarPlanilla(); }; window.chPFin = (v) => { pFFin = v; dibujarPlanilla(); };
 
 window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp, dano) => {
@@ -745,7 +775,7 @@ window.trasladoRapidoMat = (id, detalle) => {
 };
 
 // ==========================================================
-// 🏗️ OBRAS Y MICRO-OBRAS (CON BLINDAJE Y CORRECCIÓN)
+// 🏗️ OBRAS Y MICRO-OBRAS
 // ==========================================================
 function dibujarObras() {
     const rol = localStorage.getItem('rol_wr');
