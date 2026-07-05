@@ -652,24 +652,52 @@ window.verHistorialSueldos = () => {
         const p = s.val() || {}; 
         c.innerHTML = '';
         
-        // 1. Convertir a array y ordenar por fecha descendente (los más recientes primero)
+        // 1. Ordenamos por fecha descendente (los más recientes primero)
         const pagosArray = Object.values(p).sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
         
-        // 2. Renderizar con decimales limpios y fecha legible
+        // 2. Renderizamos la tarjeta con la radiografía financiera
         pagosArray.forEach(pg => { 
             const fechaLegible = new Date(pg.fecha_pago).toLocaleString();
+            
+            // Extraemos los detalles si existen en la base de datos
+            let detallesHTML = '';
+            if (pg.detalles) {
+                const diasTotales = (pg.detalles.dias_normales || 0) + (pg.detalles.dias_extras || 0);
+                const anticipos = pg.detalles.anticipos || 0;
+                const multasTotales = (pg.detalles.descuento_atraso || 0) + (pg.detalles.multas_dano || 0);
+                const horasAtraso = pg.detalles.horas_atraso || 0;
+                
+                detallesHTML = `
+                <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-zinc-800 text-[10px]">
+                    <div class="bg-black p-2 rounded text-zinc-300 border border-zinc-900">
+                        <span class="block text-[8px] text-zinc-500 mb-1 font-black">DÍAS (Norm + Ext)</span>
+                        ${diasTotales} Días
+                    </div>
+                    <div class="bg-black p-2 rounded text-yellow-500 border border-zinc-900">
+                        <span class="block text-[8px] text-zinc-500 mb-1 font-black">ANTICIPOS</span>
+                        - Bs. ${anticipos}
+                    </div>
+                    <div class="bg-black p-2 rounded text-red-400 border border-zinc-900">
+                        <span class="block text-[8px] text-zinc-500 mb-1 font-black">MULTAS (${horasAtraso}h)</span>
+                        - Bs. ${multasTotales}
+                    </div>
+                </div>`;
+            } else {
+                detallesHTML = `<div class="mt-3 pt-3 border-t border-zinc-800 text-[9px] text-zinc-600 italic">Registro antiguo - Detalles no guardados</div>`;
+            }
+
             c.innerHTML += `
-            <div class="bg-zinc-900 p-4 mb-2 rounded-xl border border-zinc-800">
+            <div class="bg-zinc-900 p-5 mb-3 rounded-2xl border border-zinc-800 shadow-lg">
                 <div class="flex justify-between items-center mb-1">
                     <b class="text-lg uppercase text-white">${pg.trabajador}</b>
-                    <span class="text-lg font-black text-green-500">Bs. ${parseFloat(pg.monto).toFixed(2)}</span>
+                    <span class="text-xl font-black text-green-500">Bs. ${parseFloat(pg.monto).toFixed(2)}</span>
                 </div>
-                <span class="text-xs text-zinc-500 font-bold uppercase">${fechaLegible}</span>
+                <span class="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">${fechaLegible}</span>
+                ${detallesHTML}
             </div>`; 
         });
     });
 };
-
 // ==========================================================
 // 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS
 // ==========================================================
