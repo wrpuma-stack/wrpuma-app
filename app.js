@@ -645,7 +645,8 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp, dano
 };
 
 window.verHistorialSueldos = () => {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><button onclick="window.location.hash='#planilla'" class="bg-red-600 px-4 py-2 rounded-lg font-bold text-xs mb-4">VOLVER</button><h2 class="text-xl font-black mb-4">HISTORIAL DE PAGOS</h2><div id="lista-historial-sueldos">Cargando...</div></div>`;
+    // AQUÍ ESTÁ EL CAMBIO: onclick="window.dibujarPlanilla()"
+    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><button onclick="window.dibujarPlanilla()" class="bg-red-600 px-4 py-2 rounded-lg font-bold text-xs mb-4">VOLVER</button><h2 class="text-xl font-black mb-4">HISTORIAL DE PAGOS</h2><div id="lista-historial-sueldos">Cargando...</div></div>`;
     
     firebase.database().ref(getDbPath('pagos_historial')).once('value').then(s => {
         const c = document.getElementById('lista-historial-sueldos'); 
