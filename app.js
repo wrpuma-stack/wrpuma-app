@@ -646,9 +646,27 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp, dano
 
 window.verHistorialSueldos = () => {
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><button onclick="window.location.hash='#planilla'" class="bg-red-600 px-4 py-2 rounded-lg font-bold text-xs mb-4">VOLVER</button><h2 class="text-xl font-black mb-4">HISTORIAL DE PAGOS</h2><div id="lista-historial-sueldos">Cargando...</div></div>`;
+    
     firebase.database().ref(getDbPath('pagos_historial')).once('value').then(s => {
-        const c = document.getElementById('lista-historial-sueldos'); const p = s.val() || {}; c.innerHTML = '';
-        Object.values(p).forEach(pg => { c.innerHTML += `<div class="bg-zinc-900 p-4 mb-2 rounded-xl"><b>${pg.trabajador}</b>: Bs. ${pg.monto} <br><span class="text-xs text-zinc-500">${pg.fecha_pago}</span></div>`; });
+        const c = document.getElementById('lista-historial-sueldos'); 
+        const p = s.val() || {}; 
+        c.innerHTML = '';
+        
+        // 1. Convertir a array y ordenar por fecha descendente (los más recientes primero)
+        const pagosArray = Object.values(p).sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
+        
+        // 2. Renderizar con decimales limpios y fecha legible
+        pagosArray.forEach(pg => { 
+            const fechaLegible = new Date(pg.fecha_pago).toLocaleString();
+            c.innerHTML += `
+            <div class="bg-zinc-900 p-4 mb-2 rounded-xl border border-zinc-800">
+                <div class="flex justify-between items-center mb-1">
+                    <b class="text-lg uppercase text-white">${pg.trabajador}</b>
+                    <span class="text-lg font-black text-green-500">Bs. ${parseFloat(pg.monto).toFixed(2)}</span>
+                </div>
+                <span class="text-xs text-zinc-500 font-bold uppercase">${fechaLegible}</span>
+            </div>`; 
+        });
     });
 };
 
