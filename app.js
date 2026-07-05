@@ -646,18 +646,17 @@ window.ejecutarPagoEfectivo = (n, m, oN, sDia, dN, dE, ant, hA, desc, comp, dano
 };
 
 window.verHistorialSueldos = () => {
-    // AQUÍ ESTÁ EL CAMBIO: onclick="window.dibujarPlanilla()"
-    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><button onclick="window.dibujarPlanilla()" class="bg-red-600 px-4 py-2 rounded-lg font-bold text-xs mb-4">VOLVER</button><h2 class="text-xl font-black mb-4">HISTORIAL DE PAGOS</h2><div id="lista-historial-sueldos">Cargando...</div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><button onclick="window.location.hash='#planilla'; window.dibujarPlanilla();" class="bg-red-600 px-4 py-2 rounded-lg font-bold text-xs mb-4 shadow-md">VOLVER</button><h2 class="text-xl font-black mb-4">HISTORIAL DE PAGOS</h2><div id="lista-historial-sueldos">Cargando...</div></div>`;
     
     firebase.database().ref(getDbPath('pagos_historial')).once('value').then(s => {
         const c = document.getElementById('lista-historial-sueldos'); 
         const p = s.val() || {}; 
         c.innerHTML = '';
         
-        // 1. Ordenamos por fecha descendente (los más recientes primero)
+        // Ordenamos por fecha descendente (los más recientes primero)
         const pagosArray = Object.values(p).sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
         
-        // 2. Renderizamos la tarjeta con la radiografía financiera
+        // Renderizamos la tarjeta con la radiografía financiera
         pagosArray.forEach(pg => { 
             const fechaLegible = new Date(pg.fecha_pago).toLocaleString();
             
