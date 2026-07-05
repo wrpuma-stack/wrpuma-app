@@ -147,7 +147,7 @@ window.marcarGPS = (tipo) => {
     }, {
         enableHighAccuracy: false, 
         timeout: 10000,             
-        maximumAge: 60000           
+        maximumAge: 60000            
     });
 };
 
@@ -185,7 +185,8 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 obraAsignada = "OTRAS OBRAS";
             }
 
-            if (obraAsignada === "POR ASIGNAR") {
+            // Excepción: Permitimos marcar salida sin estar en el radio de la obra
+            if (tipo !== 'SALIDA' && obraAsignada === "POR ASIGNAR") {
                 return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. No se detecta ninguna obra activa a menos de 100 metros de tu ubicación.`);
             }
 
@@ -211,14 +212,17 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 updates.hora_salida = timeStr;
                 updates.gps_salida = gpsStr;
                 
+                let obraSalida = record.obra || obraAsignada;
+                if(obraSalida === "POR ASIGNAR") obraSalida = "OTRAS OBRAS";
+
                 if(!record.obra || record.obra === "POR ASIGNAR" || !record.hora_entrada) {
-                     updates.obra = obraAsignada;
+                     updates.obra = obraSalida;
                      updates.jornada_normal = 0; 
                      updates.estado = 'ROJA';
                      updates.dia_semana = diaSemana;
                 }
                 firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).update(updates)
-                    .then(() => alert(`✅ SALIDA REGISTRADA CON ÉXITO EN: ${obraAsignada}${esSincronizacion ? ' (Sincronizada)' : ''}`));
+                    .then(() => alert(`✅ SALIDA REGISTRADA CON ÉXITO${esSincronizacion ? ' (Sincronizada)' : ''}`));
             }
         });
     });
@@ -1090,6 +1094,32 @@ window.finTrato = (id) => { if(confirm("¿Archivar?")) firebase.database().ref(g
 // ==========================================================
 // 📊 GASTOS Y FERRETERÍAS
 // ==========================================================
+window.gastoFotoBase64 = "";
+window.procesarFotoGasto = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 800;
+            let width = img.width;
+            let height = img.height;
+            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            window.gastoFotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+            const preview = document.getElementById('c-foto-preview');
+            preview.src = window.gastoFotoBase64;
+            preview.style.display = 'block';
+        };
+    };
+};
+
 function dibujarCaja() {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-zinc-100 p-4 text-black pb-10">
@@ -1104,6 +1134,13 @@ function dibujarCaja() {
                     <select id="c-obra" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2"></select>
                     <input id="c-prov" type="text" placeholder="Proveedor / Ferretería" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2">
                     <textarea id="c-detalle" rows="3" placeholder="Detalle Completo (Ej. 3 baldes de masilla, 5 lijas Festool)" class="w-full p-3 rounded-xl border-2 font-bold text-xs mb-2 resize-none outline-none"></textarea>
+                    
+                    <div class="mb-3">
+                        <label class="text-[10px] text-green-800 font-bold block mb-1">FOTO DE COMPROBANTE (OPCIONAL):</label>
+                        <input type="file" id="c-foto" accept="image/*" capture="environment" onchange="window.procesarFotoGasto(event)" class="w-full text-xs font-bold file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 outline-none">
+                        <img id="c-foto-preview" src="" style="display:none;" class="mt-2 w-full h-32 object-cover rounded-xl border-2 border-dashed border-green-300">
+                    </div>
+
                     <div class="flex gap-2 mb-3">
                         <select id="c-tipo" class="w-1/2 p-3 rounded-xl border-2 font-black text-xs">
                             <option value="compra_contado">CONTADO</option>
@@ -1129,7 +1166,29 @@ function dibujarCaja() {
         if(!hay) listC.innerHTML = `<p class="text-center text-[10px] text-zinc-400 font-bold py-4">No hay deudas.</p>`;
     });
 }
-window.saveM = () => { const sO = document.getElementById('c-obra'), idO = sO.value, oN = idO ? sO.options[sO.selectedIndex].text : '', prov = document.getElementById('c-prov').value.trim(), det = document.getElementById('c-detalle').value.trim(), tipo = document.getElementById('c-tipo').value, m = parseFloat(document.getElementById('c-monto').value); if (idO && m && prov) { const detF = `${prov.toUpperCase()} | ${det} ${tipo === 'compra_credito' ? '[CRÉDITO]' : '[CONTADO]'}`; data.registrarMovimiento(idO, tipo, m, detF).then(() => { if(tipo === 'compra_credito') { firebase.database().ref(getDbPath(`cuentas_por_pagar/DEUDA_${Date.now()}`)).set({ obra_id: idO, obra_nombre: oN, proveedor: prov.toUpperCase(), detalle: det, monto: m, fecha: new Date().toISOString(), estado: 'Pendiente' }); } alert("Gasto registrado."); }); } };
+window.saveM = () => { 
+    const sO = document.getElementById('c-obra'), idO = sO.value, oN = idO ? sO.options[sO.selectedIndex].text : '', prov = document.getElementById('c-prov').value.trim(), det = document.getElementById('c-detalle').value.trim(), tipo = document.getElementById('c-tipo').value, m = parseFloat(document.getElementById('c-monto').value); 
+    if (idO && m && prov) { 
+        const txId = Date.now();
+        const detF = `${prov.toUpperCase()} | ${det} ${tipo === 'compra_credito' ? '[CRÉDITO]' : '[CONTADO]'}`; 
+        data.registrarMovimiento(idO, tipo, m, detF).then(() => { 
+            if(tipo === 'compra_credito') { 
+                firebase.database().ref(getDbPath(`cuentas_por_pagar/DEUDA_${txId}`)).set({ obra_id: idO, obra_nombre: oN, proveedor: prov.toUpperCase(), detalle: det, monto: m, fecha: new Date().toISOString(), estado: 'Pendiente', foto: window.gastoFotoBase64 || null }); 
+            } else if (window.gastoFotoBase64) {
+                firebase.database().ref(getDbPath(`gastos_contado_fotos/G_${txId}`)).set({ obra_id: idO, obra_nombre: oN, proveedor: prov.toUpperCase(), detalle: det, monto: m, fecha: new Date().toISOString(), foto: window.gastoFotoBase64 });
+            }
+            alert("Gasto registrado."); 
+            document.getElementById('c-prov').value = '';
+            document.getElementById('c-detalle').value = '';
+            document.getElementById('c-monto').value = '';
+            const fotoInput = document.getElementById('c-foto');
+            if(fotoInput) fotoInput.value = '';
+            const preview = document.getElementById('c-foto-preview');
+            if(preview) preview.style.display = 'none';
+            window.gastoFotoBase64 = "";
+        }); 
+    } 
+};
 window.pagarDeuda = (id) => { if(confirm(`¿Liquidar deuda?`)) firebase.database().ref(getDbPath(`cuentas_por_pagar/${id}`)).update({estado: 'Pagado'}); };
 
 // ==========================================================
@@ -1215,7 +1274,7 @@ window.calcularParcial = () => { const t = document.getElementById('calc-tipo').
 window.agregarAlCarrito = () => { let n = document.getElementById('calc-nombre').value.trim(); if (!n || parseFloat(window.tempTotal)===0) return; window.carritoPresupuesto.push({ nombre: n.toUpperCase(), m2: window.tempM2, total: window.tempTotal }); ['calc-nombre','calc-largo','calc-ancho','calc-alto','calc-ml'].forEach(i => {if(document.getElementById(i)) document.getElementById(i).value='';}); ['calc-p-cant','calc-v-cant'].forEach(i => document.getElementById(i).value='0'); window.calcularParcial(); window.renderCarrito(); };
 window.renderCarrito = () => { const c = document.getElementById('contenedor-carrito'), l = document.getElementById('lista-carrito'); if(window.carritoPresupuesto.length===0) return c.style.display='none'; c.style.display='block'; l.innerHTML=''; let t=0; window.carritoPresupuesto.forEach((i, idx) => { t += parseFloat(i.total); l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`; }); document.getElementById('carrito-gran-total').innerText = t.toFixed(2); };
 window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
-window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${(parseFloat(i.total)*1.10*1.35).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${(tt*1.10*1.35).toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
+window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${parseFloat(i.total).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${tt.toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
 
 // ==========================================================
 // 📝 COTIZADOR PDF (CON LOGO Y FORMAL)
