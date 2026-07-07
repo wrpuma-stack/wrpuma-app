@@ -92,16 +92,23 @@ function dibujarPanelTrabajador() {
             <div class="bg-zinc-900 p-5 rounded-3xl shadow-xl text-center mb-6"><p class="text-[10px] text-zinc-500 font-bold uppercase mb-1">BIENVENIDO</p><h3 class="text-2xl font-black uppercase text-white">${n}</h3></div>
             <div class="bg-blue-900/30 p-5 rounded-3xl shadow-xl mb-6 text-center"><p class="text-[10px] text-blue-400 font-bold uppercase mb-2">📌 DIRECTIVA DE HOY</p><p id="msg-dia-display" class="text-sm font-bold text-white italic">Cargando...</p></div>
             
+            <div id="estado-actual-trabajador" class="bg-zinc-900 p-4 rounded-2xl mb-4 text-center border border-zinc-800">
+                <span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span>
+                <span class="text-sm font-black text-white animate-pulse">Consultando satélite...</span>
+            </div>
+
             ${btnSync}
 
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="window.marcarGPS('ENTRADA_URUBO')" class="col-span-1 bg-green-600 text-white py-6 rounded-3xl font-black text-lg shadow-[0_0_15px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center justify-center">
+                <button onclick="window.marcarGPS('ENTRADA_URUBO')" class="col-span-1 bg-green-600 text-white py-6 rounded-3xl font-black text-[14px] shadow-[0_0_15px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center justify-center">
+                    <span class="text-[10px] mb-1 opacity-80 uppercase tracking-widest">ENTRADA</span>
                     <span>☀️ URUBÓ</span>
                 </button>
-                <button onclick="window.marcarGPS('ENTRADA_OTRAS')" class="col-span-1 bg-emerald-600 text-white py-6 rounded-3xl font-black text-lg shadow-md border-b-4 border-emerald-800 flex flex-col items-center justify-center">
+                <button onclick="window.marcarGPS('ENTRADA_OTRAS')" class="col-span-1 bg-emerald-600 text-white py-6 rounded-3xl font-black text-[14px] shadow-md border-b-4 border-emerald-800 flex flex-col items-center justify-center">
+                    <span class="text-[10px] mb-1 opacity-80 uppercase tracking-widest">ENTRADA</span>
                     <span>☀️ OTRAS OBRAS</span>
                 </button>
-                <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-5 rounded-3xl font-black text-lg shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center">
+                <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-6 rounded-3xl font-black text-[16px] shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center mt-1">
                     <span>🌙 MARCAR SALIDA</span>
                 </button>
                 
@@ -115,9 +122,28 @@ function dibujarPanelTrabajador() {
         </div>
     </div>`;
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
+    
+    // LISTENER PARA EL ESTADO EN VIVO
+    firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).on('value', snap => {
+        const r = snap.val();
+        const caja = document.getElementById('estado-actual-trabajador');
+        if(!caja) return;
+        if(r && r.hora_salida) {
+            caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-red-500">🌙 JORNADA FINALIZADA (${r.hora_salida})</span>`;
+        } else if (r && r.hora_entrada) {
+            caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-green-400">☀️ EN OBRA: ${r.obra || 'General'} (${r.hora_entrada})</span>`;
+        } else {
+            caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-yellow-500">⚠️ FUERA DE LA OBRA / SIN MARCAR</span>`;
+        }
+    });
 }
 
 window.marcarGPS = (tipo) => {
+    // PROTECCIÓN ANTES DE AUDITAR EL GPS
+    if (tipo === 'SALIDA') {
+        if (!confirm("¿SEGURO QUE TERMINASTE TU JORNADA?\n\nEsta acción registrará tu hora final y cerrará tu asistencia por hoy.")) return;
+    }
+
     if (!navigator.geolocation) return alert("❌ Su teléfono no soporta GPS.");
     alert(`📍 Auditando ubicación y hora...`);
 
@@ -147,7 +173,7 @@ window.marcarGPS = (tipo) => {
     }, {
         enableHighAccuracy: false, 
         timeout: 10000,             
-        maximumAge: 60000            
+        maximumAge: 60000           
     });
 };
 
@@ -156,6 +182,23 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
 
     firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
         let record = s.val() || {};
+
+        // VALIDACIÓN DE SEGURIDAD 1: Doble Entrada
+        if (tipo.includes('ENTRADA') && record.hora_entrada && !esSincronizacion) {
+            if (!confirm(`⚠️ Ya tienes una entrada registrada a las ${record.hora_entrada} en ${record.obra}.\n\n¿Deseas SOBREESCRIBIR tu ubicación y hora de entrada actual?`)) {
+                return; 
+            }
+        }
+
+        // VALIDACIÓN DE SEGURIDAD 2: Salida Repetida
+        if (tipo === 'SALIDA' && record.hora_salida && !esSincronizacion) {
+            return alert("❌ Ya marcaste tu salida el día de hoy.");
+        }
+
+        // VALIDACIÓN DE SEGURIDAD 3: Salida sin Entrada (Evitar que se ponga en Cero por error)
+        if (tipo === 'SALIDA' && !record.hora_entrada && !esSincronizacion) {
+            if (!confirm("⚠️ ATENCIÓN: No tienes marcada tu ENTRADA de hoy.\nSi marcas salida ahora, el sistema anulará el día completo.\n\n¿Quieres marcar salida de todos modos?")) return;
+        }
 
         firebase.database().ref(getDbPath('obras')).once('value').then(snap => {
             const obras = snap.val() || {};
@@ -185,7 +228,6 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 obraAsignada = "OTRAS OBRAS";
             }
 
-            // Excepción: Permitimos marcar salida sin estar en el radio de la obra
             if (tipo !== 'SALIDA' && obraAsignada === "POR ASIGNAR") {
                 return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. No se detecta ninguna obra activa a menos de 100 metros de tu ubicación.`);
             }
@@ -550,7 +592,6 @@ window.verDetalleSemana = (n) => {
 };
 
 function dibujarPlanilla() {
-    // EL CAMBIO ESTÁ EN EL TERCER BOTÓN: window.location.hash='#historial-sueldos'
     appDiv.innerHTML = `<div class="min-h-screen bg-black p-4 text-white"><div class="max-w-md mx-auto"><div class="flex justify-between mb-4"><h2 class="text-2xl font-black italic text-red-600">SUELDOS</h2><button onclick="window.location.hash='#menu'" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-zinc-900 p-4 rounded-2xl mb-4 flex gap-2 text-[10px] font-bold border border-zinc-800"><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Lunes</label><input type="date" value="${pFIni}" onchange="window.chPIni(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div><div class="flex-1 text-left"><label class="text-zinc-500 uppercase">Corte</label><input type="date" value="${pFFin}" onchange="window.chPFin(this.value)" class="w-full bg-black p-2 rounded-lg text-white"></div></div><button onclick="window.toggleMultaSalida()" class="w-full ${window.aplicarMultaSalida ? 'bg-red-600 border-red-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-2 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaSalida ? '🔴 MULTAS DE SALIDA: ACTIVAS (-0.5D)' : '⚪ MULTAS DE SALIDA: APAGADAS (0.0D)'}</button><button onclick="window.toggleMultaAtraso()" class="w-full ${window.aplicarMultaAtraso ? 'bg-orange-600 border-orange-800' : 'bg-zinc-700 border-zinc-600'} text-white py-3 rounded-xl mb-4 font-black text-[11px] uppercase border shadow-md transition-colors">${window.aplicarMultaAtraso ? '🔴 MULTAS DE ATRASO: ACTIVAS' : '⚪ MULTAS DE ATRASO: APAGADAS'}</button><button onclick="window.location.hash='#historial-sueldos'" class="w-full bg-zinc-800 py-3 rounded-xl mb-4 font-black text-[11px] uppercase border border-zinc-700 shadow-md">🗂️ Ver Historial Anteriores</button><div id="c-p" class="space-y-6 pb-10">Cargando...</div></div></div>`;
     
     data.obtenerTodo((db) => {
