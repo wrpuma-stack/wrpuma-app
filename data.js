@@ -6,7 +6,6 @@
 const firebaseConfig = {
     apiKey: "AIzaSyCuH9Rub9DRy0cUQgCQe7dN6_qxnhNqhMEk",
     authDomain: "wrpuma-control.firebaseapp.com",
-    databaseURL: "https://wrpuma-control-default-rtdb.firebaseio.com",
     projectId: "wrpuma-control",
     storageBucket: "wrpuma-control.firebasestorage.app",
     messagingSenderId: "371296735201",
