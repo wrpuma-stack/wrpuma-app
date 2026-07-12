@@ -14,8 +14,8 @@ const firebaseConfig = {
 };
 
 // INICIALIZACIÓN SEGURA
-if (!firebase.apps.length) { 
-    firebase.initializeApp(firebaseConfig); 
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
 }
 
 // ENRUTADOR DE EMPRESA (WALTER / NAPOLEON)
