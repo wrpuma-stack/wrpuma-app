@@ -87,9 +87,10 @@ window.verAccesoPro = (usuario) => {
             
             localStorage.setItem('a_wr', 'true');
             localStorage.setItem('rol_wr', 'admin');
-            
-            // Recargamos la página; al detectar la credencial, se abrirá el panel
-            window.location.reload(); 
+           
+            // EL SALTO DIRECTO AL PANEL:
+            window.location.hash = '#panel-gerencia';
+           
         } else {
             alert("Acceso denegado. PIN incorrecto.");
         }
