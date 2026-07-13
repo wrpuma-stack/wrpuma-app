@@ -128,17 +128,23 @@ function dibujarPanelTrabajador() {
             ${btnSync}
 
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="window.marcarGPS('ENTRADA_URUBO')" class="col-span-1 bg-green-600 text-white py-6 rounded-3xl font-black text-[14px] shadow-[0_0_15px_rgba(34,197,94,0.3)] border-b-4 border-green-800 flex flex-col items-center justify-center">
-                    <span class="text-[10px] mb-1 opacity-80 uppercase tracking-widest">ENTRADA</span>
-                    <span>☀️ URUBÓ</span>
+                <!-- NUEVO BOTÓN ÚNICO INTELIGENTE -->
+                <button onclick="window.marcarGPS('ENTRADA')" class="col-span-2 bg-green-600 text-white py-8 rounded-3xl font-black text-[18px] shadow-[0_0_15px_rgba(34,197,94,0.4)] border-b-4 border-green-800 flex flex-col items-center justify-center">
+                    <span class="text-[12px] mb-1 opacity-80 uppercase tracking-widest">☀️ REGISTRAR ENTRADA</span>
+                    <span>AUDITORÍA GPS AUTOMÁTICA</span>
                 </button>
-                <button onclick="window.marcarGPS('ENTRADA_OTRAS')" class="col-span-1 bg-emerald-600 text-white py-6 rounded-3xl font-black text-[14px] shadow-md border-b-4 border-emerald-800 flex flex-col items-center justify-center">
-                    <span class="text-[10px] mb-1 opacity-80 uppercase tracking-widest">ENTRADA</span>
-                    <span>☀️ OTRAS OBRAS</span>
-                </button>
+                
                 <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-6 rounded-3xl font-black text-[16px] shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center mt-1">
                     <span>🌙 MARCAR SALIDA</span>
                 </button>
+                
+                <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
+                    <span class="text-xl">🏗️</span><span>Pedir Material</span>
+                </button>
+                <button onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
+                    <span class="text-xl">💰</span><span>Pedir Anticipo</span>
+                </button>
+            </div>
                 
                 <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
                     <span class="text-xl">🏗️</span><span>Pedir Material</span>
