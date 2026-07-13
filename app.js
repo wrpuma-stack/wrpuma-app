@@ -128,7 +128,6 @@ function dibujarPanelTrabajador() {
             ${btnSync}
 
             <div class="grid grid-cols-2 gap-3">
-                <!-- NUEVO BOTÓN ÚNICO INTELIGENTE -->
                 <button onclick="window.marcarGPS('ENTRADA')" class="col-span-2 bg-green-600 text-white py-8 rounded-3xl font-black text-[18px] shadow-[0_0_15px_rgba(34,197,94,0.4)] border-b-4 border-green-800 flex flex-col items-center justify-center">
                     <span class="text-[12px] mb-1 opacity-80 uppercase tracking-widest">☀️ REGISTRAR ENTRADA</span>
                     <span>AUDITORÍA GPS AUTOMÁTICA</span>
@@ -137,14 +136,6 @@ function dibujarPanelTrabajador() {
                 <button onclick="window.marcarGPS('SALIDA')" class="col-span-2 bg-red-600 text-white py-6 rounded-3xl font-black text-[16px] shadow-[0_0_15px_rgba(239,68,68,0.3)] border-b-4 border-red-800 flex flex-col items-center mt-1">
                     <span>🌙 MARCAR SALIDA</span>
                 </button>
-                
-                <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
-                    <span class="text-xl">🏗️</span><span>Pedir Material</span>
-                </button>
-                <button onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
-                    <span class="text-xl">💰</span><span>Pedir Anticipo</span>
-                </button>
-            </div>
                 
                 <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
                     <span class="text-xl">🏗️</span><span>Pedir Material</span>
@@ -197,7 +188,21 @@ window.marcarGPS = (tipo) => {
             return alert("⚠️ MODO SIN SEÑAL (OFFLINE)\nTu registro se guardó en la memoria local de tu teléfono.\nCuando tengas señal de red móvil o WiFi, presiona el botón amarillo 'SINCRONIZAR' en tu pantalla para enviarlo al sistema de control.");
         }
 
-       window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, diaSemana, esSincronizacion) => {
+        window.procesarMarcaGPS(tipo, lat, lng, n, timeStr, gpsStr, horaNum, fechaSel, diaSemana, false);
+
+    }, (err) => {
+        if (err.code === 1) alert("❌ PERMISO DENEGADO: Active el GPS en su celular para marcar. Es obligatorio en WRPUMA.");
+        else if (err.code === 2) alert("❌ GPS NO DISPONIBLE: Salga al exterior e intente nuevamente.");
+        else if (err.code === 3) alert("❌ TIEMPO AGOTADO: El GPS tardó demasiado. Intente nuevamente en campo abierto.");
+        else alert("❌ Error de GPS. Intente nuevamente.");
+    }, {
+        enableHighAccuracy: false, 
+        timeout: 10000,             
+        maximumAge: 60000            
+    });
+}; 
+
+window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, diaSemana, esSincronizacion) => {
     const updates = { nombre: n };
 
     firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
@@ -284,7 +289,7 @@ window.marcarGPS = (tipo) => {
             }
         });
     });
-}; 
+};
 
 window.sincronizarOffline = () => {
     let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
