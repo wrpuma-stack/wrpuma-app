@@ -69,43 +69,23 @@ const USUARIOS_AUTORIZADOS = {
 
 window.verAccesoPro = (usuario) => {
     if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super') {
-        const email = prompt("Correo de acceso WRPUMA:");
-        const pass = prompt("Contraseña:");
+        const pass = prompt("PIN de seguridad (Modo Operativo):");
         
-        if (!email || !pass) return;
-
-        firebase.auth().signInWithEmailAndPassword(email.trim(), pass)
-            .then((cred) => {
-                const perfil = USUARIOS_AUTORIZADOS[cred.user.email];
-                if (!perfil) {
-                    firebase.auth().signOut();
-                    alert("❌ SEGURIDAD: Este correo no tiene un rol asignado.");
-                    return;
-                }
-                
-                localStorage.setItem('empresa_wr', perfil.empresa);
-                localStorage.setItem('u_wr', perfil.nombre);
-                localStorage.setItem('a_wr', perfil.rol === 'admin' ? 'true' : 'false');
-                localStorage.setItem('rol_wr', perfil.rol);
-                window.location.hash = '#menu';
-            })
-            .catch((err) => {
-                console.error("Error de acceso:", err.code);
-                alert("❌ ACCESO DENEGADO: Correo o contraseña incorrectos.");
-            });
-
-    } else if (usuario === 'trabajador') {
-        const nom = prompt("NOMBRE EXACTO:");
-        if (nom) {
-            localStorage.setItem('empresa_wr', 'Walter');
-            localStorage.setItem('u_wr', nom.toUpperCase().trim());
-            localStorage.setItem('a_wr', 'false');
-            localStorage.setItem('rol_wr', 'trabajador');
-            window.location.hash = '#panel-trabajador';
+        if (pass === "2345") {
+            // Bypass de emergencia: Carga directa sin Google
+            let perfil;
+            if (usuario === 'walter') {
+                perfil = { empresa: "Walter", rol: "admin", nombre: "Walter" };
+            } else if (usuario === 'napoleon') {
+                perfil = { empresa: "Napoleon", rol: "admin", nombre: "Napoleon" };
+            }
+            
+            iniciarSesion(perfil); 
+        } else {
+            alert("Acceso denegado. PIN incorrecto.");
         }
     }
 };
-
 window.cerrarSesionTotal = () => {
     if (firebase.auth().currentUser) {
         firebase.auth().signOut().then(() => {
