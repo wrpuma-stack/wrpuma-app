@@ -197,21 +197,7 @@ window.marcarGPS = (tipo) => {
             return alert("⚠️ MODO SIN SEÑAL (OFFLINE)\nTu registro se guardó en la memoria local de tu teléfono.\nCuando tengas señal de red móvil o WiFi, presiona el botón amarillo 'SINCRONIZAR' en tu pantalla para enviarlo al sistema de control.");
         }
 
-        window.procesarMarcaGPS(tipo, lat, lng, n, timeStr, gpsStr, horaNum, fechaSel, diaSemana, false);
-
-    }, (err) => {
-        if (err.code === 1) alert("❌ PERMISO DENEGADO: Active el GPS en su celular para marcar. Es obligatorio en WRPUMA.");
-        else if (err.code === 2) alert("❌ GPS NO DISPONIBLE: Salga al exterior e intente nuevamente.");
-        else if (err.code === 3) alert("❌ TIEMPO AGOTADO: El GPS tardó demasiado. Intente nuevamente en campo abierto.");
-        else alert("❌ Error de GPS. Intente nuevamente.");
-    }, {
-        enableHighAccuracy: false, 
-        timeout: 10000,             
-        maximumAge: 60000            
-    });
-};
-
-window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, diaSemana, esSincronizacion) => {
+       window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, diaSemana, esSincronizacion) => {
     const updates = { nombre: n };
 
     firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
@@ -229,7 +215,7 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
             return alert("❌ Ya marcaste tu salida el día de hoy.");
         }
 
-        // VALIDACIÓN DE SEGURIDAD 3: Salida sin Entrada (Evitar que se ponga en Cero por error)
+        // VALIDACIÓN DE SEGURIDAD 3: Salida sin Entrada
         if (tipo === 'SALIDA' && !record.hora_entrada && !esSincronizacion) {
             if (!confirm("⚠️ ATENCIÓN: No tienes marcada tu ENTRADA de hoy.\nSi marcas salida ahora, el sistema anulará el día completo.\n\n¿Quieres marcar salida de todos modos?")) return;
         }
@@ -249,24 +235,20 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                     const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
                     const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-                    if(dist <= 100 && dist < menorDistancia) {
+                    // RADIO DE TOLERANCIA ESTRICTO: 150 METROS
+                    if(dist <= 150 && dist < menorDistancia) {
                         menorDistancia = dist;
                         obraAsignada = o.nombre;
                     }
                 }
             });
 
-            if (tipo === 'ENTRADA_OTRAS') {
-                obraAsignada = "OTRAS OBRAS";
-            } else if (tipo === 'SALIDA' && record.obra === "OTRAS OBRAS") {
-                obraAsignada = "OTRAS OBRAS";
-            }
-
+            // REBOTE AUTOMÁTICO SI ESTÁ FUERA DE RUTA
             if (tipo !== 'SALIDA' && obraAsignada === "POR ASIGNAR") {
-                return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. No se detecta ninguna obra activa a menos de 100 metros de tu ubicación.`);
+                return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. El satélite te ubica a más de 150 metros de cualquier proyecto activo. Acércate a la obra para marcar.`);
             }
 
-            if (tipo === 'ENTRADA_URUBO' || tipo === 'ENTRADA_OTRAS') {
+            if (tipo === 'ENTRADA') {
                 if(horaNum >= 8.01) {
                     updates.estado = 'ROJA';
                     updates.horas_atraso = parseFloat((horaNum - 8.00).toFixed(2));
@@ -302,7 +284,7 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
             }
         });
     });
-};
+}; 
 
 window.sincronizarOffline = () => {
     let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
