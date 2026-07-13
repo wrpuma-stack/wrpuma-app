@@ -59,13 +59,8 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
 };
 
 // ==========================================================
-// 🔒 MÓDULO DE SEGURIDAD WRPUMA (FIREBASE AUTH)
+// 🔒 MÓDULO DE SEGURIDAD WRPUMA (MODO OPERATIVO)
 // ==========================================================
-
-const USUARIOS_AUTORIZADOS = {
-    "walter@wrpuma.com":   { empresa: "Walter",   rol: "admin", nombre: "Walter" },
-    // "napoleon@wrpuma.com": { empresa: "Napoleon", rol: "admin", nombre: "Napoleon" },
-};
 
 window.verAccesoPro = (usuario) => {
     // ACCESO GERENCIA / DIRECCIÓN
@@ -87,10 +82,10 @@ window.verAccesoPro = (usuario) => {
             
             localStorage.setItem('a_wr', 'true');
             localStorage.setItem('rol_wr', 'admin');
-           
-            // EL SALTO DIRECTO AL PANEL:
-            window.location.hash = '#panel-gerencia';
-           
+            
+            // EL SALTO DIRECTO AL PANEL CORRECTO:
+            window.location.hash = '#menu';
+            
         } else {
             alert("Acceso denegado. PIN incorrecto.");
         }
@@ -107,20 +102,8 @@ window.verAccesoPro = (usuario) => {
         }
     }
 };
-window.cerrarSesionTotal = () => {
-    if (firebase.auth().currentUser) {
-        firebase.auth().signOut().then(() => {
-            localStorage.clear();
-            location.reload();
-        }).catch(() => {
-            localStorage.clear();
-            location.reload();
-        });
-    } else {
-        localStorage.clear();
-        location.reload();
-    }
-};
+
+window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 
 // ==========================================================
 // 📍 PANEL TRABAJADOR Y MOTOR DE ASISTENCIA GEOESPACIAL PRO
@@ -218,7 +201,7 @@ window.marcarGPS = (tipo) => {
     }, {
         enableHighAccuracy: false, 
         timeout: 10000,             
-        maximumAge: 60000           
+        maximumAge: 60000            
     });
 };
 
@@ -1546,8 +1529,6 @@ function dibujarMenu() {
         });
     }
 }
-
-window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 
 function enrutador() {
     const urlParams = new URLSearchParams(window.location.search);
