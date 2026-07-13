@@ -68,21 +68,41 @@ const USUARIOS_AUTORIZADOS = {
 };
 
 window.verAccesoPro = (usuario) => {
+    // ACCESO GERENCIA / DIRECCIÓN
     if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super') {
         const pass = prompt("PIN de seguridad (Modo Operativo):");
         
         if (pass === "2345") {
-            // Bypass de emergencia: Carga directa sin Google
-            let perfil;
+            // Guardamos la credencial a la fuerza sin llamar funciones externas
             if (usuario === 'walter') {
-                perfil = { empresa: "Walter", rol: "admin", nombre: "Walter" };
+                localStorage.setItem('empresa_wr', 'Walter');
+                localStorage.setItem('u_wr', 'Walter');
             } else if (usuario === 'napoleon') {
-                perfil = { empresa: "Napoleon", rol: "admin", nombre: "Napoleon" };
+                localStorage.setItem('empresa_wr', 'Napoleon');
+                localStorage.setItem('u_wr', 'Napoleon');
+            } else {
+                localStorage.setItem('empresa_wr', 'Walter');
+                localStorage.setItem('u_wr', 'Super');
             }
             
-            iniciarSesion(perfil); 
+            localStorage.setItem('a_wr', 'true');
+            localStorage.setItem('rol_wr', 'admin');
+            
+            // Recargamos la página; al detectar la credencial, se abrirá el panel
+            window.location.reload(); 
         } else {
             alert("Acceso denegado. PIN incorrecto.");
+        }
+    } 
+    // ACCESO TRABAJADORES (Asistencia)
+    else if (usuario === 'trabajador') {
+        const nom = prompt("NOMBRE EXACTO:");
+        if (nom) {
+            localStorage.setItem('empresa_wr', 'Walter');
+            localStorage.setItem('u_wr', nom.toUpperCase().trim());
+            localStorage.setItem('a_wr', 'false');
+            localStorage.setItem('rol_wr', 'trabajador');
+            window.location.hash = '#panel-trabajador';
         }
     }
 };
