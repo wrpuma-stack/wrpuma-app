@@ -53,7 +53,7 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
             }
         }).catch(err => {
             alert("❌ Alerta de Control: Hubo un fallo enviando la notificación al servidor central.");
-            console.log("Webhook no enviado (revisar URL o conexión):", err);
+            console.log("Webhook no enviado (revisar URL or conexión):", err);
         });
     }
 };
@@ -63,9 +63,18 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
 // ==========================================================
 
 window.verAccesoPro = (usuario) => {
-    // ACCESO GERENCIA / DIRECCIÓN
-    if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super') {
+    // ACCESO GERENCIA / DIRECCIÓN / LOGÍSTICA
+    if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super' || usuario === 'chofer') {
         const pass = prompt("PIN de seguridad (Modo Operativo):");
+        
+        if (usuario === 'chofer' && pass === "4321") {
+            localStorage.setItem('empresa_wr', 'Walter');
+            localStorage.setItem('u_wr', 'Chofer Logistica');
+            localStorage.setItem('a_wr', 'false');
+            localStorage.setItem('rol_wr', 'chofer');
+            window.location.hash = '#logistica-chofer';
+            return;
+        }
         
         if (pass === "2345") {
             if (usuario === 'walter') {
@@ -109,11 +118,11 @@ window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 function dibujarPanelTrabajador() {
     const n = localStorage.getItem('u_wr');
     
-    // FILTRO 1: Verificar si el perfil fue bloqueado por Gerencia
+    // FILTRO DE SEGURIDAD: Bloqueo de perfiles inactivos
     firebase.database().ref(getDbPath(`personal/${n}`)).once('value').then(snapP => {
         const pData = snapP.val();
         if(pData && pData.estado === 'INACTIVO') {
-            alert("❌ ACCESO REVOCADO: Tu perfil ha sido desactivado por Administración. Comunícate con Gerencia.");
+            alert("❌ ACCESO DENEGADO: Tu perfil se encuentra INACTIVO en el sistema WRPUMA. Comunícate con Gerencia.");
             window.cerrarSesionTotal();
             return;
         }
@@ -134,6 +143,11 @@ function dibujarPanelTrabajador() {
                 <span class="text-sm font-black text-white animate-pulse">Consultando satélite...</span>
             </div>
 
+            <div id="seccion-epp-trabajador" class="bg-zinc-900 p-4 rounded-2xl mb-4 border border-indigo-500/50 hidden">
+                <span class="text-[10px] text-indigo-400 font-black uppercase block mb-2 tracking-widest">📦 CARGOS Y DOTACIONES PENDIENTES</span>
+                <div id="lista-epp-pendientes" class="space-y-2"></div>
+            </div>
+
             ${btnSync}
 
             <div class="grid grid-cols-2 gap-3">
@@ -149,7 +163,7 @@ function dibujarPanelTrabajador() {
                 <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
                     <span class="text-xl">🏗️</span><span>Pedir Material</span>
                 </button>
-                <button id="btn-pedir-anticipo" onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
+                <button id="btn-solicitar-anticipo" onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
                     <span class="text-xl">💰</span><span>Pedir Anticipo</span>
                 </button>
             </div>
@@ -157,10 +171,11 @@ function dibujarPanelTrabajador() {
     </div>`;
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
     
-    // LISTENER PARA EL ESTADO EN VIVO Y BLINDAJE DE ANTICIPOS
+    // LISTENER PARA EL ESTADO EN VIVO Y PROTECCIÓN DE ANTICIPOS POR ATRASO
     firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).on('value', snap => {
         const r = snap.val();
         const caja = document.getElementById('estado-actual-trabajador');
+        const btnAnticipo = document.getElementById('btn-solicitar-anticipo');
         if(!caja) return;
         if(r && r.hora_salida) {
             caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-red-500">🌙 JORNADA FINALIZADA (${r.hora_salida})</span>`;
@@ -170,19 +185,55 @@ function dibujarPanelTrabajador() {
             caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-yellow-500">⚠️ FUERA DE LA OBRA / SIN MARCAR</span>`;
         }
 
-        // --- BLINDAJE AUTOMÁTICO DE ANTICIPOS ---
-        const btnAnt = document.getElementById('btn-pedir-anticipo');
-        if (btnAnt) {
+        // CONTROL AUTOMÁTICO DE ANTICIPOS SI LLEGÓ TARDE (ESTADO ROJA)
+        if (btnAnticipo) {
             if (r && r.estado === 'ROJA') {
-                btnAnt.className = "bg-transparent border-2 border-zinc-800 text-zinc-700 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2 opacity-50";
-                btnAnt.onclick = () => alert("❌ BLOQUEADO POR EL SISTEMA: Marcaste tu entrada después de las 8:00 AM. Pierdes el derecho a pedir anticipos por hoy.");
+                btnAnticipo.className = "bg-transparent border-2 border-zinc-800 text-zinc-700 py-4 rounded-2xl font-black text-[11px] uppercase flex flex-col items-center justify-center gap-1 mt-2 opacity-40 cursor-not-allowed";
+                btnAnticipo.onclick = () => alert("❌ ACCESO RESTRINGIDO POR EL SISTEMA:\nTu entrada quedó registrada después de las 8:00 AM. Los anticipos automáticos quedan bloqueados por incumplimiento de horario.");
             } else {
-                btnAnt.className = "bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2";
-                btnAnt.onclick = window.pedirAnticipoTrabajador;
+                btnAnticipo.className = "bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2";
+                btnAnticipo.onclick = window.pedirAnticipoTrabajador;
             }
         }
     });
+
+    // LISTENER PARA CONFIRMACIÓN DE ENTREGA DE HERRAMIENTAS O UNIFORMES
+    firebase.database().ref(getDbPath('dotaciones_logistica')).on('value', snap => {
+        const divBox = document.getElementById('seccion-epp-trabajador');
+        const divLista = document.getElementById('lista-epp-pendientes');
+        if(!divBox || !divLista) return;
+        divLista.innerHTML = '';
+        let registrosActivos = false;
+        
+        const dataDot = snap.val() || {};
+        Object.keys(dataDot).forEach(id => {
+            const item = dataDot[id];
+            if (item.trabajador === n && item.estado === 'Pendiente') {
+                registrosActivos = true;
+                divLista.innerHTML += `
+                <div class="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col gap-2">
+                    <div class="text-xs">
+                        <b class="text-indigo-400 uppercase">[${item.tipo}] ${item.articulo}</b>
+                        <p class="text-[9px] text-zinc-500 mt-0.5">Despachado en fecha: ${new Date(item.fecha_despacho).toLocaleDateString()}</p>
+                    </div>
+                    <button onclick="window.confirmarOKTrabajador('${id}', '${item.articulo}')" class="w-full bg-indigo-600 text-white font-black py-2 rounded-xl text-[10px] uppercase shadow-md tracking-wider">👍 RECIBÍ CONFORME / DAR OK</button>
+                </div>`;
+            }
+        });
+
+        if(registrosActivos) divBox.classList.remove('hidden');
+        else divBox.classList.add('hidden');
+    });
 }
+
+window.confirmarOKTrabajador = (id, art) => {
+    if(confirm(`¿Confirmas la recepción física del artículo [${art}] bajo tu cargo y responsabilidad total en la obra?`)) {
+        firebase.database().ref(getDbPath(`dotaciones_logistica/${id}`)).update({
+            estado: 'Confirmado',
+            fecha_confirmacion: new Date().toISOString()
+        }).then(() => alert("✅ Confirmación guardada. El ítem pasó a tu inventario personal de cargo."));
+    }
+};
 
 window.marcarGPS = (tipo) => {
     if (tipo === 'SALIDA') {
@@ -217,7 +268,7 @@ window.marcarGPS = (tipo) => {
         else alert("❌ Error de GPS. Intente nuevamente.");
     }, {
         enableHighAccuracy: false, 
-        timeout: 10000,             
+        timeout: 10000,              
         maximumAge: 60000            
     });
 }; 
@@ -229,7 +280,9 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
         let record = s.val() || {};
 
         if (tipo.includes('ENTRADA') && record.hora_entrada && !esSincronizacion) {
-            if (!confirm(`⚠️ Ya tienes una entrada registrada a las ${record.hora_entrada} en ${record.obra}.\n\n¿Deseas SOBREESCRIBIR tu ubicación y hora de entrada actual?`)) return; 
+            if (!confirm(`⚠️ Ya tienes una entrada registrada a las ${record.hora_entrada} en ${record.obra}.\n\n¿Deseas SOBREESCRIBIR tu ubicación y hora de entrada actual?`)) {
+                return; 
+            }
         }
 
         if (tipo === 'SALIDA' && record.hora_salida && !esSincronizacion) {
@@ -529,8 +582,8 @@ window.renderListaPintores = () => {
     Object.keys(window.currentPersonal).forEach(n => {
         const nombreMayus = n.toUpperCase();
         
-        // --- EVITAR MOSTRAR PERSONAL INACTIVO EN LA LISTA DE ASISTENCIA ---
-        if(window.currentPersonal[n] && window.currentPersonal[n].estado === 'INACTIVO') return; 
+        // FILTRADO DE PERSONAL INACTIVO DE LA TABLA DE CONTROL DE ASISTENCIA DIARIA
+        if(window.currentPersonal[n] && window.currentPersonal[n].estado === 'INACTIVO') return;
 
         const r = marcasMap[nombreMayus]; 
         if(r && r.obra === "POR ASIGNAR") return;
@@ -598,6 +651,9 @@ window.quitarAsistenciaModal = () => { if (confirm(`¿Eliminar a ${window.pintor
 window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); };
 window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fantasma de ${n}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).remove(); } };
 
+// ==========================================================
+// ✅ CORRECCIÓN 3: VER DETALLE SEMANA (BOTÓN BUSCADOR) Y TOGGLE DE ATRASOS
+// ==========================================================
 window.verDetalleSemana = (n) => {
     firebase.database().ref(getDbPath('asistencia_semanal')).once('value').then(snap => {
         const hist = snap.val() || {};
@@ -729,11 +785,14 @@ window.verHistorialSueldos = () => {
         const p = s.val() || {}; 
         c.innerHTML = '';
         
+        // Ordenamos por fecha descendente (los más recientes primero)
         const pagosArray = Object.values(p).sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
         
+        // Renderizamos la tarjeta con la radiografía financiera y botón de auditoría semanal
         pagosArray.forEach(pg => { 
             const fechaLegible = new Date(pg.fecha_pago).toLocaleString();
             
+            // Extraemos los detalles si existen en la base de datos
             let detallesHTML = '';
             if (pg.detalles) {
                 const diasTotales = (pg.detalles.dias_normales || 0) + (pg.detalles.dias_extras || 0);
@@ -756,7 +815,7 @@ window.verHistorialSueldos = () => {
                         - Bs. ${multasTotales}
                     </div>
                 </div>
-                <button onclick="window.verDetalleAnticiposHistorial('${pg.trabajador}', '${pg.semana_ancla}')" class="w-full mt-3 bg-blue-900/40 text-blue-300 border border-blue-800 py-3 rounded-xl font-bold text-[10px] uppercase shadow-sm">🔍 Ver Fechas de Anticipos de esta Semana</button>`;
+                <button onclick="window.verFechasDeAnticiposHistorial('${pg.trabajador}', '${pg.semana_ancla}')" class="w-full mt-3 bg-blue-900/40 text-blue-300 border border-blue-800 py-3 rounded-xl font-bold text-[10px] uppercase shadow-sm">🔍 Ver Fechas de Anticipos de esta Semana</button>`;
             } else {
                 detallesHTML = `<div class="mt-3 pt-3 border-t border-zinc-800 text-[9px] text-zinc-600 italic">Registro antiguo - Detalles no guardados</div>`;
             }
@@ -774,23 +833,20 @@ window.verHistorialSueldos = () => {
     });
 };
 
-window.verDetalleAnticiposHistorial = (trabajador, semanaIni) => {
+window.verFechasDeAnticiposHistorial = (trabajador, semanaAncla) => {
     firebase.database().ref(getDbPath('solicitudes')).once('value').then(snap => {
         const sol = snap.val() || {};
-        let msg = `📅 DETALLE DE ANTICIPOS SOLICITADOS\nTrabajador: ${trabajador}\n\n`;
+        let msg = `📅 REPORTE DE ANTICIPOS DIGITALES: ${trabajador}\nSemana Base: ${semanaAncla}\n\n`;
         let hay = false;
-        
-        const solicitudesArray = Object.values(sol).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-        
-        solicitudesArray.forEach(s => {
-            if(s.trabajador === trabajador && s.tipo === 'ANTICIPO' && s.estado === 'Atendido') {
-                if (s.fecha_corta >= semanaIni) {
-                    msg += `✔️ Fecha: ${s.fecha}\n   Monto Entregado: Bs. ${s.monto_aprobado || s.detalle}\n\n`;
+        Object.values(sol).forEach(s => {
+            if (s.trabajador === trabajador && s.tipo === 'ANTICIPO' && s.estado === 'Atendido') {
+                if (s.fecha_corta >= semanaAncla) {
+                    msg += `✔️ Solicitado: ${s.fecha}\n   Monto Entregado: Bs. ${s.monto_approved || s.monto_aprobado || s.detalle}\n\n`;
                     hay = true;
                 }
             }
         });
-        if(!hay) msg += "No se encontraron registros digitales de fecha y hora para los anticipos de esta semana (posiblemente se anotaron manual).";
+        if(!hay) msg += "No se registran solicitudes digitales procesadas para este periodo en la base de datos (revisa el flujo de vales manuales).";
         alert(msg);
     });
 };
@@ -839,6 +895,139 @@ function dibujarLogistica() {
         Object.keys(obs).forEach(id => { if (obs[id].estado !== 'Entregada') s.innerHTML += `<option value="${obs[id].nombre}">${obs[id].nombre}</option>`; });
     });
 }
+
+// 🚚 MODULO ESPECÍFICO EXCLUSIVO PARA EL CHOFER / CONTROL EN CAMIONETA
+function dibujarLogisticaChofer() {
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-900 p-4 text-white font-sans pb-10">
+        <div class="max-w-md mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black italic text-indigo-500 uppercase tracking-wider">WRPUMA LOGÍSTICA</h2>
+                <button onclick="window.cerrarSesionTotal()" class="bg-zinc-800 text-xs px-3 py-1 rounded-full font-bold">SALIR</button>
+            </div>
+            
+            <div class="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 space-y-4 mb-6 shadow-2xl">
+                <h3 class="text-xs font-black uppercase tracking-widest text-indigo-400">🚚 ASIGNACIÓN DE CARGO A TRABAJADOR</h3>
+                
+                <div>
+                    <label class="text-[9px] font-black text-zinc-400 block mb-1">SELECCIONAR TRABAJADOR:</label>
+                    <select id="ch-trabajador" class="w-full p-3 rounded-xl bg-zinc-900 border border-zinc-700 font-black uppercase text-xs text-white outline-none">
+                        <option value="">-- SELECCIONAR OPERARIO --</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="text-[9px] font-black text-zinc-400 block mb-1">CATEGORÍA:</label>
+                        <select id="ch-tipo" class="w-full p-2 rounded-xl bg-zinc-900 border border-zinc-700 font-black text-xs text-white" onchange="window.cambiarOpcionesArticuloChofer(this.value)">
+                            <option value="HERRAMIENTA">HERRAMIENTA</option>
+                            <option value="EPP_UNIFORME">UNIFORME / EPP</option>
+                            <option value="CONSUMIBLE">CONSUMIBLE</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[9px] font-black text-zinc-400 block mb-1">ARTÍCULO:</label>
+                        <select id="ch-articulo" class="w-full p-2 rounded-xl bg-zinc-900 border border-zinc-700 font-black text-xs text-white"></select>
+                    </div>
+                </div>
+
+                <button onclick="window.despacharItemChofer()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl text-xs uppercase tracking-widest shadow-md mt-2">📦 DESPACHAR Y EXIGIR OK DIGITAL</button>
+            </div>
+
+            <div class="bg-zinc-950 p-5 rounded-3xl border border-zinc-800 shadow-md">
+                <h3 class="text-xs font-black uppercase tracking-widest text-zinc-400 mb-3">📋 HISTORIAL DE DESPACHOS EN RUTA</h3>
+                <div id="lista-auditoria-chofer" class="space-y-2 max-h-64 overflow-y-auto">Cargando...</div>
+            </div>
+        </div>
+    </div>`;
+
+    data.obtenerPersonal(per => {
+        const s = document.getElementById('ch-trabajador');
+        if(!s) return;
+        Object.keys(per).forEach(k => {
+            if(per[k].estado !== 'INACTIVO') s.innerHTML += `<option value="${k.toUpperCase()}">${k.toUpperCase()}</option>`;
+        });
+    });
+
+    window.cambiarOpcionesArticuloChofer('HERRAMIENTA');
+    window.cargarHistorialChofer();
+}
+
+window.cambiarOpcionesArticuloChofer = (tipo) => {
+    const s = document.getElementById('ch-articulo');
+    if(!s) return;
+    s.innerHTML = '';
+    if(tipo === 'HERRAMIENTA') {
+        s.innerHTML = `<option value="PICO DE LORO">PICO DE LORO</option><option value="ESPATULA">ESPATULA</option><option value="LIJADORA JIRAFA">LIJADORA JIRAFA</option><option value="GRACO AIRLESS">GRACO AIRLESS</option>`;
+    } else if(tipo === 'EPP_UNIFORME') {
+        s.innerHTML = `<option value="BOTAS DE SEGURIDAD">BOTAS DE SEGURIDAD</option><option value="CASCO BLANCO WRPUMA">CASCO BLANCO WRPUMA</option><option value="CAMISA DRILL">CAMISA DRILL</option><option value="LENTES DE PROTECCION">LENTES DE PROTECCION</option>`;
+    } else {
+        s.innerHTML = `<option value="BROCHA">BROCHA</option><option value="RODILLO">RODILLO</option><option value="BALDE DE MASILLA">MASILLA BALDE</option>`;
+    }
+};
+
+window.despacharItemChofer = () => {
+    const trab = document.getElementById('ch-trabajador').value;
+    const tipo = document.getElementById('ch-tipo').value;
+    const art = document.getElementById('ch-articulo').value;
+    
+    if(!trab) return alert("❌ Por favor selecciona un trabajador válido.");
+
+    // BLINDAJE ANTI-PÉRDIDAS: Bloqueo de duplicados excesivos de brochas y rodillos en menos de 7 días
+    if (tipo === 'CONSUMIBLE') {
+        firebase.database().ref(getDbPath('dotaciones_logistica')).once('value').then(snap => {
+            const list = snap.val() || {};
+            let contadorReciente = 0;
+            const limiteTiempo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+            Object.values(list).forEach(item => {
+                if(item.trabajador === trab && item.articulo === art && new Date(item.fecha_despacho).getTime() > limiteTiempo) {
+                    contadorReciente++;
+                }
+            });
+
+            if (contadorReciente >= 2) {
+                if (!confirm(`⚠️ CONTROL DE DESPERDICIO WRPUMA:\nEl trabajador ${trab} ya ha recibido ${contadorReciente} unidades de [${art}] en esta semana.\n\n¿Estás seguro de entregar otra unidad? Si se arruinó por mal lavado, recuerda aplicar la multa por daño en la planilla.`)) {
+                    return;
+                }
+            }
+            window.guardarDespachoChoferBase(trab, tipo, art);
+        });
+    } else {
+        window.guardarDespachoChoferBase(trab, tipo, art);
+    }
+};
+
+window.guardarDespachoChoferBase = (trab, tipo, art) => {
+    const uid = `DOT_${Date.now()}`;
+    firebase.database().ref(getDbPath(`dotaciones_logistica/${uid}`)).set({
+        trabajador: trab,
+        tipo: tipo,
+        articulo: art,
+        fecha_despacho: new Date().toISOString(),
+        estado: 'Pendiente',
+        fecha_confirmacion: ''
+    }).then(() => {
+        alert("✅ Cargado exitosamente. Se envió la notificación al panel del trabajador para su confirmación obrigatoria.");
+        window.dispararAlertaWhatsApp(`🚚 TRANSPORTE CONTROL: Chofer entregó [${art}] a ${trab}. Esperando confirmación digital.`);
+        window.cargarHistorialChofer();
+    });
+};
+
+window.cargarHistorialChofer = () => {
+    firebase.database().ref(getDbPath('dotaciones_logistica')).on('value', snap => {
+        const div = document.getElementById('lista-auditoria-chofer');
+        if(!div) return;
+        div.innerHTML = '';
+        const data = snap.val() || {};
+        const arr = Object.values(data).reverse();
+        if(arr.length === 0) div.innerHTML = '<p class="text-xs opacity-50 italic text-center text-zinc-500 py-2">No hay registros de cargas.</p>';
+        arr.forEach(item => {
+            const badge = item.estado === 'Confirmado' ? '<span class="text-green-400 font-bold text-[9px] uppercase">✓ RECIBIDO</span>' : '<span class="text-yellow-500 font-bold text-[9px] uppercase">⌛ PENDIENTE OK</span>';
+            div.innerHTML += `<div class="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl flex justify-between items-center text-xs"><div><b class="text-white">${item.trabajador}</b><span class="text-zinc-400"> -> ${item.articulo}</span></div>${badge}</div>`;
+        });
+    });
+};
 
 window.cargarInventarioObra = () => {
     const obra = document.getElementById('log-obra').value;
@@ -1107,32 +1296,18 @@ window.editarNombreObra = (id, old) => { const n = prompt("Nuevo nombre:", old);
 // 👷 PERSONAL
 // ==========================================================
 function dibujarPersonal() {
-    appDiv.innerHTML = `
-    <div class="min-h-screen bg-zinc-100 p-4 text-black">
-        <div class="max-w-md mx-auto">
-            <div class="bg-zinc-800 p-6 text-white flex justify-between rounded-t-3xl">
-                <h2 class="text-xl font-black italic">PERSONAL</h2>
-                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
-            </div>
-            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
-                <input id="p-nom" type="text" placeholder="NOMBRE" class="w-full p-3 rounded-xl border-2 uppercase font-bold mb-2">
-                <input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3">
-                <button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg">REGISTRAR PERSONAL</button>
-                <div id="list-p" class="space-y-3 pt-4 mt-4 border-t">Cargando...</div>
-            </div>
-        </div>
-    </div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black"><div class="max-w-md mx-auto"><div class="bg-zinc-800 p-6 text-white flex justify-between rounded-t-3xl"><h2 class="text-xl font-black italic">PERSONAL</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="p-nom" type="text" placeholder="NOMBRE" class="w-full p-3 rounded-xl border-2 uppercase font-bold mb-2"><input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3"><button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg">REGISTRAR PERSONAL</button><div id="list-p" class="space-y-3 pt-4 mt-4 border-t">Cargando...</div></div></div></div>`;
     firebase.database().ref(getDbPath('personal')).on('value', snap => {
         const c = document.getElementById('list-p'); if (!c) return; c.innerHTML = ''; const p = snap.val() || {};
         Object.keys(p).forEach(n => { 
             const est = p[n].estado || 'ACTIVO';
-            const bgEst = est === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+            const bgEst = est === 'ACTIVO' ? 'bg-green-600 text-white' : 'bg-red-600 text-white';
             c.innerHTML += `
             <div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border uppercase shadow-sm">
                 <div>
                     <b class="text-sm ${est === 'INACTIVO' ? 'line-through text-zinc-400' : 'text-black'}">${n}</b><br>
                     <span class="text-[10px] text-zinc-500 font-bold">Sueldo: Bs. ${p[n].sueldo_dia}</span><br>
-                    <button onclick="window.toggleEstadoP('${n}', '${est}')" class="text-[9px] font-black px-2 py-0.5 mt-1 rounded ${bgEst}">${est}</button>
+                    <button onclick="window.toggleEstadoPersonal('${n}', '${est}')" class="mt-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${bgEst}">${est}</button>
                 </div>
                 <div class="flex flex-col gap-1">
                     <button onclick="window.editarP('${n}', ${p[n].sueldo_dia})" class="text-blue-600 font-black px-3 py-1 bg-blue-100 rounded-lg text-[10px]">EDITAR</button>
@@ -1144,7 +1319,10 @@ function dibujarPersonal() {
 }
 window.saveP = () => { const n = document.getElementById('p-nom').value.trim().toUpperCase(), s = document.getElementById('p-sue').value; if (n && s) firebase.database().ref(getDbPath(`personal/${n}`)).set({ sueldo_dia: s, estado: 'ACTIVO' }); };
 window.delP = (n) => { if (confirm(`¿Borrar a ${n}?`)) firebase.database().ref(getDbPath(`personal/${n}`)).remove(); };
-window.toggleEstadoP = (n, current) => { const nuevo = current === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'; firebase.database().ref(getDbPath(`personal/${n}`)).update({ estado: nuevo }); };
+window.toggleEstadoPersonal = (n, current) => {
+    const next = current === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    firebase.database().ref(getDbPath(`personal/${n}/estado`)).set(next);
+};
 window.editarP = (old, sOld) => { 
     let n = prompt("Nombre:", old); if(!n) return; 
     let s = prompt("Sueldo:", sOld); if(!s) return; 
@@ -1426,7 +1604,7 @@ window.saveMat = () => { const nom = document.getElementById('m-nom').value.trim
 window.delMat = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`materiales/${id}`)).remove(); };
 
 // ==========================================================
-// 🧮 CALCULADORA COMPUTOS PRO
+// 🗮️ CALCULADORA COMPUTOS PRO
 // ==========================================================
 function dibujarCalculadora() {
     window.carritoPresupuesto = [];
@@ -1541,7 +1719,7 @@ window.modoActa = () => {
     document.getElementById('zona-editable').innerHTML = `
     <p><b>PROYECTO:</b> [Nombre de la Obra]</p>
     <p><b>CLIENTE:</b> [Nombre del Cliente]</p>
-    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos de acabados y pintura decorativa detallados en el contrato correspondiente.</p>
+    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos de acabados y pintura decorativa detallados in el contrato correspondiente.</p>
     <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones de terminación. Cualquier retoque, reparación o daño posterior provocado por traslados, mudanzas, instalaciones o terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo de cotización adicional.</p>
     <p><i>Nota: De acuerdo a las políticas explícitas de WRPUMA, no se emiten garantías sobre pintura decorativa o efectos de alta decoración en interiores.</i></p>
     <br><br><br>
@@ -1615,6 +1793,7 @@ function enrutador() {
     if (rol === 'trabajador' && h !== '#panel-trabajador') { window.location.hash = '#panel-trabajador'; return; }
     
     if (h === '#panel-trabajador') dibujarPanelTrabajador();
+    else if (h === '#logistica-chofer') dibujarLogisticaChofer();
     else if (h === '#solicitudes') dibujarSolicitudes();
     else if (h === '#historial-solicitudes') window.verHistorialSolicitudes();
     else if (h === '#asistencia') dibujarAsistencia(); 
@@ -1635,7 +1814,7 @@ function enrutador() {
 }
 
 window.dibujarAcceso = () => {
-    appDiv.innerHTML = `<div class="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center"><h1 class="text-6xl font-black text-white italic mb-10">WR<span class="text-red-600">PUMA</span></h1><div class="grid gap-4 w-full max-w-xs"><button onclick="window.verAccesoPro('walter')" class="bg-red-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO GERENCIA</button><button onclick="window.verAccesoPro('napoleon')" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO DIRECCION</button><button onclick="window.verAccesoPro('super')" class="bg-zinc-800 text-zinc-300 py-3 rounded-2xl font-black text-sm border border-zinc-700 mt-4">ACCESO SUPERVISOR</button><div class="border-t border-zinc-800 pt-4 mt-2"><button onclick="window.verAccesoPro('trabajador')" class="w-full bg-zinc-900 text-green-500 py-4 rounded-2xl font-black text-xs border border-zinc-800">ACCESO TRABAJADOR / ASISTENCIA</button></div></div></div>`;
+    appDiv.innerHTML = `<div class="min-h-screen bg-black flex flex-col items-center justify-center p-6 text-center"><h1 class="text-6xl font-black text-white italic mb-10">WR<span class="text-red-600">PUMA</span></h1><div class="grid gap-4 w-full max-w-xs"><button onclick="window.verAccesoPro('walter')" class="bg-red-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO GERENCIA</button><button onclick="window.verAccesoPro('napoleon')" class="bg-blue-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO DIRECCION</button><button onclick="window.verAccesoPro('chofer')" class="bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg">ACCESO CHOFER</button><button onclick="window.verAccesoPro('super')" class="bg-zinc-800 text-zinc-300 py-3 rounded-2xl font-black text-sm border border-zinc-700 mt-4">ACCESO SUPERVISOR</button><div class="border-t border-zinc-800 pt-4 mt-2"><button onclick="window.verAccesoPro('trabajador')" class="w-full bg-zinc-900 text-green-500 py-4 rounded-2xl font-black text-xs border border-zinc-800">ACCESO TRABAJADOR / ASISTENCIA</button></div></div></div>`;
 };
 
 window.cambiarMensaje = () => { const msg = prompt("Escriba la nueva directiva o mensaje del día:"); if (msg) { firebase.database().ref(getDbPath('config/mensaje_dia')).set(msg).then(() => alert("Mensaje actualizado.")); } };
