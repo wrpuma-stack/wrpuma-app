@@ -68,7 +68,6 @@ window.verAccesoPro = (usuario) => {
         const pass = prompt("PIN de seguridad (Modo Operativo):");
         
         if (pass === "2345") {
-            // Guardamos la credencial a la fuerza sin llamar funciones externas
             if (usuario === 'walter') {
                 localStorage.setItem('empresa_wr', 'Walter');
                 localStorage.setItem('u_wr', 'Walter');
@@ -83,7 +82,6 @@ window.verAccesoPro = (usuario) => {
             localStorage.setItem('a_wr', 'true');
             localStorage.setItem('rol_wr', 'admin');
             
-            // EL SALTO DIRECTO AL PANEL CORRECTO:
             window.location.hash = '#menu';
             
         } else {
@@ -110,6 +108,17 @@ window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 // ==========================================================
 function dibujarPanelTrabajador() {
     const n = localStorage.getItem('u_wr');
+    
+    // FILTRO 1: Verificar si el perfil fue bloqueado por Gerencia
+    firebase.database().ref(getDbPath(`personal/${n}`)).once('value').then(snapP => {
+        const pData = snapP.val();
+        if(pData && pData.estado === 'INACTIVO') {
+            alert("❌ ACCESO REVOCADO: Tu perfil ha sido desactivado por Administración. Comunícate con Gerencia.");
+            window.cerrarSesionTotal();
+            return;
+        }
+    });
+
     let pendientes = JSON.parse(localStorage.getItem('asistencias_offline') || '[]');
     let btnSync = pendientes.length > 0 ? `<button onclick="window.sincronizarOffline()" class="w-full bg-yellow-500 text-black py-4 rounded-2xl font-black text-[12px] uppercase shadow-[0_0_15px_rgba(234,179,8,0.5)] border-b-4 border-yellow-700 animate-pulse mb-4">⚠️ TIENES ${pendientes.length} MARCAS SIN INTERNET - TOCA AQUÍ PARA ENVIARLAS AL SISTEMA</button>` : '';
 
@@ -140,7 +149,7 @@ function dibujarPanelTrabajador() {
                 <button onclick="window.pedirMaterialTrabajador()" class="bg-transparent border-2 border-blue-500 text-blue-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
                     <span class="text-xl">🏗️</span><span>Pedir Material</span>
                 </button>
-                <button onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
+                <button id="btn-pedir-anticipo" onclick="window.pedirAnticipoTrabajador()" class="bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2">
                     <span class="text-xl">💰</span><span>Pedir Anticipo</span>
                 </button>
             </div>
@@ -148,7 +157,7 @@ function dibujarPanelTrabajador() {
     </div>`;
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
     
-    // LISTENER PARA EL ESTADO EN VIVO
+    // LISTENER PARA EL ESTADO EN VIVO Y BLINDAJE DE ANTICIPOS
     firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).on('value', snap => {
         const r = snap.val();
         const caja = document.getElementById('estado-actual-trabajador');
@@ -160,11 +169,22 @@ function dibujarPanelTrabajador() {
         } else {
             caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-yellow-500">⚠️ FUERA DE LA OBRA / SIN MARCAR</span>`;
         }
+
+        // --- BLINDAJE AUTOMÁTICO DE ANTICIPOS ---
+        const btnAnt = document.getElementById('btn-pedir-anticipo');
+        if (btnAnt) {
+            if (r && r.estado === 'ROJA') {
+                btnAnt.className = "bg-transparent border-2 border-zinc-800 text-zinc-700 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2 opacity-50";
+                btnAnt.onclick = () => alert("❌ BLOQUEADO POR EL SISTEMA: Marcaste tu entrada después de las 8:00 AM. Pierdes el derecho a pedir anticipos por hoy.");
+            } else {
+                btnAnt.className = "bg-transparent border-2 border-zinc-500 text-zinc-400 py-4 rounded-2xl font-black text-[11px] uppercase shadow-sm flex flex-col items-center justify-center gap-1 mt-2";
+                btnAnt.onclick = window.pedirAnticipoTrabajador;
+            }
+        }
     });
 }
 
 window.marcarGPS = (tipo) => {
-    // PROTECCIÓN ANTES DE AUDITAR EL GPS
     if (tipo === 'SALIDA') {
         if (!confirm("¿SEGURO QUE TERMINASTE TU JORNADA?\n\nEsta acción registrará tu hora final y cerrará tu asistencia por hoy.")) return;
     }
@@ -208,19 +228,14 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
     firebase.database().ref(getDbPath(`asistencia_semanal/${fSel}/${n}`)).once('value').then(s => {
         let record = s.val() || {};
 
-        // VALIDACIÓN DE SEGURIDAD 1: Doble Entrada
         if (tipo.includes('ENTRADA') && record.hora_entrada && !esSincronizacion) {
-            if (!confirm(`⚠️ Ya tienes una entrada registrada a las ${record.hora_entrada} en ${record.obra}.\n\n¿Deseas SOBREESCRIBIR tu ubicación y hora de entrada actual?`)) {
-                return; 
-            }
+            if (!confirm(`⚠️ Ya tienes una entrada registrada a las ${record.hora_entrada} en ${record.obra}.\n\n¿Deseas SOBREESCRIBIR tu ubicación y hora de entrada actual?`)) return; 
         }
 
-        // VALIDACIÓN DE SEGURIDAD 2: Salida Repetida
         if (tipo === 'SALIDA' && record.hora_salida && !esSincronizacion) {
             return alert("❌ Ya marcaste tu salida el día de hoy.");
         }
 
-        // VALIDACIÓN DE SEGURIDAD 3: Salida sin Entrada
         if (tipo === 'SALIDA' && !record.hora_entrada && !esSincronizacion) {
             if (!confirm("⚠️ ATENCIÓN: No tienes marcada tu ENTRADA de hoy.\nSi marcas salida ahora, el sistema anulará el día completo.\n\n¿Quieres marcar salida de todos modos?")) return;
         }
@@ -240,7 +255,6 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                     const a = Math.sin(d1/2)*Math.sin(d1/2) + Math.cos(r1)*Math.cos(r2)*Math.sin(d2/2)*Math.sin(d2/2);
                     const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-                    // RADIO DE TOLERANCIA ESTRICTO: 150 METROS
                     if(dist <= 150 && dist < menorDistancia) {
                         menorDistancia = dist;
                         obraAsignada = o.nombre;
@@ -248,7 +262,6 @@ window.procesarMarcaGPS = (tipo, lat, lng, n, timeStr, gpsStr, horaNum, fSel, di
                 }
             });
 
-            // REBOTE AUTOMÁTICO SI ESTÁ FUERA DE RUTA
             if (tipo !== 'SALIDA' && obraAsignada === "POR ASIGNAR") {
                 return alert(`❌ OPERACIÓN REBOTADA${esSincronizacion ? ' (Marca Offline)' : ''}.\nEstás fuera de ruta. El satélite te ubica a más de 150 metros de cualquier proyecto activo. Acércate a la obra para marcar.`);
             }
@@ -515,6 +528,10 @@ window.renderListaPintores = () => {
 
     Object.keys(window.currentPersonal).forEach(n => {
         const nombreMayus = n.toUpperCase();
+        
+        // --- EVITAR MOSTRAR PERSONAL INACTIVO EN LA LISTA DE ASISTENCIA ---
+        if(window.currentPersonal[n] && window.currentPersonal[n].estado === 'INACTIVO') return; 
+
         const r = marcasMap[nombreMayus]; 
         if(r && r.obra === "POR ASIGNAR") return;
         
@@ -581,9 +598,6 @@ window.quitarAsistenciaModal = () => { if (confirm(`¿Eliminar a ${window.pintor
 window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); };
 window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fantasma de ${n}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).remove(); } };
 
-// ==========================================================
-// ✅ CORRECCIÓN 3: VER DETALLE SEMANA (BOTÓN BUSCADOR) Y TOGGLE DE ATRASOS
-// ==========================================================
 window.verDetalleSemana = (n) => {
     firebase.database().ref(getDbPath('asistencia_semanal')).once('value').then(snap => {
         const hist = snap.val() || {};
@@ -715,14 +729,11 @@ window.verHistorialSueldos = () => {
         const p = s.val() || {}; 
         c.innerHTML = '';
         
-        // Ordenamos por fecha descendente (los más recientes primero)
         const pagosArray = Object.values(p).sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
         
-        // Renderizamos la tarjeta con la radiografía financiera
         pagosArray.forEach(pg => { 
             const fechaLegible = new Date(pg.fecha_pago).toLocaleString();
             
-            // Extraemos los detalles si existen en la base de datos
             let detallesHTML = '';
             if (pg.detalles) {
                 const diasTotales = (pg.detalles.dias_normales || 0) + (pg.detalles.dias_extras || 0);
@@ -744,7 +755,8 @@ window.verHistorialSueldos = () => {
                         <span class="block text-[8px] text-zinc-500 mb-1 font-black">MULTAS (${horasAtraso}h)</span>
                         - Bs. ${multasTotales}
                     </div>
-                </div>`;
+                </div>
+                <button onclick="window.verDetalleAnticiposHistorial('${pg.trabajador}', '${pg.semana_ancla}')" class="w-full mt-3 bg-blue-900/40 text-blue-300 border border-blue-800 py-3 rounded-xl font-bold text-[10px] uppercase shadow-sm">🔍 Ver Fechas de Anticipos de esta Semana</button>`;
             } else {
                 detallesHTML = `<div class="mt-3 pt-3 border-t border-zinc-800 text-[9px] text-zinc-600 italic">Registro antiguo - Detalles no guardados</div>`;
             }
@@ -761,6 +773,28 @@ window.verHistorialSueldos = () => {
         });
     });
 };
+
+window.verDetalleAnticiposHistorial = (trabajador, semanaIni) => {
+    firebase.database().ref(getDbPath('solicitudes')).once('value').then(snap => {
+        const sol = snap.val() || {};
+        let msg = `📅 DETALLE DE ANTICIPOS SOLICITADOS\nTrabajador: ${trabajador}\n\n`;
+        let hay = false;
+        
+        const solicitudesArray = Object.values(sol).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        
+        solicitudesArray.forEach(s => {
+            if(s.trabajador === trabajador && s.tipo === 'ANTICIPO' && s.estado === 'Atendido') {
+                if (s.fecha_corta >= semanaIni) {
+                    msg += `✔️ Fecha: ${s.fecha}\n   Monto Entregado: Bs. ${s.monto_aprobado || s.detalle}\n\n`;
+                    hay = true;
+                }
+            }
+        });
+        if(!hay) msg += "No se encontraron registros digitales de fecha y hora para los anticipos de esta semana (posiblemente se anotaron manual).";
+        alert(msg);
+    });
+};
+
 // ==========================================================
 // 🚚 MÓDULO DE LOGÍSTICA, AUDITORÍA Y TRASPASOS
 // ==========================================================
@@ -1073,15 +1107,57 @@ window.editarNombreObra = (id, old) => { const n = prompt("Nuevo nombre:", old);
 // 👷 PERSONAL
 // ==========================================================
 function dibujarPersonal() {
-    appDiv.innerHTML = `<div class="min-h-screen bg-zinc-100 p-4 text-black"><div class="max-w-md mx-auto"><div class="bg-zinc-800 p-6 text-white flex justify-between rounded-t-3xl"><h2 class="text-xl font-black italic">PERSONAL</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div><div class="bg-white p-6 shadow-xl rounded-b-3xl"><input id="p-nom" type="text" placeholder="NOMBRE" class="w-full p-3 rounded-xl border-2 uppercase font-bold mb-2"><input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3"><button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg">REGISTRAR PERSONAL</button><div id="list-p" class="space-y-3 pt-4 mt-4 border-t">Cargando...</div></div></div></div>`;
+    appDiv.innerHTML = `
+    <div class="min-h-screen bg-zinc-100 p-4 text-black">
+        <div class="max-w-md mx-auto">
+            <div class="bg-zinc-800 p-6 text-white flex justify-between rounded-t-3xl">
+                <h2 class="text-xl font-black italic">PERSONAL</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
+            </div>
+            <div class="bg-white p-6 shadow-xl rounded-b-3xl">
+                <input id="p-nom" type="text" placeholder="NOMBRE" class="w-full p-3 rounded-xl border-2 uppercase font-bold mb-2">
+                <input id="p-sue" type="number" placeholder="PAGO DIARIO Bs." class="w-full p-3 rounded-xl border-2 font-bold mb-3">
+                <button onclick="window.saveP()" class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg">REGISTRAR PERSONAL</button>
+                <div id="list-p" class="space-y-3 pt-4 mt-4 border-t">Cargando...</div>
+            </div>
+        </div>
+    </div>`;
     firebase.database().ref(getDbPath('personal')).on('value', snap => {
         const c = document.getElementById('list-p'); if (!c) return; c.innerHTML = ''; const p = snap.val() || {};
-        Object.keys(p).forEach(n => { c.innerHTML += `<div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border uppercase"><div><b class="text-sm">${n}</b><br><span class="text-[10px] text-zinc-500 font-bold">Sueldo: Bs. ${p[n].sueldo_dia}</span></div><div class="flex flex-col gap-1"><button onclick="window.editarP('${n}', ${p[n].sueldo_dia})" class="text-blue-600 font-black px-3 py-1 bg-blue-100 rounded-lg text-[10px]">EDITAR</button><button onclick="window.delP('${n}')" class="text-red-600 font-black px-3 py-1 bg-red-100 rounded-lg text-[10px]">BORRAR</button></div></div>`; });
+        Object.keys(p).forEach(n => { 
+            const est = p[n].estado || 'ACTIVO';
+            const bgEst = est === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+            c.innerHTML += `
+            <div class="p-4 bg-zinc-50 rounded-2xl flex justify-between items-center border uppercase shadow-sm">
+                <div>
+                    <b class="text-sm ${est === 'INACTIVO' ? 'line-through text-zinc-400' : 'text-black'}">${n}</b><br>
+                    <span class="text-[10px] text-zinc-500 font-bold">Sueldo: Bs. ${p[n].sueldo_dia}</span><br>
+                    <button onclick="window.toggleEstadoP('${n}', '${est}')" class="text-[9px] font-black px-2 py-0.5 mt-1 rounded ${bgEst}">${est}</button>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button onclick="window.editarP('${n}', ${p[n].sueldo_dia})" class="text-blue-600 font-black px-3 py-1 bg-blue-100 rounded-lg text-[10px]">EDITAR</button>
+                    <button onclick="window.delP('${n}')" class="text-red-600 font-black px-3 py-1 bg-red-100 rounded-lg text-[10px]">BORRAR</button>
+                </div>
+            </div>`; 
+        });
     });
 }
-window.saveP = () => { const n = document.getElementById('p-nom').value.trim().toUpperCase(), s = document.getElementById('p-sue').value; if (n && s) firebase.database().ref(getDbPath(`personal/${n}`)).set({ sueldo_dia: s }); };
+window.saveP = () => { const n = document.getElementById('p-nom').value.trim().toUpperCase(), s = document.getElementById('p-sue').value; if (n && s) firebase.database().ref(getDbPath(`personal/${n}`)).set({ sueldo_dia: s, estado: 'ACTIVO' }); };
 window.delP = (n) => { if (confirm(`¿Borrar a ${n}?`)) firebase.database().ref(getDbPath(`personal/${n}`)).remove(); };
-window.editarP = (old, sOld) => { let n = prompt("Nombre:", old); if(!n) return; let s = prompt("Sueldo:", sOld); if(!s) return; if(n.toUpperCase() !== old) { firebase.database().ref(getDbPath(`personal/${n.toUpperCase()}`)).set({ sueldo_dia: s }); firebase.database().ref(getDbPath(`personal/${old}`)).remove(); } else { firebase.database().ref(getDbPath(`personal/${old}`)).update({ sueldo_dia: s }); } };
+window.toggleEstadoP = (n, current) => { const nuevo = current === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO'; firebase.database().ref(getDbPath(`personal/${n}`)).update({ estado: nuevo }); };
+window.editarP = (old, sOld) => { 
+    let n = prompt("Nombre:", old); if(!n) return; 
+    let s = prompt("Sueldo:", sOld); if(!s) return; 
+    firebase.database().ref(getDbPath(`personal/${old}`)).once('value').then(snap => {
+        const est = snap.val().estado || 'ACTIVO';
+        if(n.toUpperCase() !== old) { 
+            firebase.database().ref(getDbPath(`personal/${n.toUpperCase()}`)).set({ sueldo_dia: s, estado: est }); 
+            firebase.database().ref(getDbPath(`personal/${old}`)).remove(); 
+        } else { 
+            firebase.database().ref(getDbPath(`personal/${old}`)).update({ sueldo_dia: s }); 
+        } 
+    });
+};
 
 // ==========================================================
 // 🛠️ INVENTARIO (HERRAMIENTAS GESTOR CENTRAL)
@@ -1138,7 +1214,7 @@ function dibujarHerramientas() {
         if(esAdmin) {
             const selT = document.getElementById('h-trabajador'), selO = document.getElementById('h-obra');
             if(selT && selO) {
-                Object.keys(p).forEach(k => selT.innerHTML += `<option value="${k}">${k}</option>`);
+                Object.keys(p).forEach(k => { if(p[k].estado !== 'INACTIVO') selT.innerHTML += `<option value="${k}">${k}</option>` });
                 Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') selO.innerHTML += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
             }
         }
@@ -1154,7 +1230,7 @@ window.renderListaHerr = (filtro) => {
     const h = window.todasHerramientas || {}, p = window.personalDisponibles || {}, o = window.obrasDisponibles || {};
     let hay = false;
 
-    let opcionesP = `<option value="BODEGA">-- EN BODEGA --</option>`; Object.keys(p).forEach(k => opcionesP += `<option value="${k}">${k}</option>`);
+    let opcionesP = `<option value="BODEGA">-- EN BODEGA --</option>`; Object.keys(p).forEach(k => { if(p[k].estado !== 'INACTIVO') opcionesP += `<option value="${k}">${k}</option>` });
     let opcionesO = `<option value="Ninguna">-- SIN OBRA --</option>`; Object.keys(o).forEach(k => { if(o[k].estado !== 'Entregada') opcionesO += `<option value="${o[k].nombre}">${o[k].nombre}</option>` });
 
     Object.keys(h).forEach(id => {
