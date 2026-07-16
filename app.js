@@ -1871,7 +1871,34 @@ window.nuevaVersionCot = async (id) => {
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let textoBruto = z.innerText.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su texto aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
+    let textoBruto = z.innerText.trim();
+
+    // 🤖 1. LECTOR INTELIGENTE DE ETIQUETAS AUTOMÁTICAS
+    const regexCliente = /\[CLIENTE:\s*(.*?)\]/i;
+    const regexMonto = /\[MONTO:\s*([\d\.]+)\]/i;
+
+    let matchCliente = textoBruto.match(regexCliente);
+    let matchMonto = textoBruto.match(regexMonto);
+
+    if (matchCliente && document.getElementById('cot-cliente')) {
+        document.getElementById('cot-cliente').value = matchCliente[1].toUpperCase().trim();
+    }
+    if (matchMonto && document.getElementById('cot-monto')) {
+        document.getElementById('cot-monto').value = parseFloat(matchMonto[1]);
+    }
+
+    // 🧹 2. LIMPIEZA DE ETIQUETAS Y BASURA
+    textoBruto = textoBruto
+        .replace(regexCliente, '')
+        .replace(regexMonto, '')
+        .replace(/####/g, '')
+        .replace(/###/g, '')
+        .replace(/--- Pegue su texto aquí ---/g, '')
+        .replace(/Como tu asesor.*/g, '')
+        .replace(/\*\*WRPUMA\*\*/g, '')
+        .trim();
+
+    // 🪄 3. ARMAR EL DISEÑO DEL PDF
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
