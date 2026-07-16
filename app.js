@@ -16,7 +16,7 @@ const getLocalISODate = (dateObj = new Date()) => {
 let fechaSel = getLocalISODate();
 window.carritoPresupuesto = [];
 window.aplicarMultaSalida = true;
-window.aplicarMultaAtraso = false; // POR DEFECTO APAGADO PARA NO PERJUDICAR LA PLANILLA ACTUAL
+window.aplicarMultaAtraso = false; 
 
 const getDbPath = (path) => {
     const empresa = localStorage.getItem('empresa_wr') || 'Walter';
@@ -63,7 +63,6 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
 // ==========================================================
 
 window.verAccesoPro = (usuario) => {
-    // ACCESO GERENCIA / DIRECCIÓN / LOGÍSTICA
     if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super' || usuario === 'chofer') {
         const pass = prompt("PIN de seguridad (Modo Operativo):");
         
@@ -97,7 +96,6 @@ window.verAccesoPro = (usuario) => {
             alert("Acceso denegado. PIN incorrecto.");
         }
     } 
-    // ACCESO TRABAJADORES (Asistencia)
     else if (usuario === 'trabajador') {
         const nom = prompt("NOMBRE EXACTO:");
         if (nom) {
@@ -118,7 +116,6 @@ window.cerrarSesionTotal = () => { localStorage.clear(); location.reload(); };
 function dibujarPanelTrabajador() {
     const n = localStorage.getItem('u_wr');
     
-    // FILTRO DE SEGURIDAD: Bloqueo de perfiles inactivos
     firebase.database().ref(getDbPath(`personal/${n}`)).once('value').then(snapP => {
         const pData = snapP.val();
         if(pData && pData.estado === 'INACTIVO') {
@@ -171,7 +168,6 @@ function dibujarPanelTrabajador() {
     </div>`;
     firebase.database().ref(getDbPath('config/mensaje_dia')).on('value', snap => { document.getElementById('msg-dia-display').innerText = snap.val() || "Mantener orden y limpieza."; });
     
-    // LISTENER PARA EL ESTADO EN VIVO Y PROTECCIÓN DE ANTICIPOS POR ATRASO
     firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).on('value', snap => {
         const r = snap.val();
         const caja = document.getElementById('estado-actual-trabajador');
@@ -185,7 +181,6 @@ function dibujarPanelTrabajador() {
             caja.innerHTML = `<span class="text-[10px] text-zinc-500 font-bold uppercase block mb-1">Estado Actual de Asistencia</span><span class="text-[13px] font-black text-yellow-500">⚠️ FUERA DE LA OBRA / SIN MARCAR</span>`;
         }
 
-        // CONTROL AUTOMÁTICO DE ANTICIPOS SI LLEGÓ TARDE (ESTADO ROJA)
         if (btnAnticipo) {
             if (r && r.estado === 'ROJA') {
                 btnAnticipo.className = "bg-transparent border-2 border-zinc-800 text-zinc-700 py-4 rounded-2xl font-black text-[11px] uppercase flex flex-col items-center justify-center gap-1 mt-2 opacity-40 cursor-not-allowed";
@@ -197,7 +192,6 @@ function dibujarPanelTrabajador() {
         }
     });
 
-    // LISTENER PARA CONFIRMACIÓN DE ENTREGA DE HERRAMIENTAS O UNIFORMES
     firebase.database().ref(getDbPath('dotaciones_logistica')).on('value', snap => {
         const divBox = document.getElementById('seccion-epp-trabajador');
         const divLista = document.getElementById('lista-epp-pendientes');
@@ -582,7 +576,6 @@ window.renderListaPintores = () => {
     Object.keys(window.currentPersonal).forEach(n => {
         const nombreMayus = n.toUpperCase();
         
-        // FILTRADO DE PERSONAL INACTIVO DE LA TABLA DE CONTROL DE ASISTENCIA DIARIA
         if(window.currentPersonal[n] && window.currentPersonal[n].estado === 'INACTIVO') return;
 
         const r = marcasMap[nombreMayus]; 
@@ -651,9 +644,6 @@ window.quitarAsistenciaModal = () => { if (confirm(`¿Eliminar a ${window.pintor
 window.markP = (n, acc) => { if (confirm(`¿Mover a ${n}?`)) firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).update({ obra: obraSel }); };
 window.borrarMarcaFalsa = (n) => { if(confirm(`¿Desea borrar la asistencia fantasma de ${n}?`)) { firebase.database().ref(getDbPath(`asistencia_semanal/${fechaSel}/${n}`)).remove(); } };
 
-// ==========================================================
-// ✅ CORRECCIÓN 3: VER DETALLE SEMANA (BOTÓN BUSCADOR) Y TOGGLE DE ATRASOS
-// ==========================================================
 window.verDetalleSemana = (n) => {
     firebase.database().ref(getDbPath('asistencia_semanal')).once('value').then(snap => {
         const hist = snap.val() || {};
@@ -785,14 +775,11 @@ window.verHistorialSueldos = () => {
         const p = s.val() || {}; 
         c.innerHTML = '';
         
-        // Ordenamos por fecha descendente (los más recientes primero)
         const pagosArray = Object.values(p).sort((a, b) => new Date(b.fecha_pago) - new Date(a.fecha_pago));
         
-        // Renderizamos la tarjeta con la radiografía financiera y botón de auditoría semanal
         pagosArray.forEach(pg => { 
             const fechaLegible = new Date(pg.fecha_pago).toLocaleString();
             
-            // Extraemos los detalles si existen en la base de datos
             let detallesHTML = '';
             if (pg.detalles) {
                 const diasTotales = (pg.detalles.dias_normales || 0) + (pg.detalles.dias_extras || 0);
@@ -896,7 +883,6 @@ function dibujarLogistica() {
     });
 }
 
-// 🚚 MODULO ESPECÍFICO EXCLUSIVO PARA EL CHOFER / CONTROL EN CAMIONETA
 function dibujarLogisticaChofer() {
     appDiv.innerHTML = `
     <div class="min-h-screen bg-zinc-900 p-4 text-white font-sans pb-10">
@@ -973,7 +959,6 @@ window.despacharItemChofer = () => {
     
     if(!trab) return alert("❌ Por favor selecciona un trabajador válido.");
 
-    // BLINDAJE ANTI-PÉRDIDAS: Bloqueo de duplicados excesivos de brochas y rodillos en menos de 7 días
     if (tipo === 'CONSUMIBLE') {
         firebase.database().ref(getDbPath('dotaciones_logistica')).once('value').then(snap => {
             const list = snap.val() || {};
@@ -1640,41 +1625,253 @@ window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); w
 window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${parseFloat(i.total).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${tt.toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
 
 // ==========================================================
-// 📝 COTIZADOR PDF (CON LOGO Y FORMAL)
+// 📝 GESTOR DE COTIZACIONES B2B (VERSIÓN Y BLINDAJE)
 // ==========================================================
+window.cotizacionActualId = null;
+
 function dibujarCotizador() {
     appDiv.innerHTML = `
     <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
         <div class="max-w-4xl mx-auto">
-            <div class="bg-zinc-900 p-4 text-white flex justify-between rounded-2xl mb-4"><h2 class="text-sm font-black italic">GESTOR DE DOCUMENTOS</h2><button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button></div>
-            <div class="grid grid-cols-4 gap-2 mb-2">
-                <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl text-[10px]">COTIZACION</button>
-                <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl text-[10px]">RECIBO</button>
-                <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl text-[10px]">GARANTIA</button>
-                <button onclick="window.modoActa()" class="bg-blue-600 text-white font-black py-2 rounded-xl text-[10px]">ACTA ENTREGA</button>
+            <div class="bg-zinc-900 p-4 text-white flex justify-between rounded-2xl mb-4">
+                <h2 class="text-sm font-black italic">GESTOR COMERCIAL B2B</h2>
+                <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
             </div>
-            <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl mb-4 shadow-lg">🪄 1. ARREGLAR TABLAS (Texto a Cuadro)</button>
-            <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl mb-4 shadow-xl">📥 2. GENERAR DOCUMENTO PDF</button>
-            <div class="overflow-x-auto w-full pb-10">
-                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;">
-                    <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
-                        <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
-                        <div style="text-align:right;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+            
+            <div class="flex gap-2 mb-4">
+                <button onclick="window.swCot('editor')" id="btn-cot-ed" class="flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm">📝 EDITOR DE DOCUMENTOS</button>
+                <button onclick="window.swCot('historial')" id="btn-cot-hi" class="flex-1 bg-zinc-800 text-white font-black py-2 rounded-xl text-xs shadow-sm">🗂️ HISTORIAL Y BLINDAJE</button>
+            </div>
+
+            <!-- TAB 1: EDITOR PDF Y REGISTRO -->
+            <div id="tab-cot-editor">
+                <div class="bg-white p-4 rounded-xl shadow-lg border-b-4 border-red-600 mb-4">
+                    <h3 class="text-[10px] font-black uppercase text-zinc-500 mb-2">DATOS DE LA COTIZACIÓN</h3>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                            <label class="text-[9px] font-bold text-zinc-500">CLIENTE / EMPRESA:</label>
+                            <input id="cot-cliente" type="text" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Nombre...">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-bold text-zinc-500">MONTO TOTAL (Bs.):</label>
+                            <input id="cot-monto" type="number" class="w-full p-2 border-2 rounded-lg font-black text-red-600 text-xs text-center" placeholder="0.00">
+                        </div>
                     </div>
-                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;min-height:200mm;"><p style="text-align:center;color:#999;">--- Pegue su cotización aquí ---</p></div>
-                    <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;">
-                        <div><b>WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</b><br><span style="font-size:12px;">Cel.: 77396806, 76362867</span></div>
-                        <div style="text-align:right;"><span style="font-size:12px;">wrpuma@gmail.com</span><br><i style="color:#cc0000;font-weight:bold;font-size:13px;">Dando el toque final a su construccion</i></div>
+                    <button onclick="window.guardarCotizacionBD()" class="w-full bg-black text-white font-black py-3 rounded-lg shadow-md text-xs uppercase tracking-widest">💾 GUARDAR Y GENERAR CÓDIGO</button>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 mb-2">
+                    <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl text-[10px]">COTIZACION</button>
+                    <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl text-[10px]">RECIBO</button>
+                    <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl text-[10px]">GARANTIA</button>
+                    <button onclick="window.modoActa()" class="bg-blue-600 text-white font-black py-2 rounded-xl text-[10px]">ACTA ENTREGA</button>
+                </div>
+                <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl mb-4 shadow-lg">🪄 1. ARREGLAR TABLAS (Texto a Cuadro)</button>
+                <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl mb-4 shadow-xl">📥 2. GENERAR DOCUMENTO PDF</button>
+                
+                <div class="overflow-x-auto w-full pb-10">
+                    <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;">
+                        <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
+                            <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
+                            <div style="text-align:right;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+                        </div>
+                        <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;min-height:200mm;"><p style="text-align:center;color:#999;">--- Pegue su texto aquí ---</p></div>
+                        <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;">
+                            <div><b>WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</b><br><span style="font-size:12px;">Cel.: 77396806, 76362867</span></div>
+                            <div style="text-align:right;"><span style="font-size:12px;">wrpuma@gmail.com</span><br><b style="font-size:13px;">Walter Puma</b><br><i style="color:#cc0000;font-weight:bold;font-size:11px;">Gerencia WRPUMA</i></div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- TAB 2: HISTORIAL Y CONTROL DE VERSIONES -->
+            <div id="tab-cot-historial" style="display:none;">
+                <div class="bg-zinc-900 p-4 rounded-xl text-white mb-4 text-center">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-zinc-400">BASE DE DATOS COMERCIAL</h3>
+                </div>
+                <div id="lista-cotizaciones" class="space-y-4"></div>
+            </div>
+
         </div>
     </div>`;
 }
+
+window.swCot = (tab) => {
+    document.getElementById('tab-cot-editor').style.display = tab === 'editor' ? 'block' : 'none';
+    document.getElementById('tab-cot-historial').style.display = tab === 'historial' ? 'block' : 'none';
+    document.getElementById('btn-cot-ed').className = tab === 'editor' ? 'flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm' : 'flex-1 bg-zinc-800 text-zinc-400 font-bold py-2 rounded-xl text-xs shadow-sm';
+    document.getElementById('btn-cot-hi').className = tab === 'historial' ? 'flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm' : 'flex-1 bg-zinc-800 text-zinc-400 font-bold py-2 rounded-xl text-xs shadow-sm';
+    
+    if(tab === 'historial') window.renderCotizaciones();
+};
+
+window.guardarCotizacionBD = async () => {
+    const cliente = document.getElementById('cot-cliente').value.trim();
+    const monto = parseFloat(document.getElementById('cot-monto').value);
+    const html = document.getElementById('zona-editable').innerHTML;
+    
+    if(!cliente || isNaN(monto)) return alert("❌ Por favor ingrese el Nombre del Cliente y el Monto Total antes de guardar.");
+    
+    // Si es una cotización nueva (no estamos editando)
+    if (!window.cotizacionActualId) {
+        const hoy = new Date();
+        const año = hoy.getFullYear();
+        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+        const dia = String(hoy.getDate()).padStart(2, '0');
+        const fechaStr = `${año}-${mes}${dia}`;
+        
+        const snap = await firebase.database().ref(getDbPath('cotizaciones')).once('value');
+        const cots = snap.val() || {};
+        let count = 1;
+        Object.values(cots).forEach(c => {
+            if (c.codigo && c.codigo.includes(fechaStr)) count++;
+        });
+        const correlativo = String(count).padStart(2, '0');
+        const codigo = `WP-${fechaStr}-${correlativo}-V1`;
+        const root_id = `ROOT_${Date.now()}`;
+        
+        const newId = `COT_${Date.now()}`;
+        await firebase.database().ref(getDbPath(`cotizaciones/${newId}`)).set({
+            root_id: root_id,
+            codigo: codigo,
+            version: 1,
+            cliente: cliente.toUpperCase(),
+            monto_total: monto,
+            estado: 'ENVIADA',
+            fecha: hoy.toISOString(),
+            html: html
+        });
+        alert(`✅ Cotización Registrada Correctamente.\n\nCódigo asignado: ${codigo}`);
+        
+        // Limpiamos
+        document.getElementById('cot-cliente').value = '';
+        document.getElementById('cot-monto').value = '';
+        window.cotizacionActualId = null;
+        window.swCot('historial');
+    } else {
+        // Si estamos actualizando (Solo texto, sin cambiar versión)
+        await firebase.database().ref(getDbPath(`cotizaciones/${window.cotizacionActualId}`)).update({
+            cliente: cliente.toUpperCase(),
+            monto_total: monto,
+            html: html
+        });
+        alert(`✅ Cotización actualizada exitosamente.`);
+        window.cotizacionActualId = null;
+        document.getElementById('cot-cliente').value = '';
+        document.getElementById('cot-monto').value = '';
+        window.swCot('historial');
+    }
+};
+
+window.renderCotizaciones = () => {
+    firebase.database().ref(getDbPath('cotizaciones')).on('value', snap => {
+        const list = document.getElementById('lista-cotizaciones');
+        if(!list) return;
+        list.innerHTML = '';
+        const data = snap.val() || {};
+        const arr = Object.keys(data).map(k => ({id: k, ...data[k]})).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+        
+        if(arr.length === 0) { list.innerHTML = '<p class="text-center text-zinc-500 font-bold text-xs py-10">No hay cotizaciones registradas.</p>'; return; }
+        
+        arr.forEach(c => {
+            let dash = '';
+            // 🛡️ REGLA DE NEGOCIO: BLINDAJE FINANCIERO ACTIVO
+            if(c.estado === 'APROBADA') {
+                const h = c.monto_total * 0.10;
+                const f = c.monto_total * 0.05;
+                const r = c.monto_total * 0.05;
+                const ret = h + f + r;
+                const neta = c.monto_total - ret;
+                dash = `
+                <div class="mt-3 bg-zinc-900 p-3 rounded-xl border-l-4 border-green-500">
+                    <h4 class="text-[9px] text-green-400 font-black uppercase mb-2 tracking-widest">🛡️ BLINDAJE FINANCIERO (USO INTERNO)</h4>
+                    <div class="grid grid-cols-3 gap-2 text-center text-white text-[10px] mb-2">
+                        <div class="bg-black p-2 rounded-lg border border-zinc-700">Herramientas (10%)<br><b class="text-red-400">Bs. ${h.toFixed(1)}</b></div>
+                        <div class="bg-black p-2 rounded-lg border border-zinc-700">Combustible (5%)<br><b class="text-yellow-400">Bs. ${f.toFixed(1)}</b></div>
+                        <div class="bg-black p-2 rounded-lg border border-zinc-700">Repuestos (5%)<br><b class="text-orange-400">Bs. ${r.toFixed(1)}</b></div>
+                    </div>
+                    <div class="bg-green-900/30 text-green-400 p-2 rounded-lg text-center font-black text-xs border border-green-800">
+                        GANANCIA NETA PROYECTADA: Bs. ${neta.toFixed(1)}
+                    </div>
+                </div>`;
+            }
+
+            list.innerHTML += `
+            <div class="bg-white p-4 rounded-2xl shadow-md border-2 ${c.estado === 'APROBADA' ? 'border-green-500' : 'border-zinc-200'}">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <b class="text-lg uppercase text-black block">${c.cliente}</b>
+                        <span class="bg-zinc-800 text-white px-2 py-0.5 rounded text-[10px] font-black font-mono tracking-wider">${c.codigo}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-lg font-black text-red-600 block">Bs. ${c.monto_total}</span>
+                        <span class="text-[9px] font-bold text-zinc-500">${new Date(c.fecha).toLocaleDateString()}</span>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2 mb-2">
+                    <select onchange="window.cambiarEstadoCot('${c.id}', this.value)" class="flex-1 p-2 bg-zinc-100 border rounded-lg text-[10px] font-black outline-none ${c.estado === 'APROBADA' ? 'text-green-600' : 'text-zinc-600'}">
+                        <option value="ENVIADA" ${c.estado === 'ENVIADA' ? 'selected' : ''}>ENVIADA</option>
+                        <option value="EN NEGOCIACION" ${c.estado === 'EN NEGOCIACION' ? 'selected' : ''}>EN NEGOCIACIÓN</option>
+                        <option value="APROBADA" ${c.estado === 'APROBADA' ? 'selected' : ''}>APROBADA</option>
+                        <option value="RECHAZADA" ${c.estado === 'RECHAZADA' ? 'selected' : ''}>RECHAZADA</option>
+                    </select>
+                    <button onclick="window.cargarCotEnEditor('${c.id}')" class="flex-1 bg-blue-100 text-blue-700 font-black text-[10px] rounded-lg">VER / EDITAR</button>
+                    <button onclick="window.nuevaVersionCot('${c.id}')" class="flex-1 bg-purple-100 text-purple-700 font-black text-[10px] rounded-lg shadow-sm border border-purple-200">+ VERSIÓN</button>
+                </div>
+                ${dash}
+            </div>`;
+        });
+    });
+};
+
+window.cambiarEstadoCot = (id, estado) => {
+    firebase.database().ref(getDbPath(`cotizaciones/${id}`)).update({estado: estado});
+};
+
+window.cargarCotEnEditor = async (id) => {
+    const snap = await firebase.database().ref(getDbPath(`cotizaciones/${id}`)).once('value');
+    const c = snap.val();
+    if(c) {
+        window.cotizacionActualId = id;
+        document.getElementById('cot-cliente').value = c.cliente;
+        document.getElementById('cot-monto').value = c.monto_total;
+        document.getElementById('zona-editable').innerHTML = c.html;
+        window.swCot('editor');
+    }
+};
+
+window.nuevaVersionCot = async (id) => {
+    if(!confirm("¿Desea crear una nueva versión de este presupuesto para negociar? (La versión actual se mantendrá intacta en el historial).")) return;
+    
+    const snap = await firebase.database().ref(getDbPath(`cotizaciones/${id}`)).once('value');
+    const old = snap.val();
+    if(!old) return;
+    
+    const nextV = (old.version || 1) + 1;
+    // Buscamos "-VX" y lo reemplazamos
+    const newCode = old.codigo.replace(/-V\d+/, `-V${nextV}`);
+    
+    const newId = `COT_${Date.now()}`;
+    await firebase.database().ref(getDbPath(`cotizaciones/${newId}`)).set({
+        root_id: old.root_id,
+        codigo: newCode,
+        version: nextV,
+        cliente: old.cliente,
+        monto_total: old.monto_total,
+        estado: 'EN NEGOCIACION',
+        fecha: new Date().toISOString(),
+        html: old.html
+    });
+    
+    alert(`✅ Nueva versión creada: ${newCode}.\nCargando en el editor para que modifiques los montos o ítems.`);
+    window.cargarCotEnEditor(newId);
+};
+
 window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let textoBruto = z.innerText.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su cotización aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
+    let textoBruto = z.innerText.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su texto aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
@@ -1713,22 +1910,32 @@ window.arreglarFormato = () => {
     if (enTabla) h += '</table>';
     z.innerHTML = h;
 };
-window.modoGarantia = () => { document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; document.getElementById('zona-editable').innerHTML = `<p><b>PROYECTO:</b></p><p><b>CLIENTE:</b></p><p>Se garantiza la estanqueidad por 1 AÑO.</p>`; };
+
+// 🛡️ REGLA: GARANTÍAS SOLO PARA IMPERMEABILIZACIÓN
+window.modoGarantia = () => { 
+    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
+    document.getElementById('zona-editable').innerHTML = `
+    <p><b>PROYECTO:</b></p>
+    <p><b>CLIENTE:</b></p>
+    <p>De acuerdo a las normativas de WRPUMA, la presente garantía ampara <b>ÚNICAMENTE los servicios de impermeabilización técnica (techos, losas y tanques)</b>, garantizando la estanqueidad total de la superficie tratada por un periodo de 1 AÑO.</p>
+    <p><i>La garantía queda anulada si la superficie es perforada, modificada o sufre daños por tránsito no autorizado de terceros.</i></p>`; 
+};
+
 window.modoActa = () => {
     document.getElementById('doc-title').innerText = 'ACTA DE ENTREGA Y CONFORMIDAD';
     document.getElementById('zona-editable').innerHTML = `
     <p><b>PROYECTO:</b> [Nombre de la Obra]</p>
     <p><b>CLIENTE:</b> [Nombre del Cliente]</p>
-    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos de acabados y pintura decorativa detallados in el contrato correspondiente.</p>
-    <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones de terminación. Cualquier retoque, reparación o daño posterior provocado por traslados, mudanzas, instalaciones o terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo de cotización adicional.</p>
-    <p><i>Nota: De acuerdo a las políticas explícitas de WRPUMA, no se emiten garantías sobre pintura decorativa o efectos de alta decoración en interiores.</i></p>
+    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos detallados en el contrato correspondiente.</p>
+    <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones. Cualquier retoque, reparación o daño posterior provocado por traslados, mudanzas, instalaciones o terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo adicional.</p>
+    <p><i>Nota: De acuerdo a las políticas de WRPUMA, no se emiten garantías sobre pintura decorativa o efectos de alta decoración en interiores.</i></p>
     <br><br><br>
     <div style="display:flex; justify-content:space-between; text-align:center; margin-top:50px;">
         <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Cliente</b></div>
-        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Gerencia WRPUMA</b></div>
+        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Ing. Walter Puma</b></div>
     </div>`;
 };
-window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Cotizacion.pdf', html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'letter' } }; html2pdf().set(opt).from(document.getElementById('hoja-pdf')).save(); };
+window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Documento_WRPUMA.pdf', html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'letter' } }; html2pdf().set(opt).from(document.getElementById('hoja-pdf')).save(); };
 
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR
@@ -1755,7 +1962,7 @@ function dibujarMenu() {
             <button onclick="window.location.hash='#personal'" class="bg-zinc-100 text-black aspect-square rounded-3xl font-black text-[12px]">PERSONAL</button>
             <button onclick="window.location.hash='#almacen'" class="bg-orange-600 text-white aspect-square rounded-3xl font-black text-[12px] shadow-lg">APU</button>
             <button onclick="window.location.hash='#planilla'" class="col-span-2 bg-zinc-900 text-white py-4 rounded-2xl font-black text-[12px] border border-zinc-800">PAGOS Y SUELDOS</button>
-            <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white text-red-600 py-6 rounded-2xl font-black text-[12px] shadow-lg border-b-4 border-zinc-300">GENERAR PDF / WORD</button>
+            <button onclick="window.location.hash='#cotizaciones'" class="col-span-2 bg-white text-red-600 py-6 rounded-2xl font-black text-[12px] shadow-lg border-b-4 border-zinc-300">GESTOR COMERCIAL B2B</button>
             <button onclick="window.location.hash='#calculadora'" class="col-span-2 bg-blue-600 text-white py-6 rounded-2xl font-black text-[12px] shadow-lg border-b-4 border-blue-800">CALCULADORA OPERATIVA</button>
             <button onclick="window.location.hash='#contabilidad'" class="col-span-1 bg-green-600 text-white py-4 rounded-2xl font-black text-[10px] shadow-lg">CONTROL GASTOS</button>
             <button onclick="window.location.hash='#utilidad'" class="col-span-1 bg-zinc-900 text-red-500 py-4 rounded-2xl font-black text-[10px] border border-zinc-800">REPORTE FINANZAS</button>
