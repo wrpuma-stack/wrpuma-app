@@ -1690,22 +1690,53 @@ window.swCot = (tab) => {
 
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
-    let textoBruto = z.innerText.trim();
-    // Extraer etiquetas si existen
+    // Mantenemos la lógica de etiquetas para el autolleno de Cliente y Monto
+    const textoBruto = z.innerText.trim();
     const matchCliente = textoBruto.match(/\[CLIENTE:\s*(.*?)\]/i);
-    const matchMonto = textoBruto.match(/\[MONTO:\s*([\d\.]+)\]/i);
-    if(matchCliente) { document.getElementById('cot-cliente').value = matchCliente[1].toUpperCase(); document.getElementById('visual-cliente').innerText = matchCliente[1].toUpperCase(); textoBruto = textoBruto.replace(matchCliente[0], ''); }
-    if(matchMonto) { document.getElementById('cot-monto').value = parseFloat(matchMonto[1]); textoBruto = textoBruto.replace(matchMonto[0], ''); }
-    
-    let h = '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
-    textoBruto.split('\n').forEach(l => {
-        if (l.includes('|')) {
-            h += '<tr>';
-            l.split('|').forEach(c => h += `<td style="border:1px solid #ccc; padding:5px;">${c.trim()}</td>`);
-            h += '</tr>';
-        } else { h += `</table><p>${l}</p><table>`; }
-    });
-    z.innerHTML = h + '</table>';
+    if(matchCliente) { document.getElementById('cot-cliente').value = matchCliente[1].toUpperCase(); document.getElementById('visual-cliente').innerText = matchCliente[1].toUpperCase(); }
+
+    // ESTRUCTURA PROFESIONAL WRPUMA (Basada en tu ejemplo de liquidación)
+    z.innerHTML = `
+    <div style="font-family: Arial; color: #000; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="margin: 0; color: #cc0000; font-size: 24px;">WRPUMA</h1>
+            <p style="margin: 0; font-size: 12px; letter-spacing: 2px;">SOLUCIONES PROFESIONALES EN PINTURA E IMPERMEABILIZACIÓN</p>
+        </div>
+
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 14px;"><b>PROYECTO:</b> [NOMBRE DEL PROYECTO AQUÍ]</p>
+            <p style="margin: 0; font-size: 14px;"><b>CLIENTE:</b> <span id="visual-cliente"></span></p>
+            <p style="margin: 0; font-size: 14px;"><b>FECHA:</b> ${new Date().toLocaleDateString()}</p>
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background: #333; color: #fff;">
+                    <th style="border: 1px solid #000; padding: 8px;">N°</th>
+                    <th style="border: 1px solid #000; padding: 8px;">DETALLE DE TRABAJOS</th>
+                    <th style="border: 1px solid #000; padding: 8px;">UN</th>
+                    <th style="border: 1px solid #000; padding: 8px;">CANT</th>
+                    <th style="border: 1px solid #000; padding: 8px;">P.U.</th>
+                    <th style="border: 1px solid #000; padding: 8px;">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí puedes añadir tus filas, ej: -->
+                <tr><td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td><td style="border: 1px solid #000; padding: 8px;">[ÍTEM]</td><td style="border: 1px solid #000; padding: 8px; text-align: center;">m2</td><td style="border: 1px solid #000; padding: 8px; text-align: center;">0</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">0</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">0</td></tr>
+            </tbody>
+        </table>
+
+        <div style="width: 300px; float: right; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #000;"><span>SUBTOTAL:</span> <b>0.00 Bs</b></div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #cc0000; margin-top: 5px;"><span>TOTAL GENERAL:</span> <b>0.00 Bs</b></div>
+        </div>
+        <div style="clear: both;"></div>
+
+        <div style="margin-top: 50px; text-align: center; display: flex; justify-content: space-around;">
+            <div style="border-top: 1px solid #000; width: 200px; padding-top: 5px;">Firma Cliente</div>
+            <div style="border-top: 1px solid #000; width: 200px; padding-top: 5px;">Walter Puma - WRPUMA</div>
+        </div>
+    </div>`;
 };
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR
