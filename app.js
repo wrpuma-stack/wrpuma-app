@@ -1652,6 +1652,14 @@ function dibujarCotizador() {
                             <input id="cot-cliente" type="text" oninput="document.getElementById('visual-cliente').innerText = this.value.toUpperCase();" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Nombre...">
                         </div>
                         <div>
+                            <label class="text-[9px] font-bold text-zinc-500">PROYECTO:</label>
+                            <input id="cot-proyecto" type="text" oninput="document.getElementById('visual-proyecto').innerText = this.value.toUpperCase();" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Proyecto...">
+                        </div>
+                        <div>
+                            <label class="text-[9px] font-bold text-zinc-500">RESPONSABLE:</label>
+                            <input id="cot-resp" type="text" oninput="document.getElementById('visual-resp').innerText = this.value.toUpperCase();" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Responsable...">
+                        </div>
+                        <div>
                             <label class="text-[9px] font-bold text-zinc-500">MONTO TOTAL (Bs.):</label>
                             <input id="cot-monto" type="number" class="w-full p-2 border-2 rounded-lg font-black text-red-600 text-xs text-center" placeholder="0.00">
                         </div>
@@ -1670,14 +1678,18 @@ function dibujarCotizador() {
                 
                 <div class="overflow-x-auto w-full pb-10">
                     <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;">
-                        <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
+                        <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-end;">
                             <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
                             <div style="text-align:right;">
                                 <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p>
                                 <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#cc0000;" id="visual-codigo">N°: [SIN GUARDAR]</p>
                                 <p style="margin:0;font-size:12px;">Santa Cruz, <span id="visual-fecha">${new Date().toLocaleDateString()}</span></p>
-                                <p style="margin:5px 0 0 0;font-size:14px;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
                             </div>
+                        </div>
+                        <div style="margin-bottom:20px; font-size:14px; border:1px solid #ccc; padding:10px; background:#fafafa;">
+                            <p style="margin:2px 0;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
+                            <p style="margin:2px 0;"><b>Proyecto:</b> <span id="visual-proyecto">___________________</span></p>
+                            <p style="margin:2px 0;"><b>Responsable:</b> <span id="visual-resp">___________________</span></p>
                         </div>
                         <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;min-height:200mm;"><p style="text-align:center;color:#999;">--- Pegue su texto aquí ---</p></div>
                     </div>
@@ -1707,8 +1719,6 @@ window.setDocType = (t) => { document.getElementById('doc-title').innerText = t;
 window.modoGarantia = () => { 
     document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
     document.getElementById('zona-editable').innerHTML = `
-    <p><b>PROYECTO:</b></p>
-    <p><b>CLIENTE:</b></p>
     <p>De acuerdo a las normativas de WRPUMA, la presente garantía ampara <b>ÚNICAMENTE los servicios de impermeabilización técnica (techos, losas y tanques)</b>, garantizando la estanqueidad total de la superficie tratada por un periodo de 1 AÑO.</p>
     <p><i>La garantía queda anulada si la superficie es perforada, modificada o sufre daños por tránsito no autorizado de terceros.</i></p>`; 
 };
@@ -1716,8 +1726,6 @@ window.modoGarantia = () => {
 window.modoActa = () => {
     document.getElementById('doc-title').innerText = 'ACTA DE ENTREGA Y CONFORMIDAD';
     document.getElementById('zona-editable').innerHTML = `
-    <p><b>PROYECTO:</b> [Nombre de la Obra]</p>
-    <p><b>CLIENTE:</b> [Nombre del Cliente]</p>
     <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos detallados en el contrato correspondiente.</p>
     <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones. Cualquier retoque, reparación o daño posterior provocado por traslados, mudanzas, instalaciones o terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo adicional.</p>
     <p><i>Nota: De acuerdo a las políticas de WRPUMA, no se emiten garantías sobre pintura decorativa o efectos de alta decoración en interiores.</i></p>
@@ -1759,7 +1767,7 @@ window.arreglarFormato = () => {
 
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
-                h += '<table style="width:100%; border-collapse:collapse; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
+                h += '<table style="width:100%; border-collapse:collapse; table-layout:fixed; word-wrap:break-word; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
                 enTabla = true;
                 esPrimeraFila = true;
             }
@@ -1768,7 +1776,7 @@ window.arreglarFormato = () => {
             
             h += `<tr style="${esPrimeraFila ? 'border:1px solid #1e293b;' : ''}">`;
             lineaLimpia.split('|').forEach(celda => {
-                h += `<td style="padding:6px; border:1px solid #ccc; ${estiloFila}">${celda.trim().replace(/\*/g, '')}</td>`;
+                h += `<td style="padding:6px; border:1px solid #ccc; word-wrap:break-word; overflow-wrap:break-word; ${estiloFila}">${celda.trim().replace(/\*/g, '')}</td>`;
             });
             h += '</tr>';
             esPrimeraFila = false;
@@ -1801,6 +1809,8 @@ window.generarPDF = () => {
 
 window.guardarCotizacionBD = async () => {
     const cliente = document.getElementById('cot-cliente').value.trim();
+    const proyecto = document.getElementById('cot-proyecto').value.trim();
+    const responsable = document.getElementById('cot-resp').value.trim();
     const monto = parseFloat(document.getElementById('cot-monto').value);
     const html = document.getElementById('zona-editable').innerHTML;
     
@@ -1826,21 +1836,25 @@ window.guardarCotizacionBD = async () => {
         document.getElementById('visual-codigo').innerText = `N°: ${codigo}`;
         
         await firebase.database().ref(getDbPath(`cotizaciones/${newId}`)).set({
-            root_id: root_id, codigo: codigo, version: 1, cliente: cliente.toUpperCase(), monto_total: monto, estado: 'ENVIADA', fecha: hoy.toISOString(), html: html
+            root_id: root_id, codigo: codigo, version: 1, cliente: cliente.toUpperCase(), proyecto: proyecto.toUpperCase(), responsable: responsable.toUpperCase(), monto_total: monto, estado: 'ENVIADA', fecha: hoy.toISOString(), html: html
         });
         alert(`✅ Cotización Registrada Correctamente.\n\nCódigo asignado: ${codigo}`);
         
         document.getElementById('cot-cliente').value = '';
+        document.getElementById('cot-proyecto').value = '';
+        document.getElementById('cot-resp').value = '';
         document.getElementById('cot-monto').value = '';
         window.cotizacionActualId = null;
         window.swCot('historial');
     } else {
         await firebase.database().ref(getDbPath(`cotizaciones/${window.cotizacionActualId}`)).update({
-            cliente: cliente.toUpperCase(), monto_total: monto, html: html
+            cliente: cliente.toUpperCase(), proyecto: proyecto.toUpperCase(), responsable: responsable.toUpperCase(), monto_total: monto, html: html
         });
         alert(`✅ Cotización actualizada exitosamente.`);
         window.cotizacionActualId = null;
         document.getElementById('cot-cliente').value = '';
+        document.getElementById('cot-proyecto').value = '';
+        document.getElementById('cot-resp').value = '';
         document.getElementById('cot-monto').value = '';
         window.swCot('historial');
     }
@@ -1911,9 +1925,13 @@ window.cargarCotEnEditor = async (id) => {
     const c = snap.val();
     if(c) {
         window.cotizacionActualId = id;
-        document.getElementById('cot-cliente').value = c.cliente;
+        document.getElementById('cot-cliente').value = c.cliente || '';
+        document.getElementById('cot-proyecto').value = c.proyecto || '';
+        document.getElementById('cot-resp').value = c.responsable || '';
         document.getElementById('cot-monto').value = c.monto_total;
-        document.getElementById('visual-cliente').innerText = c.cliente;
+        document.getElementById('visual-cliente').innerText = c.cliente || '___________________';
+        document.getElementById('visual-proyecto').innerText = c.proyecto || '___________________';
+        document.getElementById('visual-resp').innerText = c.responsable || '___________________';
         document.getElementById('visual-codigo').innerText = `N°: ${c.codigo}`;
         document.getElementById('zona-editable').innerHTML = c.html;
         window.swCot('editor');
@@ -1931,7 +1949,7 @@ window.nuevaVersionCot = async (id) => {
     const newId = `COT_${Date.now()}`;
     
     await firebase.database().ref(getDbPath(`cotizaciones/${newId}`)).set({
-        root_id: old.root_id, codigo: newCode, version: nextV, cliente: old.cliente, monto_total: old.monto_total, estado: 'EN NEGOCIACION', fecha: new Date().toISOString(), html: old.html
+        root_id: old.root_id, codigo: newCode, version: nextV, cliente: old.cliente, proyecto: old.proyecto || '', responsable: old.responsable || '', monto_total: old.monto_total, estado: 'EN NEGOCIACION', fecha: new Date().toISOString(), html: old.html
     });
     
     alert(`✅ Nueva versión creada: ${newCode}`);
