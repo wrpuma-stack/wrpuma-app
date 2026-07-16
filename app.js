@@ -1623,30 +1623,18 @@ window.agregarAlCarrito = () => { let n = document.getElementById('calc-nombre')
 window.renderCarrito = () => { const c = document.getElementById('contenedor-carrito'), l = document.getElementById('lista-carrito'); if(window.carritoPresupuesto.length===0) return c.style.display='none'; c.style.display='block'; l.innerHTML=''; let t=0; window.carritoPresupuesto.forEach((i, idx) => { t += parseFloat(i.total); l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`; }); document.getElementById('carrito-gran-total').innerText = t.toFixed(2); };
 window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
 window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${parseFloat(i.total).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${tt.toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
-// 📝 GESTOR DE COTIZACIONES B2B - MODO ESTRICTO WRPUMA
+// 📝 GESTOR DE COTIZACIONES B2B (VERSIÓN Y BLINDAJE FINAL)
 window.cotizacionActualId = null;
-window.cotItems = [];
 
 function dibujarCotizador() {
-    window.cotizacionActualId = null;
-    window.cotItems = [];
-
     appDiv.innerHTML = `
-    <style>
-      @media print {
-        body * { visibility: hidden; }
-        #hoja-pdf, #hoja-pdf * { visibility: visible; }
-        #hoja-pdf { position: absolute; top: 0; left: 0; width: 100%; margin: 0; box-shadow: none; }
-        @page { size: A4; margin: 15mm; }
-      }
-    </style>
     <div class="min-h-screen p-2 text-black bg-zinc-200 pb-20">
         <div class="max-w-4xl mx-auto">
             <div class="bg-zinc-900 p-4 text-white flex justify-between rounded-2xl mb-4">
                 <h2 class="text-sm font-black italic">GESTOR COMERCIAL B2B</h2>
                 <button onclick="window.location.hash='#menu'" class="bg-white text-black px-4 py-1 rounded-full text-xs font-bold">VOLVER</button>
             </div>
-
+            
             <div class="flex gap-2 mb-4">
                 <button onclick="window.swCot('editor')" id="btn-cot-ed" class="flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm">📝 EDITOR</button>
                 <button onclick="window.swCot('historial')" id="btn-cot-hi" class="flex-1 bg-zinc-800 text-zinc-400 font-bold py-2 rounded-xl text-xs shadow-sm">🗂️ HISTORIAL</button>
@@ -1654,25 +1642,23 @@ function dibujarCotizador() {
 
             <div id="tab-cot-editor" style="display:block;">
                 <div class="bg-white p-4 rounded-xl shadow-lg border-b-4 border-red-600 mb-4">
-                    <div class="grid grid-cols-1 gap-2 mb-3">
-                        <input id="cot-cliente" type="text" oninput="window.actualizarVisualCotizador()" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="NOMBRE DEL CLIENTE...">
-                        <input id="cot-proyecto" type="text" oninput="window.actualizarVisualCotizador()" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="NOMBRE DEL PROYECTO...">
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <input id="cot-cliente" type="text" oninput="document.getElementById('visual-cliente').innerText = this.value.toUpperCase();" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="CLIENTE...">
+                        <input id="cot-monto" type="number" class="w-full p-2 border-2 rounded-lg font-black text-red-600 text-xs text-center" placeholder="MONTO Bs.">
                     </div>
-
-                    <div class="bg-zinc-50 p-3 rounded-xl border mb-3">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] font-black text-zinc-500 uppercase">Ítems de la cotización</span>
-                            <button onclick="window.agregarItemCot()" class="bg-blue-600 text-white text-[10px] font-black px-3 py-2 rounded-lg">+ AGREGAR ÍTEM</button>
-                        </div>
-                        <div id="lista-items-cot" class="space-y-1"></div>
-                        <div class="text-right mt-2 text-sm font-black text-red-600">TOTAL: Bs. <span id="cot-total-preview">0.00</span></div>
-                    </div>
-
-                    <button onclick="window.guardarCotizacionBD()" class="w-full bg-black text-white font-black py-3 rounded-lg text-xs uppercase mb-2">💾 GUARDAR Y GENERAR CÓDIGO</button>
-                    <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl shadow-xl">📥 GENERAR PDF</button>
+                    <button onclick="window.guardarCotizacionBD()" class="w-full bg-black text-white font-black py-3 rounded-lg text-xs uppercase">💾 GUARDAR Y GENERAR CÓDIGO</button>
                 </div>
-
-                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;"></div>
+                <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl mb-4 shadow-lg">🪄 1. ARREGLAR TABLAS</button>
+                <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl mb-4 shadow-xl">📥 2. GENERAR PDF</button>
+                
+                <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;">
+                    <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;">
+                        <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p>
+                        <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#cc0000;" id="visual-codigo">N°: [SIN GUARDAR]</p>
+                        <p style="margin:5px 0;font-size:14px;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
+                    </div>
+                    <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;min-height:200mm;">--- Pegue su texto aquí ---</div>
+                </div>
             </div>
 
             <div id="tab-cot-historial" style="display:none;">
@@ -1680,8 +1666,6 @@ function dibujarCotizador() {
             </div>
         </div>
     </div>`;
-
-    window.actualizarVisualCotizador();
 }
 
 window.swCot = (tab) => {
@@ -1689,7 +1673,7 @@ window.swCot = (tab) => {
     const historial = document.getElementById('tab-cot-historial');
     const btnEd = document.getElementById('btn-cot-ed');
     const btnHi = document.getElementById('btn-cot-hi');
-
+    
     if (tab === 'editor') {
         editor.style.display = 'block';
         historial.style.display = 'none';
@@ -1704,153 +1688,55 @@ window.swCot = (tab) => {
     }
 };
 
-window.agregarItemCot = () => {
-    const desc = prompt("Descripción del ítem (Ej: Efecto Veneciano en muros):");
-    if (!desc) return;
-    const unidad = prompt("Unidad (Ej: m2, ml, gl):", "m2") || "m2";
-    const cant = parseFloat(prompt("Cantidad:"));
-    if (isNaN(cant) || cant <= 0) return alert("❌ Cantidad inválida.");
-    const precio = parseFloat(prompt("Precio Unitario (Bs):"));
-    if (isNaN(precio) || precio <= 0) return alert("❌ Precio inválido.");
-    window.cotItems.push({ desc: desc.toUpperCase(), unidad: unidad.toUpperCase(), cant, precio });
-    window.renderItemsCot();
-};
+window.arreglarFormato = () => {
+    const z = document.getElementById('zona-editable');
+    // Mantenemos la lógica de etiquetas para el autolleno de Cliente y Monto
+    const textoBruto = z.innerText.trim();
+    const matchCliente = textoBruto.match(/\[CLIENTE:\s*(.*?)\]/i);
+    if(matchCliente) { document.getElementById('cot-cliente').value = matchCliente[1].toUpperCase(); document.getElementById('visual-cliente').innerText = matchCliente[1].toUpperCase(); }
 
-window.quitarItemCot = (idx) => {
-    if (confirm("¿Borrar este ítem?")) { window.cotItems.splice(idx, 1); window.renderItemsCot(); }
-};
-
-window.renderItemsCot = () => {
-    const c = document.getElementById('lista-items-cot');
-    if (!c) return;
-    c.innerHTML = '';
-    let total = 0;
-    window.cotItems.forEach((it, idx) => {
-        const subtotal = it.cant * it.precio;
-        total += subtotal;
-        c.innerHTML += `<div class="flex justify-between items-center p-2 bg-white border rounded-lg text-xs">
-            <div><b>${it.desc}</b><br><span class="text-zinc-500">${it.cant} ${it.unidad} x Bs.${it.precio} = Bs.${subtotal.toFixed(2)}</span></div>
-            <button onclick="window.quitarItemCot(${idx})" class="text-red-500 font-black px-2">X</button>
-        </div>`;
-    });
-    document.getElementById('cot-total-preview').innerText = total.toFixed(2);
-    window.actualizarVisualCotizador();
-};
-
-window.actualizarVisualCotizador = () => {
-    const hoja = document.getElementById('hoja-pdf');
-    if (!hoja) return;
-    const cliente = (document.getElementById('cot-cliente')?.value || '___________________').toUpperCase();
-    const proyecto = (document.getElementById('cot-proyecto')?.value || '___________________').toUpperCase();
-    const codigo = window.cotizacionActualId ? `N°: ${window.cotizacionActualId}` : 'N°: [SIN GUARDAR]';
-    let filas = '';
-    let total = 0;
-    window.cotItems.forEach((it, i) => {
-        const subtotal = it.cant * it.precio;
-        total += subtotal;
-        filas += `<tr>
-            <td style="border:1px solid #000;padding:8px;text-align:center;">${i + 1}</td>
-            <td style="border:1px solid #000;padding:8px;">${it.desc}</td>
-            <td style="border:1px solid #000;padding:8px;text-align:center;">${it.unidad}</td>
-            <td style="border:1px solid #000;padding:8px;text-align:center;">${it.cant}</td>
-            <td style="border:1px solid #000;padding:8px;text-align:right;">${it.precio.toFixed(2)}</td>
-            <td style="border:1px solid #000;padding:8px;text-align:right;">${subtotal.toFixed(2)}</td>
-        </tr>`;
-    });
-    if (!filas) filas = `<tr><td colspan="6" style="border:1px solid #000;padding:12px;text-align:center;color:#888;">Sin ítems agregados</td></tr>`;
-
-    hoja.innerHTML = `
-    <div style="text-align:center;margin-bottom:20px;border-bottom:4px solid #cc0000;padding-bottom:10px;">
-        <h1 style="margin:0;color:#cc0000;font-size:24px;">WRPUMA</h1>
-        <p style="margin:0;font-size:12px;letter-spacing:2px;">SOLUCIONES PROFESIONALES EN PINTURA E IMPERMEABILIZACIÓN</p>
-        <p style="margin:5px 0 0;font-size:13px;font-weight:bold;color:#cc0000;">${codigo}</p>
-    </div>
-    <div style="border:1px solid #000;padding:10px;margin-bottom:20px;font-size:14px;">
-        <p style="margin:0;"><b>PROYECTO:</b> ${proyecto}</p>
-        <p style="margin:0;"><b>CLIENTE:</b> ${cliente}</p>
-        <p style="margin:0;"><b>FECHA:</b> ${new Date().toLocaleDateString()}</p>
-    </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:12px;">
-        <thead><tr style="background:#333;color:#fff;">
-            <th style="border:1px solid #000;padding:8px;">N°</th>
-            <th style="border:1px solid #000;padding:8px;">DETALLE DE TRABAJOS</th>
-            <th style="border:1px solid #000;padding:8px;">UN</th>
-            <th style="border:1px solid #000;padding:8px;">CANT</th>
-            <th style="border:1px solid #000;padding:8px;">P.U.</th>
-            <th style="border:1px solid #000;padding:8px;">TOTAL</th>
-        </tr></thead>
-        <tbody>${filas}</tbody>
-    </table>
-    <div style="width:300px;float:right;">
-        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #cc0000;padding-top:5px;">
-            <span><b>TOTAL GENERAL:</b></span><b>Bs. ${total.toFixed(2)}</b>
+    // ESTRUCTURA PROFESIONAL WRPUMA (Basada en tu ejemplo de liquidación)
+    z.innerHTML = `
+    <div style="font-family: Arial; color: #000; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="margin: 0; color: #cc0000; font-size: 24px;">WRPUMA</h1>
+            <p style="margin: 0; font-size: 12px; letter-spacing: 2px;">SOLUCIONES PROFESIONALES EN PINTURA E IMPERMEABILIZACIÓN</p>
         </div>
-    </div>
-    <div style="clear:both;"></div>
-    <div style="margin-top:60px;text-align:center;display:flex;justify-content:space-around;">
-        <div style="border-top:1px solid #000;width:200px;padding-top:5px;">Firma Cliente</div>
-        <div style="border-top:1px solid #000;width:200px;padding-top:5px;">Walter Puma - WRPUMA</div>
+
+        <div style="border: 1px solid #000; padding: 10px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 14px;"><b>PROYECTO:</b> [NOMBRE DEL PROYECTO AQUÍ]</p>
+            <p style="margin: 0; font-size: 14px;"><b>CLIENTE:</b> <span id="visual-cliente"></span></p>
+            <p style="margin: 0; font-size: 14px;"><b>FECHA:</b> ${new Date().toLocaleDateString()}</p>
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; margin-bottom: 20px;">
+            <thead>
+                <tr style="background: #333; color: #fff;">
+                    <th style="border: 1px solid #000; padding: 8px;">N°</th>
+                    <th style="border: 1px solid #000; padding: 8px;">DETALLE DE TRABAJOS</th>
+                    <th style="border: 1px solid #000; padding: 8px;">UN</th>
+                    <th style="border: 1px solid #000; padding: 8px;">CANT</th>
+                    <th style="border: 1px solid #000; padding: 8px;">P.U.</th>
+                    <th style="border: 1px solid #000; padding: 8px;">TOTAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Aquí puedes añadir tus filas, ej: -->
+                <tr><td style="border: 1px solid #000; padding: 8px; text-align: center;">1</td><td style="border: 1px solid #000; padding: 8px;">[ÍTEM]</td><td style="border: 1px solid #000; padding: 8px; text-align: center;">m2</td><td style="border: 1px solid #000; padding: 8px; text-align: center;">0</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">0</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">0</td></tr>
+            </tbody>
+        </table>
+
+        <div style="width: 300px; float: right; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #000;"><span>SUBTOTAL:</span> <b>0.00 Bs</b></div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #cc0000; margin-top: 5px;"><span>TOTAL GENERAL:</span> <b>0.00 Bs</b></div>
+        </div>
+        <div style="clear: both;"></div>
+
+        <div style="margin-top: 50px; text-align: center; display: flex; justify-content: space-around;">
+            <div style="border-top: 1px solid #000; width: 200px; padding-top: 5px;">Firma Cliente</div>
+            <div style="border-top: 1px solid #000; width: 200px; padding-top: 5px;">Walter Puma - WRPUMA</div>
+        </div>
     </div>`;
-};
-
-window.guardarCotizacionBD = () => {
-    const cliente = document.getElementById('cot-cliente').value.trim();
-    if (!cliente) return alert("❌ Escribe el nombre del cliente antes de guardar.");
-    if (window.cotItems.length === 0) return alert("❌ Agrega al menos un ítem antes de guardar.");
-    const proyecto = document.getElementById('cot-proyecto').value.trim();
-    const total = window.cotItems.reduce((s, i) => s + i.cant * i.precio, 0);
-    const fecha = new Date();
-    const codigo = window.cotizacionActualId ||
-        `COT-${fecha.getFullYear()}${String(fecha.getMonth() + 1).padStart(2, '0')}${String(fecha.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 900 + 100)}`;
-    window.cotizacionActualId = codigo;
-
-    firebase.database().ref(getDbPath(`cotizaciones/${codigo}`)).set({
-        codigo, cliente: cliente.toUpperCase(), proyecto: proyecto.toUpperCase(),
-        items: window.cotItems, total, fecha: fecha.toISOString()
-    }).then(() => {
-        window.actualizarVisualCotizador();
-        alert(`✅ Cotización guardada con código ${codigo}`);
-    }).catch(() => alert("❌ Error de conexión al guardar. Revisa tu internet."));
-};
-
-window.generarPDF = () => {
-    if (!window.cotizacionActualId) {
-        if (!confirm("No has guardado esta cotización todavía.\n¿Generar el PDF de todos modos sin guardar?")) return;
-    }
-    window.print();
-};
-
-window.renderCotizaciones = () => {
-    const c = document.getElementById('lista-cotizaciones');
-    if (!c) return;
-    c.innerHTML = 'Cargando...';
-    firebase.database().ref(getDbPath('cotizaciones')).once('value').then(snap => {
-        const cots = snap.val() || {};
-        const arr = Object.values(cots).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-        c.innerHTML = '';
-        if (arr.length === 0) { c.innerHTML = '<p class="text-center text-xs text-zinc-500 py-6">No hay cotizaciones guardadas.</p>'; return; }
-        arr.forEach(cot => {
-            c.innerHTML += `<div class="p-4 bg-white rounded-xl border shadow-sm flex justify-between items-center">
-                <div><b class="text-sm uppercase">${cot.cliente}</b><br>
-                <span class="text-[10px] text-zinc-500">${cot.codigo} · ${new Date(cot.fecha).toLocaleDateString()}</span><br>
-                <span class="text-sm font-black text-red-600">Bs. ${parseFloat(cot.total).toFixed(2)}</span></div>
-                <button onclick='window.cargarCotizacion("${cot.codigo}")' class="bg-zinc-900 text-white text-[10px] font-black px-3 py-2 rounded-lg">ABRIR</button>
-            </div>`;
-        });
-    });
-};
-
-window.cargarCotizacion = (codigo) => {
-    firebase.database().ref(getDbPath(`cotizaciones/${codigo}`)).once('value').then(snap => {
-        const cot = snap.val();
-        if (!cot) return alert("❌ No se encontró esta cotización.");
-        window.cotizacionActualId = cot.codigo;
-        window.cotItems = cot.items || [];
-        window.swCot('editor');
-        document.getElementById('cot-cliente').value = cot.cliente;
-        document.getElementById('cot-proyecto').value = cot.proyecto || '';
-        window.renderItemsCot();
-    });
 };
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR
