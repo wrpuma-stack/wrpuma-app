@@ -1623,10 +1623,7 @@ window.agregarAlCarrito = () => { let n = document.getElementById('calc-nombre')
 window.renderCarrito = () => { const c = document.getElementById('contenedor-carrito'), l = document.getElementById('lista-carrito'); if(window.carritoPresupuesto.length===0) return c.style.display='none'; c.style.display='block'; l.innerHTML=''; let t=0; window.carritoPresupuesto.forEach((i, idx) => { t += parseFloat(i.total); l.innerHTML += `<div class="bg-zinc-900 p-4 rounded-xl text-white flex justify-between"><div><p class="font-black text-sm text-blue-300">${i.nombre}</p><p class="text-[10px] text-zinc-400">Area: ${i.m2}m2</p><p class="font-black text-white">CD: Bs. ${i.total}</p></div><button onclick="window.quitarDelCarrito(${idx})" class="text-red-500 font-black">BORRAR</button></div>`; }); document.getElementById('carrito-gran-total').innerText = t.toFixed(2); };
 window.quitarDelCarrito = (idx) => { window.carritoPresupuesto.splice(idx, 1); window.renderCarrito(); };
 window.enviarCarritoWhatsApp = () => { let t = `*PRESUPUESTO WRPUMA*\n\n`; let tt = 0; window.carritoPresupuesto.forEach(i => { t += `*${i.nombre}* - ${i.m2}m2 (Bs.${parseFloat(i.total).toFixed(2)})\n`; tt+=parseFloat(i.total); }); t += `\n*TOTAL VENTA: Bs. ${tt.toFixed(2)}*`; window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`, '_blank'); };
-
-// ==========================================================
 // 📝 GESTOR DE COTIZACIONES B2B (VERSIÓN Y BLINDAJE)
-// ==========================================================
 window.cotizacionActualId = null;
 
 function dibujarCotizador() {
@@ -1639,18 +1636,18 @@ function dibujarCotizador() {
             </div>
             
             <div class="flex gap-2 mb-4">
-                <button onclick="window.swCot('editor')" id="btn-cot-ed" class="flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm">📝 EDITOR DE DOCUMENTOS</button>
-                <button onclick="window.swCot('historial')" id="btn-cot-hi" class="flex-1 bg-zinc-800 text-white font-black py-2 rounded-xl text-xs shadow-sm">🗂️ HISTORIAL Y BLINDAJE</button>
+                <button onclick="window.swCot('editor')" id="btn-cot-ed" class="flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm">📝 EDITOR</button>
+                <button onclick="window.swCot('historial')" id="btn-cot-hi" class="flex-1 bg-zinc-800 text-white font-black py-2 rounded-xl text-xs shadow-sm">🗂️ HISTORIAL</button>
             </div>
 
-            <!-- TAB 1: EDITOR PDF Y REGISTRO -->
+            <!-- TAB 1: EDITOR -->
             <div id="tab-cot-editor">
                 <div class="bg-white p-4 rounded-xl shadow-lg border-b-4 border-red-600 mb-4">
                     <h3 class="text-[10px] font-black uppercase text-zinc-500 mb-2">DATOS DE LA COTIZACIÓN</h3>
                     <div class="grid grid-cols-2 gap-2 mb-3">
                         <div>
                             <label class="text-[9px] font-bold text-zinc-500">CLIENTE / EMPRESA:</label>
-                            <input id="cot-cliente" type="text" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Nombre...">
+                            <input id="cot-cliente" type="text" oninput="document.getElementById('visual-cliente').innerText = this.value.toUpperCase() || '___________________';" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Nombre...">
                         </div>
                         <div>
                             <label class="text-[9px] font-bold text-zinc-500">MONTO TOTAL (Bs.):</label>
@@ -1666,32 +1663,32 @@ function dibujarCotizador() {
                     <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl text-[10px]">GARANTIA</button>
                     <button onclick="window.modoActa()" class="bg-blue-600 text-white font-black py-2 rounded-xl text-[10px]">ACTA ENTREGA</button>
                 </div>
-                <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl mb-4 shadow-lg">🪄 1. ARREGLAR TABLAS (Texto a Cuadro)</button>
+                <button onclick="window.arreglarFormato()" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl mb-4 shadow-lg">🪄 1. ARREGLAR TABLAS (AUTOLLEANADO)</button>
                 <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl mb-4 shadow-xl">📥 2. GENERAR DOCUMENTO PDF</button>
                 
                 <div class="overflow-x-auto w-full pb-10">
                     <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;">
                         <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
                             <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
-                            <div style="text-align:right;"><p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p><p style="margin:0;font-size:14px;">Santa Cruz, ${new Date().toLocaleDateString()}</p></div>
+                            <div style="text-align:right;">
+                                <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p>
+                                <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#cc0000;" id="visual-codigo">N°: [SIN GUARDAR]</p>
+                                <p style="margin:0;font-size:12px;">Santa Cruz, ${new Date().toLocaleDateString()}</p>
+                                <p style="margin:5px 0 0 0;font-size:14px;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
+                            </div>
                         </div>
                         <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;min-height:200mm;"><p style="text-align:center;color:#999;">--- Pegue su texto aquí ---</p></div>
-                        <div style="margin-top:30px;border-top:2px solid #000;padding-top:15px;display:flex;justify-content:space-between;">
-                            <div><b>WRPUMA - Ingenieria en Pintura e Impermeabilizaciones</b><br><span style="font-size:12px;">Cel.: 77396806, 76362867</span></div>
-                            <div style="text-align:right;"><span style="font-size:12px;">wrpuma@gmail.com</span><br><b style="font-size:13px;">Walter Puma</b><br><i style="color:#cc0000;font-weight:bold;font-size:11px;">Gerencia WRPUMA</i></div>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 2: HISTORIAL Y CONTROL DE VERSIONES -->
+            <!-- TAB 2: HISTORIAL -->
             <div id="tab-cot-historial" style="display:none;">
                 <div class="bg-zinc-900 p-4 rounded-xl text-white mb-4 text-center">
                     <h3 class="text-xs font-black uppercase tracking-widest text-zinc-400">BASE DE DATOS COMERCIAL</h3>
                 </div>
                 <div id="lista-cotizaciones" class="space-y-4"></div>
             </div>
-
         </div>
     </div>`;
 }
@@ -1699,10 +1696,6 @@ function dibujarCotizador() {
 window.swCot = (tab) => {
     document.getElementById('tab-cot-editor').style.display = tab === 'editor' ? 'block' : 'none';
     document.getElementById('tab-cot-historial').style.display = tab === 'historial' ? 'block' : 'none';
-    document.getElementById('btn-cot-ed').className = tab === 'editor' ? 'flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm' : 'flex-1 bg-zinc-800 text-zinc-400 font-bold py-2 rounded-xl text-xs shadow-sm';
-    document.getElementById('btn-cot-hi').className = tab === 'historial' ? 'flex-1 bg-red-600 text-white font-black py-2 rounded-xl text-xs shadow-sm' : 'flex-1 bg-zinc-800 text-zinc-400 font-bold py-2 rounded-xl text-xs shadow-sm';
-    
-    if(tab === 'historial') window.renderCotizaciones();
 };
 
 window.guardarCotizacionBD = async () => {
@@ -1710,195 +1703,46 @@ window.guardarCotizacionBD = async () => {
     const monto = parseFloat(document.getElementById('cot-monto').value);
     const html = document.getElementById('zona-editable').innerHTML;
     
-    if(!cliente || isNaN(monto)) return alert("❌ Por favor ingrese el Nombre del Cliente y el Monto Total antes de guardar.");
+    if(!cliente || isNaN(monto)) return alert("❌ Ingrese Cliente y Monto.");
     
-    // Si es una cotización nueva (no estamos editando)
     if (!window.cotizacionActualId) {
         const hoy = new Date();
-        const año = hoy.getFullYear();
-        const mes = String(hoy.getMonth() + 1).padStart(2, '0');
-        const dia = String(hoy.getDate()).padStart(2, '0');
-        const fechaStr = `${año}-${mes}${dia}`;
-        
+        const fechaStr = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}${String(hoy.getDate()).padStart(2,'0')}`;
         const snap = await firebase.database().ref(getDbPath('cotizaciones')).once('value');
-        const cots = snap.val() || {};
-        let count = 1;
-        Object.values(cots).forEach(c => {
-            if (c.codigo && c.codigo.includes(fechaStr)) count++;
-        });
-        const correlativo = String(count).padStart(2, '0');
-        const codigo = `WP-${fechaStr}-${correlativo}-V1`;
-        const root_id = `ROOT_${Date.now()}`;
+        let count = Object.values(snap.val() || {}).filter(c => c.codigo.includes(fechaStr)).length + 1;
+        const codigo = `WP-${fechaStr}-${String(count).padStart(2,'0')}-V1`;
         
+        document.getElementById('visual-codigo').innerText = `N°: ${codigo}`;
         const newId = `COT_${Date.now()}`;
         await firebase.database().ref(getDbPath(`cotizaciones/${newId}`)).set({
-            root_id: root_id,
-            codigo: codigo,
-            version: 1,
-            cliente: cliente.toUpperCase(),
-            monto_total: monto,
-            estado: 'ENVIADA',
-            fecha: hoy.toISOString(),
-            html: html
+            root_id: `ROOT_${Date.now()}`, codigo, version: 1, cliente: cliente.toUpperCase(), monto_total: monto, estado: 'ENVIADA', fecha: hoy.toISOString(), html: html
         });
-        alert(`✅ Cotización Registrada Correctamente.\n\nCódigo asignado: ${codigo}`);
-        
-        // Limpiamos
-        document.getElementById('cot-cliente').value = '';
-        document.getElementById('cot-monto').value = '';
-        window.cotizacionActualId = null;
-        window.swCot('historial');
+        alert(`✅ Registrada: ${codigo}`);
+        window.cotizacionActualId = newId;
     } else {
-        // Si estamos actualizando (Solo texto, sin cambiar versión)
-        await firebase.database().ref(getDbPath(`cotizaciones/${window.cotizacionActualId}`)).update({
-            cliente: cliente.toUpperCase(),
-            monto_total: monto,
-            html: html
-        });
-        alert(`✅ Cotización actualizada exitosamente.`);
-        window.cotizacionActualId = null;
-        document.getElementById('cot-cliente').value = '';
-        document.getElementById('cot-monto').value = '';
-        window.swCot('historial');
+        await firebase.database().ref(getDbPath(`cotizaciones/${window.cotizacionActualId}`)).update({ cliente: cliente.toUpperCase(), monto_total: monto, html: html });
+        alert(`✅ Actualizada.`);
     }
 };
 
-window.renderCotizaciones = () => {
-    firebase.database().ref(getDbPath('cotizaciones')).on('value', snap => {
-        const list = document.getElementById('lista-cotizaciones');
-        if(!list) return;
-        list.innerHTML = '';
-        const data = snap.val() || {};
-        const arr = Object.keys(data).map(k => ({id: k, ...data[k]})).sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-        
-        if(arr.length === 0) { list.innerHTML = '<p class="text-center text-zinc-500 font-bold text-xs py-10">No hay cotizaciones registradas.</p>'; return; }
-        
-        arr.forEach(c => {
-            let dash = '';
-            // 🛡️ REGLA DE NEGOCIO: BLINDAJE FINANCIERO ACTIVO
-            if(c.estado === 'APROBADA') {
-                const h = c.monto_total * 0.10;
-                const f = c.monto_total * 0.05;
-                const r = c.monto_total * 0.05;
-                const ret = h + f + r;
-                const neta = c.monto_total - ret;
-                dash = `
-                <div class="mt-3 bg-zinc-900 p-3 rounded-xl border-l-4 border-green-500">
-                    <h4 class="text-[9px] text-green-400 font-black uppercase mb-2 tracking-widest">🛡️ BLINDAJE FINANCIERO (USO INTERNO)</h4>
-                    <div class="grid grid-cols-3 gap-2 text-center text-white text-[10px] mb-2">
-                        <div class="bg-black p-2 rounded-lg border border-zinc-700">Herramientas (10%)<br><b class="text-red-400">Bs. ${h.toFixed(1)}</b></div>
-                        <div class="bg-black p-2 rounded-lg border border-zinc-700">Combustible (5%)<br><b class="text-yellow-400">Bs. ${f.toFixed(1)}</b></div>
-                        <div class="bg-black p-2 rounded-lg border border-zinc-700">Repuestos (5%)<br><b class="text-orange-400">Bs. ${r.toFixed(1)}</b></div>
-                    </div>
-                    <div class="bg-green-900/30 text-green-400 p-2 rounded-lg text-center font-black text-xs border border-green-800">
-                        GANANCIA NETA PROYECTADA: Bs. ${neta.toFixed(1)}
-                    </div>
-                </div>`;
-            }
-
-            list.innerHTML += `
-            <div class="bg-white p-4 rounded-2xl shadow-md border-2 ${c.estado === 'APROBADA' ? 'border-green-500' : 'border-zinc-200'}">
-                <div class="flex justify-between items-start mb-2">
-                    <div>
-                        <b class="text-lg uppercase text-black block">${c.cliente}</b>
-                        <span class="bg-zinc-800 text-white px-2 py-0.5 rounded text-[10px] font-black font-mono tracking-wider">${c.codigo}</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-lg font-black text-red-600 block">Bs. ${c.monto_total}</span>
-                        <span class="text-[9px] font-bold text-zinc-500">${new Date(c.fecha).toLocaleDateString()}</span>
-                    </div>
-                </div>
-                
-                <div class="flex gap-2 mb-2">
-                    <select onchange="window.cambiarEstadoCot('${c.id}', this.value)" class="flex-1 p-2 bg-zinc-100 border rounded-lg text-[10px] font-black outline-none ${c.estado === 'APROBADA' ? 'text-green-600' : 'text-zinc-600'}">
-                        <option value="ENVIADA" ${c.estado === 'ENVIADA' ? 'selected' : ''}>ENVIADA</option>
-                        <option value="EN NEGOCIACION" ${c.estado === 'EN NEGOCIACION' ? 'selected' : ''}>EN NEGOCIACIÓN</option>
-                        <option value="APROBADA" ${c.estado === 'APROBADA' ? 'selected' : ''}>APROBADA</option>
-                        <option value="RECHAZADA" ${c.estado === 'RECHAZADA' ? 'selected' : ''}>RECHAZADA</option>
-                    </select>
-                    <button onclick="window.cargarCotEnEditor('${c.id}')" class="flex-1 bg-blue-100 text-blue-700 font-black text-[10px] rounded-lg">VER / EDITAR</button>
-                    <button onclick="window.nuevaVersionCot('${c.id}')" class="flex-1 bg-purple-100 text-purple-700 font-black text-[10px] rounded-lg shadow-sm border border-purple-200">+ VERSIÓN</button>
-                </div>
-                ${dash}
-            </div>`;
-        });
-    });
-};
-
-window.cambiarEstadoCot = (id, estado) => {
-    firebase.database().ref(getDbPath(`cotizaciones/${id}`)).update({estado: estado});
-};
-
-window.cargarCotEnEditor = async (id) => {
-    const snap = await firebase.database().ref(getDbPath(`cotizaciones/${id}`)).once('value');
-    const c = snap.val();
-    if(c) {
-        window.cotizacionActualId = id;
-        document.getElementById('cot-cliente').value = c.cliente;
-        document.getElementById('cot-monto').value = c.monto_total;
-        document.getElementById('zona-editable').innerHTML = c.html;
-        window.swCot('editor');
-    }
-};
-
-window.nuevaVersionCot = async (id) => {
-    if(!confirm("¿Desea crear una nueva versión de este presupuesto para negociar? (La versión actual se mantendrá intacta en el historial).")) return;
-    
-    const snap = await firebase.database().ref(getDbPath(`cotizaciones/${id}`)).once('value');
-    const old = snap.val();
-    if(!old) return;
-    
-    const nextV = (old.version || 1) + 1;
-    // Buscamos "-VX" y lo reemplazamos
-    const newCode = old.codigo.replace(/-V\d+/, `-V${nextV}`);
-    
-    const newId = `COT_${Date.now()}`;
-    await firebase.database().ref(getDbPath(`cotizaciones/${newId}`)).set({
-        root_id: old.root_id,
-        codigo: newCode,
-        version: nextV,
-        cliente: old.cliente,
-        monto_total: old.monto_total,
-        estado: 'EN NEGOCIACION',
-        fecha: new Date().toISOString(),
-        html: old.html
-    });
-    
-    alert(`✅ Nueva versión creada: ${newCode}.\nCargando en el editor para que modifiques los montos o ítems.`);
-    window.cargarCotEnEditor(newId);
-};
-
-window.setDocType = (t) => { document.getElementById('doc-title').innerText = t; };
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
     let textoBruto = z.innerText.trim();
 
-    // 🤖 1. LECTOR INTELIGENTE DE ETIQUETAS AUTOMÁTICAS
-    const regexCliente = /\[CLIENTE:\s*(.*?)\]/i;
-    const regexMonto = /\[MONTO:\s*([\d\.]+)\]/i;
+    const matchCliente = textoBruto.match(/\[CLIENTE:\s*(.*?)\]/i);
+    const matchMonto = textoBruto.match(/\[MONTO:\s*([\d\.]+)\]/i);
 
-    let matchCliente = textoBruto.match(regexCliente);
-    let matchMonto = textoBruto.match(regexMonto);
-
-    if (matchCliente && document.getElementById('cot-cliente')) {
-        document.getElementById('cot-cliente').value = matchCliente[1].toUpperCase().trim();
+    if (matchCliente) {
+        const nom = matchCliente[1].toUpperCase().trim();
+        document.getElementById('cot-cliente').value = nom;
+        document.getElementById('visual-cliente').innerText = nom;
+        textoBruto = textoBruto.replace(matchCliente[0], '');
     }
-    if (matchMonto && document.getElementById('cot-monto')) {
+    if (matchMonto) {
         document.getElementById('cot-monto').value = parseFloat(matchMonto[1]);
+        textoBruto = textoBruto.replace(matchMonto[0], '');
     }
 
-    // 🧹 2. LIMPIEZA DE ETIQUETAS Y BASURA
-    textoBruto = textoBruto
-        .replace(regexCliente, '')
-        .replace(regexMonto, '')
-        .replace(/####/g, '')
-        .replace(/###/g, '')
-        .replace(/--- Pegue su texto aquí ---/g, '')
-        .replace(/Como tu asesor.*/g, '')
-        .replace(/\*\*WRPUMA\*\*/g, '')
-        .trim();
-
-    // 🪄 3. ARMAR EL DISEÑO DEL PDF
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
@@ -1907,63 +1751,24 @@ window.arreglarFormato = () => {
     lineas.forEach(l => {
         let lineaLimpia = l.trim();
         if (lineaLimpia === '') return;
-
         if (lineaLimpia.includes('|')) {
-            if (!enTabla) {
-                h += '<table style="width:100%; border-collapse:collapse; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
-                enTabla = true;
-                esPrimeraFila = true;
-            }
-            let estiloFila = esPrimeraFila ? 'background-color:#1e293b; color:white; font-weight:bold; text-align:center;' : 'border-bottom:1px solid #ddd;';
-            if (lineaLimpia.toUpperCase().includes('TOTAL')) estiloFila = 'background-color:#fee2e2; color:#b91c1c; font-weight:900;';
-            
-            h += `<tr style="${esPrimeraFila ? 'border:1px solid #1e293b;' : ''}">`;
-            lineaLimpia.split('|').forEach(celda => {
-                h += `<td style="padding:6px; border:1px solid #ccc; ${estiloFila}">${celda.trim().replace(/\*/g, '')}</td>`;
-            });
-            h += '</tr>';
-            esPrimeraFila = false;
+            if (!enTabla) { h += '<table style="width:100%; border-collapse:collapse; margin:10px 0; font-size:12px;">'; enTabla = true; esPrimeraFila = true; }
+            h += `<tr style="${esPrimeraFila ? 'background-color:#1e293b; color:white; font-weight:bold;' : 'border-bottom:1px solid #ddd;'}">`;
+            lineaLimpia.split('|').forEach(celda => { h += `<td style="padding:6px; border:1px solid #ccc;">${celda.trim().replace(/\*/g, '')}</td>`; });
+            h += '</tr>'; esPrimeraFila = false;
         } else {
             if (enTabla) { h += '</table>'; enTabla = false; }
-            let esNumeral = lineaLimpia.match(/^\d+\.?\s/);
-            
-            if (esNumeral) {
-                h += `<p style="margin: 15px 0 5px 0; font-size:15px; font-weight:900; color:#1e293b; border-bottom:2px solid #f97316; padding-bottom:3px;">${lineaLimpia}</p>`;
-            } else {
-                h += `<p style="margin: 2px 0; font-size:12px;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
-            }
+            h += `<p style="margin: 2px 0; font-size:12px;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
         }
     });
     if (enTabla) h += '</table>';
     z.innerHTML = h;
 };
 
-// 🛡️ REGLA: GARANTÍAS SOLO PARA IMPERMEABILIZACIÓN
-window.modoGarantia = () => { 
-    document.getElementById('doc-title').innerText = 'CERTIFICADO DE GARANTIA'; 
-    document.getElementById('zona-editable').innerHTML = `
-    <p><b>PROYECTO:</b></p>
-    <p><b>CLIENTE:</b></p>
-    <p>De acuerdo a las normativas de WRPUMA, la presente garantía ampara <b>ÚNICAMENTE los servicios de impermeabilización técnica (techos, losas y tanques)</b>, garantizando la estanqueidad total de la superficie tratada por un periodo de 1 AÑO.</p>
-    <p><i>La garantía queda anulada si la superficie es perforada, modificada o sufre daños por tránsito no autorizado de terceros.</i></p>`; 
+window.generarPDF = () => { 
+    window.scrollTo(0,0);
+    html2pdf().set({ margin: 0.3, filename: 'Cotizacion.pdf', html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { format: 'letter' } }).from(document.getElementById('hoja-pdf')).save(); 
 };
-
-window.modoActa = () => {
-    document.getElementById('doc-title').innerText = 'ACTA DE ENTREGA Y CONFORMIDAD';
-    document.getElementById('zona-editable').innerHTML = `
-    <p><b>PROYECTO:</b> [Nombre de la Obra]</p>
-    <p><b>CLIENTE:</b> [Nombre del Cliente]</p>
-    <p style="margin-top:20px;">Conste por el presente documento que el cliente recibe a entera satisfacción los trabajos detallados en el contrato correspondiente.</p>
-    <p>A partir de la fecha y firma de esta acta, la obra se considera entregada en perfectas condiciones. Cualquier retoque, reparación o daño posterior provocado por traslados, mudanzas, instalaciones o terceros será considerado como <b>MANTENIMIENTO</b> y tendrá un costo adicional.</p>
-    <p><i>Nota: De acuerdo a las políticas de WRPUMA, no se emiten garantías sobre pintura decorativa o efectos de alta decoración en interiores.</i></p>
-    <br><br><br>
-    <div style="display:flex; justify-content:space-between; text-align:center; margin-top:50px;">
-        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Cliente</b></div>
-        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Ing. Walter Puma</b></div>
-    </div>`;
-};
-window.generarPDF = () => { const opt = { margin: 0.3, filename: 'Documento_WRPUMA.pdf', html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'letter' } }; html2pdf().set(opt).from(document.getElementById('hoja-pdf')).save(); };
-
 // ==========================================================
 // 🚀 MENU MAESTRO Y ENRUTADOR
 // ==========================================================
