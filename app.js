@@ -1408,7 +1408,7 @@ window.renderListaHerr = (filtro) => {
             </div>`;
         } else {
             c.innerHTML += `
-            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between items-center mb-2"><b class="text-sm uppercase text-orange-900">${item.nombre}</b><span class="text-[9px] bg-orange-500 text-white px-2 py-1 rounded-lg font-black">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center"><span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span><span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span></div>
+            <div class="p-4 bg-orange-50 rounded-2xl border-2 border-orange-400 shadow-sm"><div class="flex justify-between items-center mb-2"><b class="text-sm uppercase text-orange-900">${item.nombre}</b><span class="text-[9px] bg-orange-50 text-white px-2 py-1 rounded-lg font-black">EN USO</span></div><div class="my-2 p-2 bg-orange-100 border border-orange-200 rounded-xl text-center"><span class="text-[9px] font-black text-orange-800 block uppercase tracking-wider">Poseedor Actual:</span><span class="text-xs font-black text-black">${item.asignado_a} 📍 ${item.obra}</span></div>
                 ${esAdmin ? `<div class="bg-white p-3 rounded-xl border border-orange-200 mt-2"><span class="text-[9px] font-black text-orange-700 block mb-1 uppercase">Transferir o mover:</span><div class="grid grid-cols-2 gap-2 mb-2"><select id="cardT_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesP}</select><select id="cardO_${id}" class="p-2 border rounded-lg text-[10px] bg-zinc-50 font-bold">${opcionesO}</select></div><div class="flex gap-2 mt-2 pt-2 border-t"><button onclick="window.cambiarDestinoHerr('${id}')" class="flex-[2] bg-orange-600 text-white text-[10px] font-black py-2 rounded-lg uppercase">Confirmar Traspaso</button><button onclick="window.devolverAFlotaHerr('${id}')" class="flex-1 bg-zinc-900 text-white text-[10px] font-black py-2 rounded-lg uppercase">Bodega</button><button onclick="window.delHerr('${id}')" class="text-red-600 text-[10px] font-bold px-1 underline">Borrar</button></div></div>` : `<div class="mt-2 text-[10px] text-zinc-600 italic font-bold text-center border-t pt-2 border-orange-200">Verifique posesión física.</div>`}
             </div>`;
         }
@@ -1589,7 +1589,7 @@ window.saveMat = () => { const nom = document.getElementById('m-nom').value.trim
 window.delMat = (id) => { if (confirm("¿Borrar?")) firebase.database().ref(getDbPath(`materiales/${id}`)).remove(); };
 
 // ==========================================================
-// 🗮️ CALCULADORA COMPUTOS PRO
+// 🧮 CALCULADORA COMPUTOS PRO
 // ==========================================================
 function dibujarCalculadora() {
     window.carritoPresupuesto = [];
@@ -1740,22 +1740,47 @@ window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
     let textoBruto = z.innerText.trim();
 
-    const matchCliente = textoBruto.match(/\[CLIENTE:\s*(.*?)\]/i);
-    const matchMonto = textoBruto.match(/\[MONTO:\s*([\d\.]+)\]/i);
-
+    // 1. AUTO-EXTRACCIÓN INTELIGENTE DE DATOS
+    const matchCliente = textoBruto.match(/(?:Cliente|Empresa):\s*(.*)/i) || textoBruto.match(/\[CLIENTE:\s*(.*?)\]/i);
     if (matchCliente) {
-        const nom = matchCliente[1].toUpperCase().trim();
+        const nom = matchCliente[1].replace(/[*_\[\]]/g, '').trim().toUpperCase();
         document.getElementById('cot-cliente').value = nom;
         document.getElementById('visual-cliente').innerText = nom;
-        textoBruto = textoBruto.replace(matchCliente[0], '');
-    }
-    if (matchMonto) {
-        document.getElementById('cot-monto').value = parseFloat(matchMonto[1]);
-        textoBruto = textoBruto.replace(matchMonto[0], '');
+        textoBruto = textoBruto.replace(matchCliente[0], ''); 
     }
 
+    const matchProyecto = textoBruto.match(/Proyecto:\s*(.*)/i) || textoBruto.match(/\[PROYECTO:\s*(.*?)\]/i);
+    if (matchProyecto) {
+        const proy = matchProyecto[1].replace(/[*_\[\]]/g, '').trim().toUpperCase();
+        document.getElementById('cot-proyecto').value = proy;
+        document.getElementById('visual-proyecto').innerText = proy;
+        textoBruto = textoBruto.replace(matchProyecto[0], ''); 
+    }
+
+    const matchResp = textoBruto.match(/Responsable:\s*(.*)/i) || textoBruto.match(/\[RESPONSABLE:\s*(.*?)\]/i);
+    if (matchResp) {
+        const resp = matchResp[1].replace(/[*_\[\]]/g, '').trim().toUpperCase();
+        document.getElementById('cot-resp').value = resp;
+        document.getElementById('visual-resp').innerText = resp;
+        textoBruto = textoBruto.replace(matchResp[0], ''); 
+    }
+
+    const matchMontoOld = textoBruto.match(/\[MONTO:\s*([\d\.]+)\]/i);
+    if (matchMontoOld) {
+        document.getElementById('cot-monto').value = parseFloat(matchMontoOld[1]);
+        textoBruto = textoBruto.replace(matchMontoOld[0], '');
+    } else {
+        const matchMonto = textoBruto.match(/(?:Monto Total|TOTAL|Costo Total).*?(?:Bs\.?|Bolivianos|Bs)\s*([\d\.,]+)/i);
+        if (matchMonto) {
+            document.getElementById('cot-monto').value = parseFloat(matchMonto[1].replace(/,/g, ''));
+        }
+    }
+
+    // 2. LIMPIEZA DE TÍTULO DOBLE Y CÓDIGO BASURA DE LA IA
+    textoBruto = textoBruto.replace(/COTIZACI[OÓ]N T[EÉ]CNICA/gi, '');
     textoBruto = textoBruto.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su texto aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
 
+    // 3. GENERACIÓN DE TABLAS Y PÁRRAFOS ORIGINAL
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
@@ -1765,6 +1790,7 @@ window.arreglarFormato = () => {
         let lineaLimpia = l.trim();
         if (lineaLimpia === '') return;
 
+        // Si es tabla
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
                 h += '<table style="width:100%; border-collapse:collapse; table-layout:fixed; word-wrap:break-word; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
@@ -1776,12 +1802,16 @@ window.arreglarFormato = () => {
             
             h += `<tr style="${esPrimeraFila ? 'border:1px solid #1e293b;' : ''}">`;
             lineaLimpia.split('|').forEach(celda => {
-                h += `<td style="padding:6px; border:1px solid #ccc; word-wrap:break-word; overflow-wrap:break-word; ${estiloFila}">${celda.trim().replace(/\*/g, '')}</td>`;
+                let textCelda = celda.trim().replace(/\*/g, '');
+                if (textCelda !== "" || celda === lineaLimpia.split('|')[1]) { 
+                     h += `<td style="padding:6px; border:1px solid #ccc; word-wrap:break-word; overflow-wrap:break-word; ${estiloFila}">${textCelda}</td>`;
+                }
             });
             h += '</tr>';
             esPrimeraFila = false;
         } else {
             if (enTabla) { h += '</table>'; enTabla = false; }
+            
             let esNumeral = lineaLimpia.match(/^\d+\.?\s/);
             
             if (esNumeral) {
