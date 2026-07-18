@@ -684,6 +684,9 @@ function dibujarPlanilla() {
         const hoyStr = getLocalISODate();
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
+            // SOLUCIÓN APLICADA: Filtro de registros fantasmas que no tienen nombre
+            if (!reg || !reg.nombre) return; 
+
             const nombreMayus = reg.nombre.toUpperCase();
             const idRef = `${nombreMayus}_semana_${pFIni}`.toUpperCase(); 
             if (pagosMap[idRef]) return;
