@@ -1653,6 +1653,7 @@ function dibujarCotizador() {
             <div id="tab-cot-editor" style="display:block;">
                 <div class="bg-white p-4 rounded-xl shadow-lg border-b-4 border-red-600 mb-4">
                     <h3 class="text-[10px] font-black uppercase text-zinc-500 mb-2">DATOS DE LA COTIZACIÓN</h3>
+                    
                     <div class="grid grid-cols-2 gap-2 mb-3">
                         <div>
                             <label class="text-[9px] font-bold text-zinc-500">CLIENTE / EMPRESA:</label>
@@ -1668,9 +1669,19 @@ function dibujarCotizador() {
                         </div>
                         <div>
                             <label class="text-[9px] font-bold text-zinc-500">MONTO TOTAL (Bs.):</label>
-                            <input id="cot-monto" type="number" class="w-full p-2 border-2 rounded-lg font-black text-red-600 text-xs text-center" placeholder="0.00">
+                            <input id="cot-monto" type="number" class="w-full p-2 border-2 rounded-lg font-black text-red-600 text-xs text-center bg-red-50" placeholder="Extracción Automática">
                         </div>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label class="text-[9px] font-bold text-zinc-500 block mb-1">TIPO DE PROCEDIMIENTO TÉCNICO A INSERTAR:</label>
+                        <select id="cot-tipo-servicio" class="w-full p-2 border-2 border-blue-400 rounded-lg font-black uppercase text-xs text-blue-800 bg-blue-50 outline-none">
+                            <option value="PINTURA">Pintura Gral. / Imperm. Líquida</option>
+                            <option value="MEMBRANA">Membrana Asfáltica (Termofusión)</option>
+                            <option value="DECORACION">Alta Decoración (Veneciano / Mármol)</option>
+                        </select>
+                    </div>
+
                     <button onclick="window.guardarCotizacionBD()" class="w-full bg-black text-white font-black py-3 rounded-lg shadow-md text-xs uppercase tracking-widest">💾 GUARDAR Y GENERAR CÓDIGO</button>
                 </div>
 
@@ -1759,6 +1770,43 @@ window.modoActa = () => {
 window.arreglarFormato = () => {
     const z = document.getElementById('zona-editable');
     let textoBruto = z.innerText.trim();
+    
+    const tipoServicio = document.getElementById('cot-tipo-servicio').value;
+    let procedimientoHTML = '';
+    let clausulaGarantia = '';
+
+    if(tipoServicio === 'MEMBRANA') {
+        procedimientoHTML = `
+        <p style="margin-bottom:8px; font-size:12px; color:#334155;">Para garantizar la total estanqueidad, el trabajo se ejecutará bajo el siguiente protocolo de termofusión, contemplando el <b>área de desarrollo real (incluyendo traslapes y babetas)</b>:</p>
+        <ol style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6; margin-bottom:20px;">
+            <li><b>Preparación:</b> Retiro de material suelto, amolado de bajantes y limpieza rigurosa del sustrato.</li>
+            <li><b>Imprimación:</b> Aplicación de pintura asfáltica de secado rápido para garantizar el anclaje.</li>
+            <li><b>Termofusión:</b> Colocación de membrana asfáltica soldada a fuego continuo, asegurando un solape perimetral.</li>
+            <li><b>Babetas Perimetrales:</b> Tratamiento térmico en todos los zócalos y sumideros para prevenir filtraciones por capilaridad.</li>
+        </ol>`;
+        clausulaGarantia = `<li><b>Garantía de Estanqueidad:</b> Este trabajo de impermeabilización cuenta con una garantía formal sobre el área tratada, quedando sin efecto si la losa es perforada o alterada por terceros.</li>`;
+    } else if(tipoServicio === 'DECORACION') {
+        procedimientoHTML = `
+        <p style="margin-bottom:8px; font-size:12px; color:#334155;">El servicio de alta decoración requiere una preparación milimétrica del sustrato para lograr el acabado de lujo esperado:</p>
+        <ol style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6; margin-bottom:20px;">
+            <li><b>Nivelación Q4:</b> Enduido y lijado de precisión para obtener una superficie totalmente lisa y sin imperfecciones.</li>
+            <li><b>Fondeado:</b> Aplicación de imprimante o cuarzo base para asegurar la adherencia del material decorativo.</li>
+            <li><b>Aplicación de Efecto:</b> Aplicación artesanal por capas mediante llanas de acero inoxidable.</li>
+            <li><b>Pulido y Sellado:</b> Fricción mecánica para extraer brillo natural y sellado protector según requerimiento.</li>
+        </ol>`;
+        clausulaGarantia = `<li><b>Exclusión de Garantías por Humedad:</b> Al tratarse de un acabado estético de lujo (Alta Decoración), WRPUMA garantiza la calidad de la mano de obra, pero <b>NO otorga garantía</b> si la pared sufre desprendimientos por humedad capilar, filtraciones o fallas estructurales.</li>`;
+    } else {
+        procedimientoHTML = `
+        <p style="margin-bottom:8px; font-size:12px; color:#334155;">Para asegurar la máxima adherencia e igualar los niveles de absorción, ejecutaremos las tareas bajo el siguiente protocolo profesional:</p>
+        <ol style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6; margin-bottom:20px;">
+            <li><b>Limpieza Mecánica:</b> Remoción profunda de polvo, grasas, impurezas y capas de pintura antigua desprendida.</li>
+            <li><b>Acondicionamiento:</b> Apertura mecánica y limpieza rigurosa de grietas y microfisuras presentes.</li>
+            <li><b>Sellado:</b> Aplicación técnica de masilla o sellagrietas elastomérico en las zonas intervenidas.</li>
+            <li><b>Homogeneización:</b> Lijado fino y aplicación de capa de sellador (imprimación) para evitar diferencias visuales de absorción.</li>
+            <li><b>Acabado:</b> Aplicación sistemática de pintura premium o impermeabilizante según requerimiento del área.</li>
+        </ol>`;
+        clausulaGarantia = `<li><b>Exclusión de Garantías:</b> En servicios de pintura general o mantenimiento sobre superficies preexistentes, <b>no se contempla cláusula de garantía posventa</b> por desprendimientos debidos a humedad estructural. Las garantías se reservan exclusivamente para impermeabilizaciones.</li>`;
+    }
 
     // 1. AUTO-EXTRACCIÓN INTELIGENTE DE DATOS
     const matchCliente = textoBruto.match(/(?:Cliente|Empresa):\s*(.*)/i) || textoBruto.match(/\[CLIENTE:\s*(.*?)\]/i);
@@ -1784,18 +1832,34 @@ window.arreglarFormato = () => {
         textoBruto = textoBruto.replace(matchResp[0], ''); 
     }
 
-    const matchMontoOld = textoBruto.match(/\[MONTO:\s*([\d\.]+)\]/i);
-    if (matchMontoOld) {
-        document.getElementById('cot-monto').value = parseFloat(matchMontoOld[1]);
-        textoBruto = textoBruto.replace(matchMontoOld[0], '');
+    // EXTRACCIÓN SÓLIDA DE MONTO DESDE LA TABLA
+    let lineasExt = textoBruto.split('\n');
+    let montoEncontrado = 0;
+    lineasExt.forEach(l => {
+        let lineaLimpia = l.trim();
+        if(lineaLimpia.toUpperCase().includes('TOTAL') && lineaLimpia.includes('|')) {
+            let partes = lineaLimpia.split('|').map(p => p.trim());
+            let ultimaCelda = partes[partes.length - 1] || partes[partes.length - 2]; 
+            if(ultimaCelda) {
+                let numeroBruto = ultimaCelda.replace(/[^\d\.]/g, ''); 
+                if(numeroBruto && parseFloat(numeroBruto) > 0) {
+                    montoEncontrado = parseFloat(numeroBruto);
+                }
+            }
+        }
+    });
+    
+    if(montoEncontrado > 0) {
+        document.getElementById('cot-monto').value = montoEncontrado;
     } else {
-        const matchMonto = textoBruto.match(/(?:Monto Total|TOTAL|Costo Total).*?(?:Bs\.?|Bolivianos|Bs)\s*([\d\.,]+)/i);
-        if (matchMonto) {
-            document.getElementById('cot-monto').value = parseFloat(matchMonto[1].replace(/,/g, ''));
+        const matchMontoOld = textoBruto.match(/\[MONTO:\s*([\d\.]+)\]/i);
+        if (matchMontoOld) {
+            document.getElementById('cot-monto').value = parseFloat(matchMontoOld[1]);
         }
     }
 
     // 2. LIMPIEZA DE CÓDIGO ANTIGUO Y BASURA DE LA IA
+    textoBruto = textoBruto.replace(/\[MONTO:\s*([\d\.]+)\]/gi, '');
     textoBruto = textoBruto.replace(/COTIZACI[OÓ]N T[EÉ]CNICA/gi, '');
     textoBruto = textoBruto.replace(/COTIZACI[OÓ]N DE SERVICIOS/gi, '');
     textoBruto = textoBruto.replace(/1\. PROCEDIMIENTO TÉCNICO Y ESQUEMA DE TRABAJO/gi, '');
@@ -1806,14 +1870,7 @@ window.arreglarFormato = () => {
     // 3. GENERACIÓN DE ESTRUCTURA PROFESIONAL ESTILO CREYLAND
     let h = `
         <p style="font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #cc0000; padding-bottom:3px; margin-bottom:10px; text-transform:uppercase;">1. PROCEDIMIENTO TÉCNICO Y ESQUEMA DE TRABAJO</p>
-        <p style="margin-bottom:8px; font-size:12px; color:#334155;">Para asegurar la máxima adherencia, igualar los niveles de absorción de la superficie y garantizar un acabado estético de alto nivel, ejecutaremos las tareas bajo el siguiente protocolo profesional:</p>
-        <ol style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6; margin-bottom:20px;">
-            <li><b>Limpieza Mecánica:</b> Remoción profunda de polvo, grasas, impurezas y capas de pintura antigua desprendida.</li>
-            <li><b>Acondicionamiento:</b> Apertura mecánica y limpieza rigurosa de grietas y microfisuras presentes.</li>
-            <li><b>Sellado:</b> Aplicación técnica de masilla o sellagrietas elastomérico en las zonas intervenidas.</li>
-            <li><b>Homogeneización:</b> Lijado fino y aplicación de capa de sellador (imprimación) para evitar diferencias visuales de absorción.</li>
-            <li><b>Acabado:</b> Aplicación sistemática de pintura premium o impermeabilizante según requerimiento del área.</li>
-        </ol>
+        ${procedimientoHTML}
         
         <p style="font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #cc0000; padding-bottom:3px; margin-bottom:10px; text-transform:uppercase;">2. RESUMEN DE CÓMPUTOS Y PRECIOS</p>
     `;
@@ -1826,10 +1883,10 @@ window.arreglarFormato = () => {
         let lineaLimpia = l.trim();
         if (lineaLimpia === '') return;
 
-        // Evitar duplicar subtitulos si el usuario ya los pegó desde IA
         if (lineaLimpia.toUpperCase().includes('DETALLE DEL PROYECTO') || lineaLimpia.toUpperCase().includes('CONDICIONES GENERALES')) return;
-        if (lineaLimpia.match(/Modalidad Obra Vendida|Precios Netos|Validez de Cotización/i)) return; // Filtrar terminos viejos
-        if (lineaLimpia.match(/Para asegurar la m.xima|Limpieza Mec.nica:/i)) return; // Filtrar texto hardcodeado viejo
+        if (lineaLimpia.match(/Modalidad Obra Vendida|Precios Netos|Validez de Cotización/i)) return; 
+        if (lineaLimpia.match(/Para asegurar la m.xima|Limpieza Mec.nica:/i)) return; 
+        if (lineaLimpia.match(/Para garantizar la total estanqueidad|Retiro de material suelto|El servicio de alta decoración/i)) return; 
 
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
@@ -1869,14 +1926,14 @@ window.arreglarFormato = () => {
     });
     if (enTabla) h += '</table>';
 
-    // 4. CIERRE CORPORATIVO AUTOMÁTICO
+    // 4. CIERRE CORPORATIVO AUTOMÁTICO DINÁMICO
     h += `
         <p style="font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #cc0000; padding-bottom:3px; margin-top:20px; margin-bottom:10px; text-transform:uppercase;">3. CONDICIONES COMERCIALES Y DE SERVICIO</p>
         <ul style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6;">
             <li><b>Facturación de Ley:</b> Modalidad Obra Vendida en Precios Netos sin factura. En caso de requerir la emisión fiscal, el monto total se ajustará aplicando el factor impositivo correspondiente (19.05%).</li>
             <li><b>Equipos y Modalidad:</b> WRPUMA provee andamiaje, materiales homologados, maquinarias de preparación/aplicación profesional y mano de obra calificada.</li>
             <li><b>Forma de Pago:</b> 50% de anticipo a la aprobación del presupuesto, 30% contra avance y 20% de saldo a la entrega del proyecto a conformidad.</li>
-            <li><b>Exclusión de Garantías:</b> Al tratarse de un servicio de pintura decorativa, mantenimiento sobre superficies preexistentes o hidrolavado, las tareas detalladas <b>no contemplan cláusula de garantía posventa</b>. Las garantías se reservan estricta y exclusivamente para proyectos de impermeabilización integral de techos y losas ejecutados desde cero.</li>
+            ${clausulaGarantia}
         </ul>
 
         <div style="display:flex; justify-content:space-between; text-align:center; margin-top:70px;">
