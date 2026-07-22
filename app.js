@@ -524,7 +524,7 @@ function dibujarAsistencia() {
             </div>
             <div class="mb-4 bg-red-50 p-3 rounded-xl border border-red-200">
                 <label class="text-[10px] text-red-600 font-black uppercase mb-2 block text-center">ANTICIPOS EFECTIVO (Bs):</label>
-                <div class="flex items-center justify-center gap-2 mb-2"><input id="modal-anticipo" type="number" placeholder="0" class="w-24 p-2 border-2 border-red-300 rounded-xl font-black text-center text-xl outline-none bg-white text-red-700"></div>
+                <div class="flex items-center justify-center gap-2 mb-2"><input id="modal-anticipo" type="number" placeholder="0" class="w-full p-2 border-2 border-red-300 rounded-xl font-black text-center text-xl outline-none bg-white text-red-700"></div>
                 <div class="flex gap-1 justify-center"><button type="button" onclick="window.sumarAlAnticipo(10)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs shadow-sm">+ 10</button><button type="button" onclick="window.sumarAlAnticipo(20)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs shadow-sm">+ 20</button><button type="button" onclick="window.sumarAlAnticipo(50)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs shadow-sm">+ 50</button></div>
             </div>
             
@@ -1789,7 +1789,7 @@ window.arreglarFormato = () => {
     textoBruto = textoBruto.replace(/COTIZACI[OÓ]N T[EÉ]CNICA/gi, '');
     textoBruto = textoBruto.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su texto aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
 
-    // 3. GENERACIÓN DE TABLAS Y PÁRRAFOS ORIGINAL
+    // 3. GENERACIÓN DE TABLAS Y PÁRRAFOS ACTUALIZADA CON ESTILOS PRO
     let lineas = textoBruto.split('\n');
     let h = '';
     let enTabla = false;
@@ -1802,19 +1802,37 @@ window.arreglarFormato = () => {
         // Si es tabla
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
-                h += '<table style="width:100%; border-collapse:collapse; table-layout:fixed; word-wrap:break-word; margin:10px 0; font-size:12px; page-break-inside: avoid;">';
+                h += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:12px; font-family:Helvetica, Arial, sans-serif; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
                 enTabla = true;
                 esPrimeraFila = true;
             }
-            let estiloFila = esPrimeraFila ? 'background-color:#1e293b; color:white; font-weight:bold; text-align:center;' : 'border-bottom:1px solid #ddd;';
-            if (lineaLimpia.toUpperCase().includes('TOTAL')) estiloFila = 'background-color:#fee2e2; color:#b91c1c; font-weight:900;';
             
-            h += `<tr style="${esPrimeraFila ? 'border:1px solid #1e293b;' : ''}">`;
-            lineaLimpia.split('|').forEach(celda => {
-                let textCelda = celda.trim().replace(/\*/g, '');
-                if (textCelda !== "" || celda === lineaLimpia.split('|')[1]) { 
-                     h += `<td style="padding:6px; border:1px solid #ccc; word-wrap:break-word; overflow-wrap:break-word; ${estiloFila}">${textCelda}</td>`;
+            let isTotal = lineaLimpia.toUpperCase().includes('TOTAL');
+            let estiloFila = esPrimeraFila ? 'background-color:#1e293b; color:#ffffff; font-weight:bold; text-align:center; text-transform:uppercase; font-size:11px;' : 'background-color:#ffffff; color:#334155; border-bottom:1px solid #e2e8f0;';
+            if (isTotal) estiloFila = 'background-color:#0f172a; color:#f59e0b; font-weight:900; font-size:14px; text-transform:uppercase;';
+
+            h += `<tr style="${estiloFila}">`;
+            
+            let celdas = lineaLimpia.split('|').map(c => c.trim().replace(/\*/g, ''));
+            // Limpiar artefactos si copian con | al inicio o final
+            if(celdas.length > 1 && celdas[0] === '') celdas.shift();
+            if(celdas.length > 0 && celdas[celdas.length - 1] === '') celdas.pop();
+
+            celdas.forEach((textCelda, idx) => {
+                let colStyle = `padding:8px 10px; border-right:1px solid ${isTotal ? 'transparent' : '#e2e8f0'};`;
+                
+                // Si es TOTAL, alineamos todo el bloque a la derecha
+                if (isTotal) {
+                    colStyle += 'text-align:right; border:none;';
+                } else if (!esPrimeraFila) {
+                    // Anchos y alineaciones dinámicas
+                    if (idx === 0) colStyle += 'text-align:center; font-weight:bold; width:5%;'; // Num
+                    else if (idx === 1) colStyle += 'text-align:left; width:45%;'; // Desc
+                    else if (idx === 2) colStyle += 'text-align:center; width:8%;'; // Unidad
+                    else colStyle += 'text-align:right; font-family:monospace; font-weight:bold; width:14%;'; // Cantidad, Precios
                 }
+                
+                h += `<td style="${colStyle}">${textCelda}</td>`;
             });
             h += '</tr>';
             esPrimeraFila = false;
@@ -1824,9 +1842,11 @@ window.arreglarFormato = () => {
             let esNumeral = lineaLimpia.match(/^\d+\.?\s/);
             
             if (esNumeral) {
-                h += `<p style="margin: 15px 0 5px 0; font-size:15px; font-weight:900; color:#1e293b; border-bottom:2px solid #f97316; padding-bottom:3px;">${lineaLimpia}</p>`;
+                h += `<p style="margin: 20px 0 10px 0; font-size:15px; font-weight:900; color:#0f172a; border-left:4px solid #f59e0b; padding-left:8px; text-transform:uppercase; letter-spacing:0.5px;">${lineaLimpia}</p>`;
+            } else if (lineaLimpia.startsWith('•') || lineaLimpia.startsWith('-')) {
+                h += `<li style="margin: 4px 0 4px 20px; font-size:12px; color:#475569;">${lineaLimpia.substring(1).trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</li>`;
             } else {
-                h += `<p style="margin: 2px 0; font-size:12px;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
+                h += `<p style="margin: 4px 0; font-size:12px; color:#334155; line-height:1.5;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
             }
         }
     });
