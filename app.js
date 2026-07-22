@@ -684,7 +684,6 @@ function dibujarPlanilla() {
         const hoyStr = getLocalISODate();
 
         Object.keys(hist).forEach(f => { if (f >= pFIni && f <= pFFin) { Object.values(hist[f]).forEach(reg => {
-            // SOLUCIÓN APLICADA: Filtro de registros fantasmas que no tienen nombre
             if (!reg || !reg.nombre) return; 
 
             const nombreMayus = reg.nombre.toUpperCase();
@@ -744,7 +743,6 @@ function dibujarPlanilla() {
                 }
             }
 
-            // NUEVO: Mostrar los días extras visualmente
             let detalleExtra = '';
             if (d.dExt > 0) {
                 detalleExtra = `<div class="bg-blue-900/50 border border-blue-700 p-2 rounded-xl text-blue-300 mb-2 text-center text-xs font-black">⭐ TURNOS EXTRAS APROBADOS: +${d.dExt} Días</div>`;
@@ -1666,7 +1664,7 @@ function dibujarCotizador() {
                         </div>
                         <div>
                             <label class="text-[9px] font-bold text-zinc-500">RESPONSABLE:</label>
-                            <input id="cot-resp" type="text" oninput="document.getElementById('visual-resp').innerText = this.value.toUpperCase();" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Responsable...">
+                            <input id="cot-resp" type="text" class="w-full p-2 border-2 rounded-lg font-bold uppercase text-xs" placeholder="Responsable...">
                         </div>
                         <div>
                             <label class="text-[9px] font-bold text-zinc-500">MONTO TOTAL (Bs.):</label>
@@ -1677,7 +1675,7 @@ function dibujarCotizador() {
                 </div>
 
                 <div class="grid grid-cols-4 gap-2 mb-2">
-                    <button onclick="window.setDocType('COTIZACION TECNICA')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl text-[10px]">COTIZACION</button>
+                    <button onclick="window.setDocType('COTIZACION DE SERVICIOS')" class="bg-zinc-800 text-white font-bold py-2 rounded-xl text-[10px]">COTIZACION</button>
                     <button onclick="window.setDocType('RECIBO DE PAGO')" class="bg-green-600 text-white font-bold py-2 rounded-xl text-[10px]">RECIBO</button>
                     <button onclick="window.modoGarantia()" class="bg-yellow-600 text-white font-black py-2 rounded-xl text-[10px]">GARANTIA</button>
                     <button onclick="window.modoActa()" class="bg-blue-600 text-white font-black py-2 rounded-xl text-[10px]">ACTA ENTREGA</button>
@@ -1686,21 +1684,34 @@ function dibujarCotizador() {
                 <button onclick="window.generarPDF()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl mb-4 shadow-xl">📥 2. GENERAR DOCUMENTO PDF</button>
                 
                 <div class="overflow-x-auto w-full pb-10">
-                    <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Arial;">
-                        <div style="border-bottom:4px solid #cc0000;padding-bottom:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-end;">
-                            <div><img src="logo-blanco.jpg" style="max-height:90px; object-fit: contain;"></div>
+                    <div id="hoja-pdf" class="bg-white text-black shadow-2xl mx-auto p-10" style="width:210mm;min-height:295mm;box-sizing:border-box;font-family:Helvetica, Arial, sans-serif;">
+                        <div style="border-bottom:4px solid #cc0000;padding-bottom:15px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div>
+                                <img src="logo-blanco.jpg" style="max-height:60px; object-fit: contain;">
+                                <p style="margin:5px 0 0 0; font-size:10px; font-weight:900; color:#475569; letter-spacing: 0.5px;">SOLUCIONES PROFESIONALES EN PINTURA E IMPERMEABILIZACIÓN</p>
+                                <p style="margin:2px 0 0 0; font-size:10px; color:#64748b;">Santa Cruz de la Sierra, Bolivia<br>Contacto: Walter Puma | Director General<br>Cel: 77396806</p>
+                            </div>
                             <div style="text-align:right;">
-                                <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;">COTIZACION TECNICA</p>
-                                <p style="margin:2px 0;font-size:14px;font-weight:bold;color:#cc0000;" id="visual-codigo">N°: [SIN GUARDAR]</p>
-                                <p style="margin:0;font-size:12px;">Santa Cruz, <span id="visual-fecha">${new Date().toLocaleDateString()}</span></p>
+                                <p id="doc-title" contenteditable="true" style="margin:0;font-weight:900;font-size:18px;color:#cc0000;">COTIZACIÓN DE SERVICIOS</p>
+                                <p style="margin:2px 0;font-size:12px;font-weight:bold;color:#0f172a;" id="visual-codigo">N°: [SIN GUARDAR]</p>
+                                <p style="margin:0;font-size:11px;color:#64748b;">Fecha: <span id="visual-fecha">${new Date().toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' })}</span></p>
                             </div>
                         </div>
-                        <div style="margin-bottom:20px; font-size:14px; border:1px solid #ccc; padding:10px; background:#fafafa;">
-                            <p style="margin:2px 0;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
-                            <p style="margin:2px 0;"><b>Proyecto:</b> <span id="visual-proyecto">___________________</span></p>
-                            <p style="margin:2px 0;"><b>Responsable:</b> <span id="visual-resp">___________________</span></p>
+                        <table style="width:100%; margin-bottom:20px; font-size:12px; border:1px solid #e2e8f0; background:#f8fafc; border-collapse: collapse; border-radius: 6px; overflow: hidden;">
+                            <tr>
+                                <td style="padding:10px; border-right:1px solid #e2e8f0; width:60%; vertical-align:top;">
+                                    <p style="margin:0 0 4px 0;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
+                                    <p style="margin:0;"><b>Proyecto:</b> <span id="visual-proyecto" style="color:#475569;">___________________</span></p>
+                                </td>
+                                <td style="padding:10px; width:40%; vertical-align:top;">
+                                    <p style="margin:0 0 4px 0;"><b>Modalidad:</b> Obra Vendida (Todo Costo)</p>
+                                    <p style="margin:0;"><b>Validez:</b> 15 días calendario</p>
+                                </td>
+                            </tr>
+                        </table>
+                        <div id="zona-editable" contenteditable="true" style="outline:none;font-size:13px;line-height:1.6;min-height:200mm;">
+                            <p style="text-align:center;color:#999;font-style:italic;">--- Pegue el texto de sus items aquí y presione el botón azul "ARREGLAR TABLAS" ---</p>
                         </div>
-                        <div id="zona-editable" contenteditable="true" style="outline:none;font-size:15px;line-height:1.6;min-height:200mm;"><p style="text-align:center;color:#999;">--- Pegue su texto aquí ---</p></div>
                     </div>
                 </div>
             </div>
@@ -1741,7 +1752,7 @@ window.modoActa = () => {
     <br><br><br>
     <div style="display:flex; justify-content:space-between; text-align:center; margin-top:50px;">
         <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Cliente</b></div>
-        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Firma Ing. Walter Puma</b></div>
+        <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Walter Puma<br>Director General</b></div>
     </div>`;
 };
 
@@ -1770,7 +1781,6 @@ window.arreglarFormato = () => {
     if (matchResp) {
         const resp = matchResp[1].replace(/[*_\[\]]/g, '').trim().toUpperCase();
         document.getElementById('cot-resp').value = resp;
-        document.getElementById('visual-resp').innerText = resp;
         textoBruto = textoBruto.replace(matchResp[0], ''); 
     }
 
@@ -1785,13 +1795,30 @@ window.arreglarFormato = () => {
         }
     }
 
-    // 2. LIMPIEZA DE TÍTULO DOBLE Y CÓDIGO BASURA DE LA IA
+    // 2. LIMPIEZA DE CÓDIGO ANTIGUO Y BASURA DE LA IA
     textoBruto = textoBruto.replace(/COTIZACI[OÓ]N T[EÉ]CNICA/gi, '');
-    textoBruto = textoBruto.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue su texto aquí ---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
+    textoBruto = textoBruto.replace(/COTIZACI[OÓ]N DE SERVICIOS/gi, '');
+    textoBruto = textoBruto.replace(/1\. PROCEDIMIENTO TÉCNICO Y ESQUEMA DE TRABAJO/gi, '');
+    textoBruto = textoBruto.replace(/2\. RESUMEN DE CÓMPUTOS Y PRECIOS/gi, '');
+    textoBruto = textoBruto.replace(/3\. CONDICIONES COMERCIALES Y DE SERVICIO/gi, '');
+    textoBruto = textoBruto.replace(/####/g, '').replace(/###/g, '').replace(/--- Pegue el texto.*?---/g, '').replace(/Como tu asesor.*/g, '').replace(/\*\*WRPUMA\*\*/g, '').trim();
 
-    // 3. GENERACIÓN DE TABLAS Y PÁRRAFOS ACTUALIZADA CON ESTILOS PRO
+    // 3. GENERACIÓN DE ESTRUCTURA PROFESIONAL ESTILO CREYLAND
+    let h = `
+        <p style="font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #cc0000; padding-bottom:3px; margin-bottom:10px; text-transform:uppercase;">1. PROCEDIMIENTO TÉCNICO Y ESQUEMA DE TRABAJO</p>
+        <p style="margin-bottom:8px; font-size:12px; color:#334155;">Para asegurar la máxima adherencia, igualar los niveles de absorción de la superficie y garantizar un acabado estético de alto nivel, ejecutaremos las tareas bajo el siguiente protocolo profesional:</p>
+        <ol style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6; margin-bottom:20px;">
+            <li><b>Limpieza Mecánica:</b> Remoción profunda de polvo, grasas, impurezas y capas de pintura antigua desprendida.</li>
+            <li><b>Acondicionamiento:</b> Apertura mecánica y limpieza rigurosa de grietas y microfisuras presentes.</li>
+            <li><b>Sellado:</b> Aplicación técnica de masilla o sellagrietas elastomérico en las zonas intervenidas.</li>
+            <li><b>Homogeneización:</b> Lijado fino y aplicación de capa de sellador (imprimación) para evitar diferencias visuales de absorción.</li>
+            <li><b>Acabado:</b> Aplicación sistemática de pintura premium o impermeabilizante según requerimiento del área.</li>
+        </ol>
+        
+        <p style="font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #cc0000; padding-bottom:3px; margin-bottom:10px; text-transform:uppercase;">2. RESUMEN DE CÓMPUTOS Y PRECIOS</p>
+    `;
+
     let lineas = textoBruto.split('\n');
-    let h = '';
     let enTabla = false;
     let esPrimeraFila = true;
 
@@ -1799,58 +1826,65 @@ window.arreglarFormato = () => {
         let lineaLimpia = l.trim();
         if (lineaLimpia === '') return;
 
-        // Si es tabla
+        // Evitar duplicar subtitulos si el usuario ya los pegó desde IA
+        if (lineaLimpia.toUpperCase().includes('DETALLE DEL PROYECTO') || lineaLimpia.toUpperCase().includes('CONDICIONES GENERALES')) return;
+        if (lineaLimpia.match(/Modalidad Obra Vendida|Precios Netos|Validez de Cotización/i)) return; // Filtrar terminos viejos
+        if (lineaLimpia.match(/Para asegurar la m.xima|Limpieza Mec.nica:/i)) return; // Filtrar texto hardcodeado viejo
+
         if (lineaLimpia.includes('|')) {
             if (!enTabla) {
-                h += '<table style="width:100%; border-collapse:collapse; margin:15px 0; font-size:12px; font-family:Helvetica, Arial, sans-serif; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
+                h += '<table style="width:100%; border-collapse:collapse; margin:10px 0 25px 0; font-size:11px; font-family:Helvetica, Arial, sans-serif; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
                 enTabla = true;
                 esPrimeraFila = true;
             }
             
             let isTotal = lineaLimpia.toUpperCase().includes('TOTAL');
-            let estiloFila = esPrimeraFila ? 'background-color:#1e293b; color:#ffffff; font-weight:bold; text-align:center; text-transform:uppercase; font-size:11px;' : 'background-color:#ffffff; color:#334155; border-bottom:1px solid #e2e8f0;';
-            if (isTotal) estiloFila = 'background-color:#0f172a; color:#f59e0b; font-weight:900; font-size:14px; text-transform:uppercase;';
+            let estiloFila = esPrimeraFila ? 'background-color:#1e293b; color:#ffffff; font-weight:bold; text-align:center; text-transform:uppercase; font-size:10px;' : 'background-color:#ffffff; color:#334155; border-bottom:1px solid #e2e8f0;';
+            if (isTotal) estiloFila = 'background-color:#0f172a; color:#f59e0b; font-weight:900; font-size:13px; text-transform:uppercase;';
 
             h += `<tr style="${estiloFila}">`;
             
             let celdas = lineaLimpia.split('|').map(c => c.trim().replace(/\*/g, ''));
-            // Limpiar artefactos si copian con | al inicio o final
             if(celdas.length > 1 && celdas[0] === '') celdas.shift();
             if(celdas.length > 0 && celdas[celdas.length - 1] === '') celdas.pop();
 
             celdas.forEach((textCelda, idx) => {
-                let colStyle = `padding:8px 10px; border-right:1px solid ${isTotal ? 'transparent' : '#e2e8f0'};`;
-                
-                // Si es TOTAL, alineamos todo el bloque a la derecha
+                let colStyle = `padding:8px; border-right:1px solid ${isTotal ? 'transparent' : '#e2e8f0'};`;
                 if (isTotal) {
                     colStyle += 'text-align:right; border:none;';
                 } else if (!esPrimeraFila) {
-                    // Anchos y alineaciones dinámicas
-                    if (idx === 0) colStyle += 'text-align:center; font-weight:bold; width:5%;'; // Num
-                    else if (idx === 1) colStyle += 'text-align:left; width:45%;'; // Desc
-                    else if (idx === 2) colStyle += 'text-align:center; width:8%;'; // Unidad
-                    else colStyle += 'text-align:right; font-family:monospace; font-weight:bold; width:14%;'; // Cantidad, Precios
+                    if (idx === 0) colStyle += 'text-align:center; font-weight:bold; width:5%;'; 
+                    else if (idx === 1) colStyle += 'text-align:left; width:45%;'; 
+                    else if (idx === 2) colStyle += 'text-align:center; width:8%;'; 
+                    else colStyle += 'text-align:right; font-family:monospace; font-weight:bold; width:14%;'; 
                 }
-                
                 h += `<td style="${colStyle}">${textCelda}</td>`;
             });
             h += '</tr>';
             esPrimeraFila = false;
         } else {
             if (enTabla) { h += '</table>'; enTabla = false; }
-            
-            let esNumeral = lineaLimpia.match(/^\d+\.?\s/);
-            
-            if (esNumeral) {
-                h += `<p style="margin: 20px 0 10px 0; font-size:15px; font-weight:900; color:#0f172a; border-left:4px solid #f59e0b; padding-left:8px; text-transform:uppercase; letter-spacing:0.5px;">${lineaLimpia}</p>`;
-            } else if (lineaLimpia.startsWith('•') || lineaLimpia.startsWith('-')) {
-                h += `<li style="margin: 4px 0 4px 20px; font-size:12px; color:#475569;">${lineaLimpia.substring(1).trim().replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</li>`;
-            } else {
-                h += `<p style="margin: 4px 0; font-size:12px; color:#334155; line-height:1.5;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
-            }
+            h += `<p style="margin: 4px 0; font-size:12px; color:#334155; line-height:1.5;">${lineaLimpia.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')}</p>`;
         }
     });
     if (enTabla) h += '</table>';
+
+    // 4. CIERRE CORPORATIVO AUTOMÁTICO
+    h += `
+        <p style="font-size:14px; font-weight:900; color:#1e293b; border-bottom:2px solid #cc0000; padding-bottom:3px; margin-top:20px; margin-bottom:10px; text-transform:uppercase;">3. CONDICIONES COMERCIALES Y DE SERVICIO</p>
+        <ul style="margin-top:0; padding-left:20px; color:#475569; font-size:12px; line-height:1.6;">
+            <li><b>Facturación de Ley:</b> Modalidad Obra Vendida en Precios Netos sin factura. En caso de requerir la emisión fiscal, el monto total se ajustará aplicando el factor impositivo correspondiente (19.05%).</li>
+            <li><b>Equipos y Modalidad:</b> WRPUMA provee andamiaje, materiales homologados, maquinarias de preparación/aplicación profesional y mano de obra calificada.</li>
+            <li><b>Forma de Pago:</b> 50% de anticipo a la aprobación del presupuesto, 30% contra avance y 20% de saldo a la entrega del proyecto a conformidad.</li>
+            <li><b>Exclusión de Garantías:</b> Al tratarse de un servicio de pintura decorativa, mantenimiento sobre superficies preexistentes o hidrolavado, las tareas detalladas <b>no contemplan cláusula de garantía posventa</b>. Las garantías se reservan estricta y exclusivamente para proyectos de impermeabilización integral de techos y losas ejecutados desde cero.</li>
+        </ul>
+
+        <div style="display:flex; justify-content:space-between; text-align:center; margin-top:70px;">
+            <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Aprobación y Conformidad</b><br><span style="font-size:10px; color:#555;">Representante Legal Cliente</span></div>
+            <div style="border-top:1px solid #000; width:40%; padding-top:5px;"><b>Walter Puma</b><br><span style="font-size:10px; color:#555;">Director General - WRPUMA</span></div>
+        </div>
+    `;
+
     z.innerHTML = h;
 };
 
@@ -1990,7 +2024,6 @@ window.cargarCotEnEditor = async (id) => {
         document.getElementById('cot-monto').value = c.monto_total;
         document.getElementById('visual-cliente').innerText = c.cliente || '___________________';
         document.getElementById('visual-proyecto').innerText = c.proyecto || '___________________';
-        document.getElementById('visual-resp').innerText = c.responsable || '___________________';
         document.getElementById('visual-codigo').innerText = `N°: ${c.codigo}`;
         document.getElementById('zona-editable').innerHTML = c.html;
         window.swCot('editor');
