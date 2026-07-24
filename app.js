@@ -63,7 +63,7 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
 // ==========================================================
 
 window.verAccesoPro = (usuario) => {
-    if (usuario === 'walter' || 'napoleon' || 'super' || 'chofer') {
+    if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super' || usuario === 'chofer') {
         const pass = prompt("PIN de seguridad (Modo Operativo):");
         
         if (usuario === 'chofer' && pass === "4321") {
@@ -1714,9 +1714,9 @@ function dibujarCotizador() {
                                     <p style="margin:0 0 4px 0;"><b>Cliente:</b> <span id="visual-cliente">___________________</span></p>
                                     <p style="margin:0;"><b>Proyecto:</b> <span id="visual-proyecto" style="color:#475569;">___________________</span></p>
                                 </td>
-                                <td style="padding:10px; width:40%; vertical-align:top;">
-                                    <p style="margin:0 0 4px 0;"><b>Modalidad:</b> Obra Vendida (Todo Costo)</p>
-                                    <p style="margin:0;"><b>Validez:</b> 15 días calendario</p>
+                                <td style="padding:10px; width:40%; vertical-align:top;" contenteditable="true">
+                                    <p style="margin:0 0 4px 0;"><b>Modalidad:</b> <span style="outline:none;">Obra Vendida (Todo Costo)</span></p>
+                                    <p style="margin:0;"><b>Validez:</b> <span style="outline:none;">15 días calendario</span></p>
                                 </td>
                             </tr>
                         </table>
