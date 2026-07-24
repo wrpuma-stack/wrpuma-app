@@ -63,7 +63,7 @@ window.dispararAlertaWhatsApp = (mensajeAlerta) => {
 // ==========================================================
 
 window.verAccesoPro = (usuario) => {
-    if (usuario === 'walter' || usuario === 'napoleon' || usuario === 'super' || usuario === 'chofer') {
+    if (usuario === 'walter' || 'napoleon' || 'super' || 'chofer') {
         const pass = prompt("PIN de seguridad (Modo Operativo):");
         
         if (usuario === 'chofer' && pass === "4321") {
@@ -524,7 +524,7 @@ function dibujarAsistencia() {
             </div>
             <div class="mb-4 bg-red-50 p-3 rounded-xl border border-red-200">
                 <label class="text-[10px] text-red-600 font-black uppercase mb-2 block text-center">ANTICIPOS EFECTIVO (Bs):</label>
-                <div class="flex items-center justify-center gap-2 mb-2"><input id="modal-anticipo" type="number" placeholder="0" class="w-full p-2 border-2 border-red-300 rounded-xl font-black text-center text-xl outline-none bg-white text-red-700"></div>
+                <div class="flex items-center justify-center gap-2 mb-2"><input id="modal-anticipo" type="number" placeholder="0" class="w-24 p-2 border-2 border-red-300 rounded-xl font-black text-center text-xl outline-none bg-white text-red-700"></div>
                 <div class="flex gap-1 justify-center"><button type="button" onclick="window.sumarAlAnticipo(10)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs shadow-sm">+ 10</button><button type="button" onclick="window.sumarAlAnticipo(20)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs shadow-sm">+ 20</button><button type="button" onclick="window.sumarAlAnticipo(50)" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-black text-xs shadow-sm">+ 50</button></div>
             </div>
             
@@ -1784,7 +1784,7 @@ window.arreglarFormato = () => {
             <li><b>Termofusión:</b> Colocación de membrana asfáltica soldada a fuego continuo, asegurando un solape perimetral.</li>
             <li><b>Babetas Perimetrales:</b> Tratamiento térmico en todos los zócalos y sumideros para prevenir filtraciones por capilaridad.</li>
         </ol>`;
-        clausulaGarantia = `<li><b>Garantía de Estanqueidad:</b> Este trabajo de impermeabilización cuenta con una garantía formal sobre el área tratada, quedando sin efecto si la losa es perforada o alterada por terceros.</li>`;
+        clausulaGarantia = `<li><b>Garantía de Estanqueidad:</b> Este trabajo de impermeabilización cuenta con una garantía formal sobre el área tratada, quedando sin efecto si la superficie es perforada o alterada por terceros.</li>`;
     } else if(tipoServicio === 'DECORACION') {
         procedimientoHTML = `
         <p style="margin-bottom:8px; font-size:12px; color:#334155;">El servicio de alta decoración requiere una preparación milimétrica del sustrato para lograr el acabado de lujo esperado:</p>
@@ -1862,6 +1862,7 @@ window.arreglarFormato = () => {
     textoBruto = textoBruto.replace(/\[MONTO:\s*([\d\.]+)\]/gi, '');
     textoBruto = textoBruto.replace(/COTIZACI[OÓ]N T[EÉ]CNICA/gi, '');
     textoBruto = textoBruto.replace(/COTIZACI[OÓ]N DE SERVICIOS/gi, '');
+    textoBruto = textoBruto.replace(/LIQUIDACION DE OBRA/gi, ''); // added to remove from pdf 9
     textoBruto = textoBruto.replace(/1\. PROCEDIMIENTO TÉCNICO Y ESQUEMA DE TRABAJO/gi, '');
     textoBruto = textoBruto.replace(/2\. RESUMEN DE CÓMPUTOS Y PRECIOS/gi, '');
     textoBruto = textoBruto.replace(/3\. CONDICIONES COMERCIALES Y DE SERVICIO/gi, '');
@@ -1878,6 +1879,7 @@ window.arreglarFormato = () => {
     let lineas = textoBruto.split('\n');
     let enTabla = false;
     let esPrimeraFila = true;
+    let numColumnas = 0; // Guardamos el número de columnas de la tabla actual
 
     lineas.forEach(l => {
         let lineaLimpia = l.trim();
@@ -1889,31 +1891,42 @@ window.arreglarFormato = () => {
         if (lineaLimpia.match(/Para garantizar la total estanqueidad|Retiro de material suelto|El servicio de alta decoración/i)) return; 
 
         if (lineaLimpia.includes('|')) {
+            let celdas = lineaLimpia.split('|').map(c => c.trim().replace(/\*/g, ''));
+            if(celdas.length > 1 && celdas[0] === '') celdas.shift();
+            if(celdas.length > 0 && celdas[celdas.length - 1] === '') celdas.pop();
+
             if (!enTabla) {
                 h += '<table style="width:100%; border-collapse:collapse; margin:10px 0 25px 0; font-size:11px; font-family:Helvetica, Arial, sans-serif; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius:6px; overflow:hidden;">';
                 enTabla = true;
                 esPrimeraFila = true;
+                numColumnas = celdas.length; // Registramos cuántas columnas tiene esta tabla
             }
             
-            let isTotal = lineaLimpia.toUpperCase().includes('TOTAL');
+            let isTotal = lineaLimpia.toUpperCase().includes('TOTAL') || lineaLimpia.toUpperCase().includes('SALDO NETO');
             let estiloFila = esPrimeraFila ? 'background-color:#1e293b; color:#ffffff; font-weight:bold; text-align:center; text-transform:uppercase; font-size:10px;' : 'background-color:#ffffff; color:#334155; border-bottom:1px solid #e2e8f0;';
             if (isTotal) estiloFila = 'background-color:#0f172a; color:#f59e0b; font-weight:900; font-size:13px; text-transform:uppercase;';
 
             h += `<tr style="${estiloFila}">`;
             
-            let celdas = lineaLimpia.split('|').map(c => c.trim().replace(/\*/g, ''));
-            if(celdas.length > 1 && celdas[0] === '') celdas.shift();
-            if(celdas.length > 0 && celdas[celdas.length - 1] === '') celdas.pop();
-
             celdas.forEach((textCelda, idx) => {
                 let colStyle = `padding:8px; border-right:1px solid ${isTotal ? 'transparent' : '#e2e8f0'};`;
+                
                 if (isTotal) {
                     colStyle += 'text-align:right; border:none;';
                 } else if (!esPrimeraFila) {
-                    if (idx === 0) colStyle += 'text-align:center; font-weight:bold; width:5%;'; 
-                    else if (idx === 1) colStyle += 'text-align:left; width:45%;'; 
-                    else if (idx === 2) colStyle += 'text-align:center; width:8%;'; 
-                    else colStyle += 'text-align:right; font-family:monospace; font-weight:bold; width:14%;'; 
+                    // AQUÍ ESTÁ LA MAGIA DE ADAPTACIÓN
+                    if (numColumnas === 2) {
+                        // Tabla financiera (Ej: Concepto | Monto)
+                        if (idx === 0) colStyle += 'text-align:left; width:70%; font-weight:bold;'; 
+                        else colStyle += 'text-align:right; width:30%; font-family:monospace; font-weight:bold; color:#cc0000;'; 
+                    } else if (numColumnas >= 4) {
+                        // Tabla normal de items (Ej: N° | Detalle | Un | Cant | Total)
+                        if (idx === 0) colStyle += 'text-align:center; font-weight:bold; width:5%;'; 
+                        else if (idx === 1) colStyle += 'text-align:left; width:50%;'; 
+                        else if (idx === 2) colStyle += 'text-align:center; width:10%;'; 
+                        else if (idx === 3) colStyle += 'text-align:center; width:15%;';
+                        else colStyle += 'text-align:right; font-family:monospace; font-weight:bold; width:20%;'; 
+                    }
                 }
                 h += `<td style="${colStyle}">${textCelda}</td>`;
             });
@@ -2081,6 +2094,7 @@ window.cargarCotEnEditor = async (id) => {
         document.getElementById('cot-monto').value = c.monto_total;
         document.getElementById('visual-cliente').innerText = c.cliente || '___________________';
         document.getElementById('visual-proyecto').innerText = c.proyecto || '___________________';
+        document.getElementById('visual-resp').innerText = c.responsable || '___________________';
         document.getElementById('visual-codigo').innerText = `N°: ${c.codigo}`;
         document.getElementById('zona-editable').innerHTML = c.html;
         window.swCot('editor');
